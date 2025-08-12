@@ -2,8 +2,8 @@ body{
   background: white;
   font-family: Arial, sans-serif; 
   display: flex;
-  justify-content: center; /* Center horizontally */
-  align-items: flex-start;     /* Center vertically */
+  justify-content: center; 
+  align-items: flex-start;     
   height: 100vh;
   margin: 0;
   padding-top: var(--navbar-height);
@@ -80,18 +80,18 @@ body{
 }
 
 .container input:not([type="radio"]) {
-  width: 660px;             /* Make input stretch across container */
-  padding: 12px;           /* Bigger clickable area */
-  font-size: 16px;         /* Bigger text */
-  border: 1px solid black; /* Match the container border style */
-  border-radius: 4px;      /* Slight rounding */
-  box-sizing: border-box;  /* Ensure padding doesn’t overflow */
-  margin-bottom: 10px;     /* Space between inputs */
+  width: 660px;             
+  padding: 12px;           
+  font-size: 16px;         
+  border: 1px solid black; 
+  border-radius: 4px;      
+  box-sizing: border-box;  
+  margin-bottom: 10px;     
 }
 
 .container textarea {
    width: 660px;
-  height: 120px;   /* Fixed height */
+  height: 120px;   
   padding: 10px;
   font-size: 16px;
   border: 1px solid black;
@@ -102,14 +102,14 @@ body{
 }
 
 .input {
-  display: block;      /* stack children vertically */
+  display: block;      
   width: 100%;
   max-width: 500px;
   margin-bottom: 0px;   
 }
 
 .input-head {
-  margin-bottom: 5px;  /* space between label and input */
+  margin-bottom: 5px;  
   text-align: left;
   display: block;
   font-size: 18px;
@@ -117,15 +117,15 @@ body{
 
 .inputs {
   display: flex;
-  flex-direction: column;  /* stack vertically */
-  align-items: flex-start; /* align children left */
-  padding-left: 20px;      /* add some left padding so it’s not flush */
+  flex-direction: column;  
+  align-items: flex-start; 
+  padding-left: 20px;      
   width: 100%;
   box-sizing: border-box;
 }
 
 input:not([type="radio"]), textarea {
-  flex: 1;                   /* Let field take up remaining space */
+  flex: 1;                   
   padding: 10px;
   font-size: 16px;
   border: 1px solid black;
@@ -139,7 +139,7 @@ textarea {
 }
 
 .submit-container {
-  padding-left: 20px;      /* same left padding */
+  padding-left: 20px;      
   width: 100%;
   box-sizing: border-box;
 }
@@ -150,17 +150,17 @@ textarea {
 
 .underline {
   border: none;
-  border-top: 1px solid black; /* or your preferred style */
+  border-top: 1px solid black; 
   margin-left: -20px;
   margin-right: -20px;
   margin-top: 10px;
   margin-bottom: 10px;
-  width: auto; /* or 100% */
+  width: auto; 
 }
 
 .header {
-  padding-top: 10px;      /* space from top container border */
-  padding-bottom: 10px;   /* space below heading before hr */
+  padding-top: 10px;      
+  padding-bottom: 10px;   
 }
 
 .header .text h2 {
@@ -172,10 +172,10 @@ textarea {
 
 .submit-container {
   display: flex;
-  justify-content: flex-start;  /* align left */
-  gap: 20px;                    /* space between */
-  align-items: center;          /* vertical align center */
-  padding-left: 20px;           /* to match inputs left align */
+  justify-content: flex-start;  
+  gap: 20px;                    
+  align-items: center;          
+  padding-left: 20px;           
   margin-top: -5px;
   width: 100%;
   max-width: 500px;
@@ -189,14 +189,14 @@ textarea {
   user-select: none;
   font-size: 16px;
   height: 25px;
-  display: flex;             /* make flex container */
-  align-items: center;       /* vertically center text */
-  justify-content: center;   /* horizontally center text */
+  display: flex;             
+  align-items: center;       
+  justify-content: center;   
   text-align: center;  
 } 
 
 .urgency-container {
-  padding-left: 20px;       /* align with inputs */
+  padding-left: 20px;       
   text-align: left;
   margin-top: 13px;        
 }
@@ -204,37 +204,37 @@ textarea {
 .urgency-options {
   display: flex;
   flex-direction: row;
-  gap: 15px;                 /* space between each */
+  gap: 15px;                 
   justify-content: flex-start;
   align-items: center;
-  width: fit-content;        /* only as wide as needed */
-  max-width: 100%;           /* prevent overflow */
+  width: fit-content;        
+  max-width: 100%;           
 }
 
 .urgency-options label {
   display: flex;
   align-items: center;
-  gap: 10px;                  /* space between radio & label text */
-  white-space: nowrap;       /* keep text together */
+  gap: 10px;                  
+  white-space: nowrap;       
 }
 
 .urgency-options input[type="radio"] {
   appearance: none;
-  -webkit-appearance: none; /* Safari */
-  -moz-appearance: none;    /* Firefox */
+  -webkit-appearance: none; 
+  -moz-appearance: none;    
   width: 18px;
   height: 18px;
-  border: 1px solid white;  /* White border when not selected */
+  border: 1px solid white;  
   border-radius: 50%;
-  background-color: white;  /* White fill when not selected */
+  background-color: white;  
   cursor: pointer;
   outline: none;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .urgency-options input[type="radio"]:checked {
-  background-color: black;  /* Filled black when selected */
-  border-color: black;      /* Black border when selected */
+  background-color: black;  
+  border-color: black;      
 }
 
 .urgency-options input[type="radio"]:hover {
@@ -243,13 +243,13 @@ textarea {
 
 .urgency-container label {
   display: block;
-  margin-bottom: 3px; /* pushes buttons down */
+  margin-bottom: 3px; 
   font-size: 18px;
 }
 
 .final-submit{
   display: flex;
-  justify-content: center; /* centers the button horizontally */
+  justify-content: center; 
   margin-top: 17.5px;
 }
 
@@ -263,9 +263,9 @@ textarea {
   font-size: 16px;
   height: 42px;
   width: 280px;
-  display: flex; /* centers text vertically */
+  display: flex; 
   align-items: center;
   justify-content: center;
   text-align: center;
-  border: none; /* remove default button border */
+  border: none; 
 }
