@@ -1,0 +1,271 @@
+body{
+  background: white;
+  font-family: Arial, sans-serif; 
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: flex-start;     /* Center vertically */
+  height: 100vh;
+  margin: 0;
+  padding-top: var(--navbar-height);
+  box-sizing: border-box;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between; 
+  align-items: center;
+  background-color: white; 
+  padding: 10px 15px; 
+  border-bottom: 1px solid black; 
+  position: fixed; 
+  top: 0;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box; 
+  z-index: 1000; 
+  font-family: Arial, sans-serif;
+  height: auto;
+}
+
+.navbar-logo {
+  padding-left: 75px;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0px; 
+  margin-left: auto;
+}
+
+.navbar-menu {
+  list-style: none;
+  display: flex;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-menu li {
+  margin: 0 25px;
+}
+
+.navbar-menu a {
+  text-decoration: none;
+  color: black;
+  font-size: 16px;
+  transition: color 0.3s;
+}
+
+.navbar-menu a:hover {
+  color: #ffd700; 
+}
+
+.navbar-profile img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.container {
+  background-color: #FBD402; 
+  border: 1px solid black; 
+  border-radius: 5px;
+  padding: 20px;
+  width: 700px; 
+  text-align: center;
+  height: 75vh;
+  max-height: calc(100vh - var(--navbar-height) - 40px);
+  margin-top: calc(var(--navbar-height) / 2);
+}
+
+.container input:not([type="radio"]) {
+  width: 660px;             /* Make input stretch across container */
+  padding: 12px;           /* Bigger clickable area */
+  font-size: 16px;         /* Bigger text */
+  border: 1px solid black; /* Match the container border style */
+  border-radius: 4px;      /* Slight rounding */
+  box-sizing: border-box;  /* Ensure padding doesn’t overflow */
+  margin-bottom: 10px;     /* Space between inputs */
+}
+
+.container textarea {
+   width: 660px;
+  height: 120px;   /* Fixed height */
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid black;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+  resize: none;
+}
+
+.input {
+  display: block;      /* stack children vertically */
+  width: 100%;
+  max-width: 500px;
+  margin-bottom: 0px;   
+}
+
+.input-head {
+  margin-bottom: 5px;  /* space between label and input */
+  text-align: left;
+  display: block;
+  font-size: 18px;
+}
+
+.inputs {
+  display: flex;
+  flex-direction: column;  /* stack vertically */
+  align-items: flex-start; /* align children left */
+  padding-left: 20px;      /* add some left padding so it’s not flush */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input:not([type="radio"]), textarea {
+  flex: 1;                   /* Let field take up remaining space */
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid black;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+textarea {
+  height: 120px;
+  resize: none;
+}
+
+.submit-container {
+  padding-left: 20px;      /* same left padding */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:root {
+  --navbar-height: 60px;
+}
+
+.underline {
+  border: none;
+  border-top: 1px solid black; /* or your preferred style */
+  margin-left: -20px;
+  margin-right: -20px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  width: auto; /* or 100% */
+}
+
+.header {
+  padding-top: 10px;      /* space from top container border */
+  padding-bottom: 10px;   /* space below heading before hr */
+}
+
+.header .text h2 {
+  margin-top: -15px;              
+  text-align: center;     
+  margin-bottom: 15px;
+  font-size: 30px;      
+}
+
+.submit-container {
+  display: flex;
+  justify-content: flex-start;  /* align left */
+  gap: 20px;                    /* space between */
+  align-items: center;          /* vertical align center */
+  padding-left: 20px;           /* to match inputs left align */
+  margin-top: -5px;
+  width: 100%;
+  max-width: 500px;
+}
+.submit {
+  background-color: black;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 16px;
+  height: 25px;
+  display: flex;             /* make flex container */
+  align-items: center;       /* vertically center text */
+  justify-content: center;   /* horizontally center text */
+  text-align: center;  
+} 
+
+.urgency-container {
+  padding-left: 20px;       /* align with inputs */
+  text-align: left;
+  margin-top: 13px;        
+}
+
+.urgency-options {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;                 /* space between each */
+  justify-content: flex-start;
+  align-items: center;
+  width: fit-content;        /* only as wide as needed */
+  max-width: 100%;           /* prevent overflow */
+}
+
+.urgency-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;                  /* space between radio & label text */
+  white-space: nowrap;       /* keep text together */
+}
+
+.urgency-options input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none; /* Safari */
+  -moz-appearance: none;    /* Firefox */
+  width: 18px;
+  height: 18px;
+  border: 1px solid white;  /* White border when not selected */
+  border-radius: 50%;
+  background-color: white;  /* White fill when not selected */
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.urgency-options input[type="radio"]:checked {
+  background-color: black;  /* Filled black when selected */
+  border-color: black;      /* Black border when selected */
+}
+
+.urgency-options input[type="radio"]:hover {
+  border-color: #666;
+}
+
+.urgency-container label {
+  display: block;
+  margin-bottom: 3px; /* pushes buttons down */
+  font-size: 18px;
+}
+
+.final-submit{
+  display: flex;
+  justify-content: center; /* centers the button horizontally */
+  margin-top: 17.5px;
+}
+
+.final-submit button {
+  background-color: black;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 16px;
+  height: 42px;
+  width: 280px;
+  display: flex; /* centers text vertically */
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: none; /* remove default button border */
+}
