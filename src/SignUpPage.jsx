@@ -2,6 +2,36 @@ import React, { useState } from "react";
 import './styles/index.css';
 
 export default function SignUpPage() {
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+    role: "tenant", // default
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleRoleChange = (role) => {
+    setFormData({ ...formData, role });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
+    console.log("Form submitted:", formData);
+    alert("Account created successfully!");
+  };
+  
   return (
      <div className="signup-page-container"> 
       <div className="container"> 
