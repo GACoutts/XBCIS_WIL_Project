@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from 'react-router-dom'
 import "./index.css";
 
 function Login() {
@@ -12,10 +13,10 @@ function Login() {
     setSuccess("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/login", {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: email, password }),
       });
 
       const data = await response.json();
@@ -72,7 +73,7 @@ function Login() {
           Login
         </div>
         <div className="no-account">
-          No Account? <span><b>Sign Up</b></span>
+          No Account? <Link to="/signup" className="link"><b>Sign Up</b></Link>
         </div>
       </div>
     </div>
