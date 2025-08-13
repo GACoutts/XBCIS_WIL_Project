@@ -124,4 +124,50 @@ body{
   text-align: center;
 }
 
+.signup-page-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
 
+.logo-placeholder {
+  background: #b0b0b0;
+  color: black;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px auto;
+  width: 150px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.role-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.role-selection span { 
+  font-size: 11px; 
+  margin-right: 8px; 
+  cursor: pointer; 
+}
+
+.role-circle { 
+  width: 16px; 
+  height: 16px; 
+  border: 2px solid black; 
+  border-radius: 50%; 
+  background: white; 
+  cursor: pointer; 
+  display: inline-block; 
+}
+
+.role-circle.active { 
+  background: black; 
+}

@@ -1,15 +1,117 @@
+import React, { useState } from "react";
+import './styles/index.css';
+
 export default function SignUpPage() {
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16 }}>
-      <div className="container">
-        <div className="card">
-          <h1 style={{ marginTop: 0, marginBottom: 8 }}>Create account</h1>
-          <p className="small" style={{ marginTop: 0, marginBottom: 20 }}>
-            (Placeholder) Hook up your real sign up form here.
-          </p>
-          {/* form goes here */}
+     <div className="signup-page-container"> 
+      <div className="container"> 
+        
+        <div className="logo-placeholder">Logo Will Go Here</div> 
+        
+        <div className="header"> 
+          <h2>Create An Account:</h2>
+        </div>
+        <hr className="underline" />
+
+        <form className="inputs" onSubmit={handleSubmit}> 
+          
+          <div className="input">
+            <div className="input-head">Full Name:</div>
+            <input
+              type="text"
+              name="fullName"
+              placeholder="E.G. John Doe"
+              value={formData.fullName}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input">
+            <div className="input-head">Email Address:</div>
+            <input
+              type="email"
+              name="email"
+              placeholder="E.G. example@mail.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input">
+            <div className="input-head">Phone Number:</div>
+            <input
+              type="tel"
+              name="phone"
+              placeholder="E.G. +12 34 567 8901"
+              value={formData.phone}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input">
+            <div className="input-head">Password:</div>
+            <input
+              type="password"
+              name="password"
+              placeholder="E.G. Password123@"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="input">
+            <div className="input-head">Confirm Password:</div>
+            <input
+              type="password"
+              name="confirmPassword"
+              placeholder="E.G. Password123@"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div className="role-selection">
+            <div
+              className={`role-circle ${formData.role === "tenant" ? "active" : ""}`}
+              onClick={() => handleRoleChange("tenant")}
+            ></div>
+            <span>Tenant</span>
+
+            <div
+              className={`role-circle ${formData.role === "landlord" ? "active" : ""}`}
+              onClick={() => handleRoleChange("landlord")}
+            ></div>
+            <span>Landlord</span>
+
+            <div
+              className={`role-circle ${formData.role === "contractor" ? "active" : ""}`}
+              onClick={() => handleRoleChange("contractor")}
+            ></div>
+            <span>Contractor</span>
+
+            <div
+              className={`role-circle ${formData.role === "rawson" ? "active" : ""}`}
+              onClick={() => handleRoleChange("rawson")}
+            ></div>
+            <span>Rawson</span>
+          </div>
+
+          <div className="submit-container">
+            <button type="submit" className="submit">Sign Up</button> 
+          </div>
+        </form>
+
+        <div className="no-account">
+          Got an account? <span>Sign In</span>
+        </div>
+        <div className="no-account">
+          Forgot Password? <span>Reset Here</span>
         </div>
       </div>
     </div>
-  )
+  );
 }
