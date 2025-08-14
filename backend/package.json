@@ -1,0 +1,19 @@
+{
+  "name": "xbcis-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "hash-password": "node scripts/hash-password.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^4.21.2",
+    "login-page": "file:..",
+    "mysql2": "^3.14.3"
+  }
+}
