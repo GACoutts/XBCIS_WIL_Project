@@ -11,6 +11,24 @@ app.use(express.json());
 // Add database viewer routes
 dbViewerRoutes(app);
 
+// Root route
+app.get('/', (req, res) => {
+  res.send(`
+    <h1>🏢 Rawson Backend API</h1>
+    <p>Building Management System Backend</p>
+    <h2>Available Endpoints:</h2>
+    <ul>
+      <li><a href="/api/health">GET /api/health</a> - Database health check</li>
+      <li><a href="/db-viewer">GET /db-viewer</a> - Web database viewer</li>
+      <li>POST /api/login - User authentication</li>
+      <li>POST /api/register - User registration</li>
+      <li>GET /api/db/tables - List database tables</li>
+    </ul>
+    <p><strong>Database Status:</strong> Connected ✅</p>
+    <p><strong>Admin Login:</strong> admin@rawson.local / Password123!</p>
+  `);
+});
+
 // Database health check endpoint
 app.get("/api/health", async (req, res) => {
   try {
