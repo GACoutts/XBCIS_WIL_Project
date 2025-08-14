@@ -2,22 +2,34 @@
 
 This directory contains SQL scripts to set up the complete MySQL database schema for the Rawson building maintenance management system.
 
-## 🚀 Quick Setup (Complete System)
+## 🚀 Ultimate One-Command Setup
 
-Run these scripts in order as MySQL root user:
+**🎯 EASIEST WAY: Create the entire system with ONE command!**
 
 ```bash
-# Basic setup
+# Creates EVERYTHING: database + all tables + admin user + indexes
+mysql -u root -p < database/sql/00-create-complete-database.sql
+```
+
+**That's it!** ✨ The entire Rawson database system will be created automatically.
+
+---
+
+## 🔧 Alternative Setup Methods
+
+### Option 2: Step-by-step (Basic + Tickets)
+```bash
+# Basic setup first
 mysql -u root -p < sql/01-create-database.sql
 mysql -u root -p < sql/02-create-users-table.sql
 mysql -u root -p < sql/03-create-app-user.sql
 mysql -u root -p < sql/04-seed-admin.sql
 
-# Complete ticket management system (ALL tables at once)
+# Then all ticket management tables at once
 mysql -u root -p < sql/15-create-all-ticket-tables.sql
 ```
 
-**OR** run individual table scripts:
+### Option 3: Individual table scripts (for learning/debugging)
 ```bash
 # Individual table creation (if you prefer step-by-step)
 mysql -u root -p < sql/05-create-tickets-table.sql
