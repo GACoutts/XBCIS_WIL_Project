@@ -2,10 +2,14 @@ import express from "express";
 import cors from "cors";
 import bcrypt from 'bcrypt';
 import pool, { dbHealth } from './db.js';
+import { dbViewerRoutes } from './db-viewer.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Add database viewer routes
+dbViewerRoutes(app);
 
 // Database health check endpoint
 app.get("/api/health", async (req, res) => {
