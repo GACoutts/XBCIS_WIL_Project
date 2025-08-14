@@ -18,8 +18,8 @@
   padding: 5px 10px;
   margin: 5px auto;
   text-align: center;
-  width: 500px;
-  height: 500px;
+  width: 350px;
+  height: 450px;
   position: relative;
   transform: scale(1.25);
   transform-origin: center center;
@@ -74,13 +74,14 @@
 }
 
 /* Small text blocks */
-.signup-page-container .no-account {
+.signup-page-container .got-account {
   color: black;
   font-size: 12px;
   margin-top: 8px;
   margin-bottom: 10px;
 }
-.signup-page-container .no-account span {
+
+.signup-page-container .forgot-password {
   cursor: pointer;
   color: black;
   font-size: 12px;
@@ -120,7 +121,7 @@
 .signup-page-container .role-selection {
   display: flex;
   align-items: center;
-  flex-wrap:flex;
+  flex-wrap: nowrap;
   flex-direction: row;
   justify-content: center;
   gap: 5px;
@@ -136,6 +137,9 @@
 .signup-page-container .role-circle {
   width: 16px;
   height: 16px;
+  min-width: 16px;            /* belt & suspenders */
+  min-height: 16px;
+  flex: 0 0 16px; 
   border: 2px solid black;
   border-radius: 50%;
   background: white;

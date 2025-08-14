@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import './styles/signup.css';
 
 export default function SignUpPage() {
@@ -135,11 +136,11 @@ export default function SignUpPage() {
           </div>
         </form>
 
-        <div className="no-account">
-          Got an account? <span>Sign In</span>
+        <div className="got-account">
+          Got an account?  <Link to="/login" className="link">Sign In</Link>
         </div>
-        <div className="no-account">
-          Forgot Password? <span>Reset Here</span>
+        <div className="forgot-password"> 
+          Forgot Password? <Link to="/login" className="link"><b>Reset Here</b></Link>
         </div>
       </div>
     </div>
