@@ -34,7 +34,7 @@ export default function SignUpPage() {
   
   return (
      <div className="signup-page-container"> 
-      <div className="container"> 
+      <div className="signup-container"> 
         
         <div className="logo-placeholder">Logo Will Go Here</div> 
         
