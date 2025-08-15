@@ -371,8 +371,8 @@ export const dbViewerRoutes = (app) => {
                 if (data.success) {
                     let buttonsHtml = '<h3>Select a table to explore:</h3>';
                     data.tables.forEach(table => {
-                        buttonsHtml += '<button onclick="loadTableData(\'' + table + '\')">' + table + ' (Data)</button>';
-                        buttonsHtml += '<button onclick="loadTableStructure(\'' + table + '\')">' + table + ' (Structure)</button>';
+                        buttonsHtml += '<button onclick="loadTableData(&quot;' + table + '&quot;)">' + table + ' (Data)</button>';
+                        buttonsHtml += '<button onclick="loadTableStructure(&quot;' + table + '&quot;)">' + table + ' (Structure)</button>';
                     });
                     document.getElementById('tableButtons').innerHTML = buttonsHtml;
                 } else {
