@@ -1,0 +1,230 @@
+.logticket {
+
+  --navbar-height: 0px;
+
+  background: white;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 50vh;
+  margin: 0;
+
+  /* Ensure content starts below the fixed navbar, with extra breathing room */
+  padding-top: calc(var(--navbar-height) + 16px);
+  box-sizing: border-box;
+}
+
+/* NAVBAR */
+.logticket .navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: white;
+  padding: 10px 15px;
+  border-bottom: 1px solid black;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  z-index: 1000;
+  font-family: Arial, sans-serif;
+  height: auto;
+}
+
+.logticket .navbar-logo { padding-left: 75px; }
+
+.logticket .navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0px;
+  margin-left: auto;
+}
+
+.logticket .navbar-menu {
+  list-style: none;
+  display: flex;
+  margin: 0;
+  padding: 0;
+}
+.logticket .navbar-menu li { margin: 0 25px; }
+.logticket .navbar-menu a {
+  text-decoration: none;
+  color: black;
+  font-size: 16px;
+  transition: color 0.3s;
+}
+.logticket .navbar-menu a:hover { color: #ffd700; }
+
+.logticket .navbar-profile img {
+  width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+}
+
+/* MAIN CONTAINER (single column) */
+.logticket .container {
+  background-color: #FBD402;
+  border: 1px solid black;
+  border-radius: 5px;
+  padding: 16px 20px;               
+  width: 700px;
+  text-align: center;
+
+  /* Let the box wrap content; prevents odd white strip & overlap */
+  height: auto;                      
+  max-height: none;                  
+  margin-top: 0;
+
+  /* keep internals from spilling out */
+  overflow: hidden;
+}
+
+/* Inputs inside container */
+.logticket .container input:not([type="radio"]) {
+  width: 660px;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid black;
+  border-radius: 4px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+
+.logticket .container textarea {
+  width: 660px;
+  height: 120px;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid black;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+  resize: none;
+}
+
+/* Field groups */
+.logticket .input { display: block; width: 100%; max-width: 500px; margin-bottom: 0; }
+.logticket .input-head { margin-bottom: 5px; text-align: left; display: block; font-size: 18px; }
+
+.logticket .inputs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.logticket input:not([type="radio"]),
+.logticket textarea {
+  flex: 1;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid black;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+.logticket textarea { height: 120px; resize: none; }
+
+/* Header strip & underline */
+.logticket .underline {
+  border: none;
+  border-top: 1px solid black;
+
+  /* keep underline inside container so it doesn't peek out */
+  margin-left: 0;
+  margin-right: 0;
+
+  margin-top: 30px;
+  margin-bottom: 10px;
+  width: auto;
+}
+.logticket .header { padding-top: 6px; padding-bottom: 6px; margin-bottom: 15px;} 
+.logticket .header .text h2 {
+  margin-top: 0;                     
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 25px;
+}
+
+/* Upload button row */
+.logticket .submit-container {
+  display: flex;
+  justify-content: flex-start;
+  gap: 20px;
+  align-items: center;
+  padding-left: 20px;
+  margin-top: -5px;
+  width: 100%;
+  max-width: 500px;
+}
+.logticket .submit {
+  background-color: black;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 16px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Urgency */
+.logticket .urgency-container {
+  padding-left: 20px;
+  text-align: left;
+  margin-top: 13px;
+}
+.logticket .urgency-options {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;
+  justify-content: flex-start;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+}
+.logticket .urgency-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.logticket .urgency-options input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 18px; height: 18px;
+  border: 1px solid white;
+  border-radius: 50%;
+  background-color: white;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.logticket .urgency-options input[type="radio"]:checked {
+  background-color: black; border-color: black;
+}
+.logticket .urgency-options input[type="radio"]:hover { border-color: #666; }
+.logticket .urgency-container > label { display: block; margin-bottom: 3px; font-size: 18px; }
+
+/* Submit ticket button */
+.logticket .final-submit { display: flex; justify-content: center; margin-top: 17.5px; }
+.logticket .final-submit button {
+  background-color: black;
+  color: white;
+  padding: 10px 25px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 16px;
+  height: 42px;
+  width: 280px;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+  border: none;
+}

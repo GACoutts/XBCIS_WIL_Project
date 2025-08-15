@@ -5,17 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:frontend": "vite",
-    "dev:backend": "npm --prefix backend run dev",
-    "dev:both": "concurrently -k -n FE,BE -c green,blue \"npm:dev:frontend\" \"npm:dev:backend\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "dotenv": "^17.2.1",
-    "mysql2": "^3.14.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.8.0"
@@ -25,7 +19,6 @@
     "@types/react": "^19.1.9",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^4.7.0",
-    "concurrently": "^9.2.0",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",

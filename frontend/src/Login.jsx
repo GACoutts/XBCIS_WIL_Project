@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from 'react-router-dom'
-import './styles/login.css';
+import './styles/index.css';
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -49,7 +49,7 @@ function Login() {
           <label className="input-head">Email Address</label>
           <input
             type="email"
-            placeholder="E.G. example@mail.com"
+            placeholder="example@mail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -59,7 +59,7 @@ function Login() {
           <label className="input-head">Password</label>
           <input
             type="password"
-            placeholder="E.G. Password123@"
+            placeholder="Password123@"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
