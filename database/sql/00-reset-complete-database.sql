@@ -26,6 +26,8 @@ START TRANSACTION;
 -- STEP 1: DROP ALL EXISTING TABLES (IF THEY EXIST)
 -- ============================================================================
 -- Drop in reverse order to handle foreign key dependencies safely
+-- First ensure we're using the Rawson database
+USE Rawson;
 
 SELECT '🗑️  STEP 1: Dropping existing tables (if they exist)' as Status;
 
@@ -82,9 +84,9 @@ CREATE TABLE IF NOT EXISTS tblusers (
   Status ENUM('Active','Inactive','Suspended') DEFAULT 'Active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Add indexes for better performance (only if they don't exist)
-CREATE INDEX IF NOT EXISTS idx_tblusers_status ON tblusers (Status);
-CREATE INDEX IF NOT EXISTS idx_tblusers_role ON tblusers (Role);
+-- Indexes for tblusers table are created automatically when table is first created
+-- (This reset script assumes tblusers table is kept, so indexes should already exist)
+-- If you want to also reset tblusers, uncomment the DROP TABLE line above
 
 SELECT '✅ Step 3: Users table ensured' as Status;
 
@@ -366,7 +368,7 @@ SELECT
 -- ============================================================================
 SELECT '🎉 RESET & REBUILD COMPLETE! 🎉' as Status;
 SELECT 'All tables have been dropped and recreated fresh!' as Message;
-SELECT 'Database schema is now up-to-date and ready for use!' as Update;
+SELECT 'Database schema is now up-to-date and ready for use!' as Info;
 SELECT 'Next steps:' as NextSteps;
 SELECT '1. Backend should reconnect automatically' as Step1;
 SELECT '2. Test with: http://localhost:5000/api/health' as Step2;  
