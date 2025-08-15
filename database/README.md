@@ -4,14 +4,27 @@ This directory contains SQL scripts to set up the complete MySQL database schema
 
 ## 🚀 Ultimate One-Command Setup
 
-**🎯 EASIEST WAY: Create the entire system with ONE command!**
+### 🎯 **Option 1: First-Time Setup**
+**Perfect for new installations when database doesn't exist yet:**
 
 ```bash
 # Creates EVERYTHING: database + all tables + admin user + indexes
 mysql -u root -p < database/sql/00-create-complete-database.sql
 ```
 
-**That's it!** ✨ The entire Rawson database system will be created automatically.
+### ⚡ **Option 2: Reset & Rebuild (RECOMMENDED for Development)**
+**⚠️ Drops all existing tables and recreates them fresh! Perfect for:**
+- **Schema updates** during development
+- **Clean slate testing**  
+- **Fixing data issues**
+- **Development environment refreshes**
+
+```bash
+# DROPS all tables and rebuilds everything from scratch
+mysql -u root -p < database/sql/00-reset-complete-database.sql
+```
+
+**That's it!** ✨ The entire Rawson database system will be created/recreated automatically.
 
 ---
 
