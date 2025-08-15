@@ -11,6 +11,11 @@ app.use(express.json());
 // Add database viewer routes
 dbViewerRoutes(app);
 
+// Favicon route to prevent 404 errors
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end(); // No content response
+});
+
 // Root route
 app.get('/', (req, res) => {
   res.send(`
