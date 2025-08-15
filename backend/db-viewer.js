@@ -61,9 +61,30 @@ export const dbViewerRoutes = (app) => {
     }
   });
 
+  // Get auto-increment information for tables
+  app.get('/api/db/auto-increment', async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT TABLE_NAME, AUTO_INCREMENT 
+        FROM information_schema.TABLES 
+        WHERE TABLE_SCHEMA = DATABASE() AND AUTO_INCREMENT IS NOT NULL
+      `);
+      return res.json({
+        success: true,
+        autoIncrementInfo: rows
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get auto-increment info',
+        error: error.message
+      });
+    }
+  });
+
   // Simple database viewer HTML page
   app.get('/db-viewer', (req, res) => {
-    res.send(`
+    const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -171,10 +192,15 @@ export const dbViewerRoutes = (app) => {
         </div>
 
         <div class="section">
-            <h2>Table Data</h2>
-            <button onclick="loadTableData('tblusers')">View Users Table</button>
-            <button onclick="loadTableStructure('tblusers')">View Users Structure</button>
+            <h2>Table Browser</h2>
+            <div id="tableButtons"></div>
             <div id="tableResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>Auto-Increment Analysis</h2>
+            <button onclick="analyzeAutoIncrement()">Check Auto-Increment Status</button>
+            <div id="autoIncrementResult"></div>
         </div>
 
         <div class="section">
@@ -336,15 +362,103 @@ export const dbViewerRoutes = (app) => {
                     '<div class="status error">❌ Login Error: ' + error.message + '</div>';
             }
         }
+        
+        // Load tables and create dynamic buttons
+        async function loadTablesWithButtons() {
+            try {
+                const response = await fetch('/api/db/tables');
+                const data = await response.json();
+                if (data.success) {
+                    let buttonsHtml = '<h3>Select a table to explore:</h3>';
+                    data.tables.forEach(table => {
+                        buttonsHtml += '<button onclick="loadTableData(\'' + table + '\')">' + table + ' (Data)</button>';
+                        buttonsHtml += '<button onclick="loadTableStructure(\'' + table + '\')">' + table + ' (Structure)</button>';
+                    });
+                    document.getElementById('tableButtons').innerHTML = buttonsHtml;
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (error) {
+                document.getElementById('tableButtons').innerHTML = 
+                    '<div class="status error">❌ Error loading tables: ' + error.message + '</div>';
+            }
+        }
+        
+        // Analyze auto-increment issues
+        async function analyzeAutoIncrement() {
+            try {
+                // Get both table data and auto-increment info
+                const tableResponse = await fetch('/api/db/table/tblusers/data');
+                const autoIncResponse = await fetch('/api/db/auto-increment');
+                
+                const tableData = await tableResponse.json();
+                const autoIncData = await autoIncResponse.json();
+                
+                if (!tableData.success) {
+                    throw new Error('Could not load users table data');
+                }
+                
+                let analysisHtml = '<h3>Auto-Increment Analysis for tblusers:</h3>';
+                analysisHtml += '<div class="json-container">';
+                
+                if (tableData.data.length > 0) {
+                    const userIds = tableData.data.map(user => user.UserID).sort((a, b) => a - b);
+                    const minId = Math.min(...userIds);
+                    const maxId = Math.max(...userIds);
+                    const expectedIds = [];
+                    for (let i = minId; i <= maxId; i++) {
+                        expectedIds.push(i);
+                    }
+                    const missingIds = expectedIds.filter(id => !userIds.includes(id));
+                    
+                    // Get next auto-increment value
+                    const tblusersInfo = autoIncData.success ? 
+                        autoIncData.autoIncrementInfo.find(table => table.TABLE_NAME === 'tblusers') : null;
+                    const nextAutoIncrement = tblusersInfo ? tblusersInfo.AUTO_INCREMENT : 'Unknown';
+                    
+                    analysisHtml += 'Current UserIDs: [' + userIds.join(', ') + ']\\n';
+                    analysisHtml += 'Range: ' + minId + ' to ' + maxId + '\\n';
+                    analysisHtml += 'Total records: ' + userIds.length + '\\n';
+                    analysisHtml += 'Expected records in range: ' + expectedIds.length + '\\n';
+                    analysisHtml += 'Next AUTO_INCREMENT value: ' + nextAutoIncrement + '\\n';
+                    
+                    if (missingIds.length > 0) {
+                        analysisHtml += '\\n❌ Missing IDs: [' + missingIds.join(', ') + ']\\n';
+                        analysisHtml += '\\n🔍 Possible causes:\\n';
+                        analysisHtml += '• Failed INSERT attempts (duplicate email, validation errors)\\n';
+                        analysisHtml += '• Rolled back transactions\\n';
+                        analysisHtml += '• Manual DELETE operations\\n';
+                        analysisHtml += '• Database restarts during failed inserts\\n';
+                        analysisHtml += '\\n💡 This is normal MySQL behavior - auto-increment values are never reused\\n';
+                        analysisHtml += '   even if the INSERT fails. This ensures uniqueness but creates gaps.\\n';
+                    } else {
+                        analysisHtml += '\\n✅ No gaps in UserID sequence\\n';
+                    }
+                } else {
+                    analysisHtml += 'No users found in table\\n';
+                }
+                
+                analysisHtml += '</div>';
+                document.getElementById('autoIncrementResult').innerHTML = 
+                    '<div class="status success">' + analysisHtml + '</div>';
+                    
+            } catch (error) {
+                document.getElementById('autoIncrementResult').innerHTML = 
+                    '<div class="status error">❌ Error analyzing auto-increment: ' + error.message + '</div>';
+            }
+        }
 
-        // Load health check on page load
+        // Load health check and table buttons on page load
         window.onload = function() {
             checkHealth();
+            loadTablesWithButtons();
         }
     </script>
 </body>
 </html>
-    `);
+    `;
+    
+    res.send(htmlContent);
   });
 
 };
