@@ -1,61 +1,15 @@
-import 'dotenv/config.js';
 import express from "express";
-import cookieParser from 'cookie-parser';
 import cors from "cors";
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import rateLimit from 'express-rate-limit';
 import pool, { dbHealth } from './db.js';
 import { dbViewerRoutes } from './db-viewer.js';
+import ticketsRoutes from './routes/tickets.js';
+import 'dotenv/config';
 
 const app = express();
-
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
-  credentials: true,
-}));
-
-app.use(express.json({ limit: '5mb' }));
-app.use(cookieParser());
-
-const isProd = process.env.NODE_ENV === 'production';
-const COOKIE_NAME = 'token';
-
-// Centralized cookie options
-const cookieOptions = {
-  httpOnly: true,
-  secure: isProd,      // only over HTTPS in prod
-  sameSite: 'lax',
-  path: '/',
-  maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-};
-
-// --- Utils ---
-function signJwt(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES || '7d',
-  });
-}
-
-function authRequired(req, res, next) {
-  const token = req.cookies[COOKIE_NAME];
-  if (!token) return res.status(401).json({ message: 'Not authenticated' });
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // { userId, fullName, email, role }
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Invalid or expired session' });
-  }
-}
-
-// Simple rate limit on login to reduce brute force attempts
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-});
+app.use(cors());
+app.use(express.json());
+app.use('/api/tickets', ticketsRoutes);
 
 // Add database viewer routes
 dbViewerRoutes(app);
@@ -143,7 +97,7 @@ app.post('/api/register', async (req, res) => {
 });
 
 // User login endpoint
-app.post('/api/login', loginLimiter, async (req, res) => {
+app.post('/api/login', async (req, res) => {
   try {
     // Accept either email or username field for compatibility with existing frontend
     const { email, username, password } = req.body;
@@ -171,37 +125,24 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     }
     
     // Verify password
-    const ok = await bcrypt.compare(password, user.PasswordHash);
-    if (!ok) {
+    const passwordMatch = await bcrypt.compare(password, user.PasswordHash);
+    if (!passwordMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-
-    const payload = {
+    
+    // Return user data (exclude password hash)
+    return res.json({
       userId: user.UserID,
+      username: user.Email, // for compatibility with frontend
       fullName: user.FullName,
       email: user.Email,
-      role: user.Role,
-    };
-
-    const token = signJwt(payload);
-    res.cookie(COOKIE_NAME, token, cookieOptions);
-    return res.json({ message: 'Logged in', user: payload });
+      role: user.Role
+    });
+    
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json({ message: 'Server error during login' });
   }
-});
-
-// --- Session check ---
-app.get('/api/me', authRequired, async (req, res) => {
-  // If you expect user fields to change, re-fetch from DB here using req.user.userId.
-  return res.json({ user: req.user });
-});
-
-// --- Logout ---
-app.post('/api/logout', (req, res) => {
-  res.clearCookie(COOKIE_NAME, { path: '/' });
-  return res.json({ message: 'Logged out' });
 });
 
 const PORT = 5000;
