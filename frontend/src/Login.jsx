@@ -1,83 +1,75 @@
 import React, { useState } from "react";
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from './context/AuthContext';
 import './styles/index.css';
 
-function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+export default function Login() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/';
 
-  const handleLogin = async () => {
-    setError("");
-    setSuccess("");
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
+  const onChange = (e) => {
+    setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
     try {
-      const response = await fetch('/api/login', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess(`Welcome, ${data.username || email}!`);
-      } else {
-        setError(data.message || "Invalid credentials");
-      }
+      await login(form.email.trim(), form.password);
+      navigate(from, { replace: true });
     } catch (err) {
-      setError("Server error. Please try again later.");
+      setError(err.message || 'Login failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="container">
-      <img
-        className="logo"
-        src="https://placehold.co/100x30"
-        alt="Logo"
-      />
-      <div className="header">
-        <hr className="underline" />
-        <div className="text">
-          <h2>Login</h2>
-        </div>
-      </div>
-      <div className="inputs">
-        <div className="input">
-          <label className="input-head">Email Address</label>
+    <div className="login-container">
+      <form className="login-card" onSubmit={onSubmit} noValidate>
+        <h2>Sign in</h2>
+
+        {error ? <div className="alert-error">{error}</div> : null}
+
+        <label>
+          Email
           <input
             type="email"
-            placeholder="example@mail.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            name="email"
+            autoComplete="username"
+            value={form.email}
+            onChange={onChange}
             required
           />
-        </div>
-        <div className="input">
-          <label className="input-head">Password</label>
+        </label>
+
+        <label>
+          Password
           <input
             type="password"
-            placeholder="Password123@"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            name="password"
+            autoComplete="current-password"
+            value={form.password}
+            onChange={onChange}
             required
           />
+        </label>
+
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Signing in…' : 'Sign in'}
+        </button>
+
+        <div className="login-footer">
+          <span>No account?</span> <Link to="/signup">Create one</Link>
         </div>
-      </div>
-      {error && <p style={{ color: "red", fontSize: "12px" }}>{error}</p>}
-      {success && <p style={{ color: "green", fontSize: "12px" }}>{success}</p>}
-      <div className="submit-container">
-        <div className="submit" onClick={handleLogin}>
-          Login
-        </div>
-        <div className="no-account">
-          No Account? <Link to="/signup" className="link"><b>Sign Up</b></Link>
-        </div>
-      </div>
+      </form>
     </div>
   );
 }
-
-export default Login;
