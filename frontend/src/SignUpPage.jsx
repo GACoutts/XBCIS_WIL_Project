@@ -175,37 +175,6 @@ export default function SignUpPage() {
             {errors.phone && <p className="error">{errors.phone}</p>}
           </div>
 
-          <div className="role-selection">
-            <div
-              className={`role-circle ${formData.role === "tenant" ? "active" : ""}`}
-              onClick={() => handleRoleChange("tenant")}
-              title="Tenant (Client)"
-            ></div>
-            <span>Tenant</span>
-
-            <div
-              className={`role-circle ${formData.role === "landlord" ? "active" : ""}`}
-              onClick={() => handleRoleChange("landlord")}
-              title="Landlord"
-            ></div>
-            <span>Landlord</span>
-
-            <div
-              className={`role-circle ${formData.role === "contractor" ? "active" : ""}`}
-              onClick={() => handleRoleChange("contractor")}
-              title="Contractor"
-            ></div>
-            <span>Contractor</span>
-
-            <div
-              className={`role-circle ${formData.role === "rawson" ? "active" : ""}`}
-              onClick={() => handleRoleChange("rawson")}
-              title="Rawson Staff"
-            ></div>
-            <span>Rawson</span>
-          </div>
-          {errors.role && <p className="error">{errors.role}</p>}
-
           <div className="input">
             <div className="input-head">Password:</div>
             <input
@@ -240,6 +209,37 @@ export default function SignUpPage() {
             </button>
           </div>
         </form>
+
+        <div className="role-selection">
+            <div
+              className={`role-circle ${formData.role === "tenant" ? "active" : ""}`}
+              onClick={() => handleRoleChange("tenant")}
+              title="Tenant (Client)"
+            ></div>
+            <span>Tenant</span>
+
+            <div
+              className={`role-circle ${formData.role === "landlord" ? "active" : ""}`}
+              onClick={() => handleRoleChange("landlord")}
+              title="Landlord"
+            ></div>
+            <span>Landlord</span>
+
+            <div
+              className={`role-circle ${formData.role === "contractor" ? "active" : ""}`}
+              onClick={() => handleRoleChange("contractor")}
+              title="Contractor"
+            ></div>
+            <span>Contractor</span>
+
+            <div
+              className={`role-circle ${formData.role === "rawson" ? "active" : ""}`}
+              onClick={() => handleRoleChange("rawson")}
+              title="Rawson Staff"
+            ></div>
+            <span>Rawson</span>
+          </div>
+          {errors.role && <p className="error">{errors.role}</p>}
 
         <div className="got-account">
           Got an account? <Link to="/login" className="link">Sign In</Link>
