@@ -9,7 +9,6 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<SignUpPage />} />
-      {/* Protect the app core (adjust as your dashboards come online) */}
       <Route
         path="/"
         element={
