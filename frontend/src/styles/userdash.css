@@ -201,3 +201,10 @@
   width: 50px;
   margin-left: 130px;
 }
+
+.dashboard-page .empty-tickets {
+  text-align: center;
+  padding: 60px 0; /* space from navbar and top content */
+  font-size: 18px;
+  color: #555;
+}

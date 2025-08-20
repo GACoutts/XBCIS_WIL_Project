@@ -4,6 +4,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { authMiddleware } from '../middleware/authMiddleware.js'; // fixed path
 
 const router = express.Router();
 
@@ -25,15 +26,13 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const ticketId = req.params.ticketId || 'temp';
     const timestamp = Date.now();
-    // sanitize filename (keep ext)
     const ext = path.extname(file.originalname);
     const base = path.basename(file.originalname, ext).replace(/[^\w\-]+/g, '_');
-    cb(null, `${ticketId}_${timestamp}_${base}${ext}`); // e.g. 123_1712345678_photo.jpg
+    cb(null, `${ticketId}_${timestamp}_${base}${ext}`);
   }
 });
 
 const fileFilter = (_req, file, cb) => {
-  // allow common image/video types; adjust as needed
   const ok =
     file.mimetype.startsWith('image/') ||
     file.mimetype === 'video/mp4' ||
@@ -45,9 +44,7 @@ const fileFilter = (_req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: {
-    fileSize: 20 * 1024 * 1024 // 20MB
-  }
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB
 });
 
 // -------------------------------------------------------------------------------------
@@ -92,7 +89,6 @@ router.post('/:ticketId/media', upload.single('file'), async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ message: 'No file uploaded.' });
 
-    // Build the public URL served by server.js static middleware
     const publicUrl = `/uploads/${path.basename(file.path)}`;
 
     const mediaType = file.mimetype.startsWith('video/')
@@ -111,7 +107,7 @@ router.post('/:ticketId/media', upload.single('file'), async (req, res) => {
       message: 'File uploaded successfully',
       file: {
         name: file.originalname,
-        servedAt: publicUrl,     // use this in the frontend <img src=...> or <video src=...>
+        servedAt: publicUrl,
         mimeType: file.mimetype,
         size: file.size
       }
@@ -123,13 +119,23 @@ router.post('/:ticketId/media', upload.single('file'), async (req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
-// Get all tickets
+// Get all tickets (role-based)
 // -------------------------------------------------------------------------------------
-router.get('/', async (_req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM tblTickets ORDER BY TicketID DESC'
-    );
+    const { userId, role } = req.user;
+
+    let query = 'SELECT * FROM tblTickets';
+    let params = [];
+
+    if (role === 'Client') {
+      query += ' WHERE ClientUserID = ?';
+      params.push(userId);
+    }
+
+    query += ' ORDER BY TicketID DESC';
+
+    const [rows] = await pool.query(query, params);
     res.json({ tickets: rows });
   } catch (err) {
     console.error('Error fetching tickets:', err);
@@ -138,10 +144,11 @@ router.get('/', async (_req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
-// Get single ticket with media
+// Get single ticket with media (secured for clients)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId', async (req, res) => {
+router.get('/:ticketId', authMiddleware, async (req, res) => {
   try {
+    const { userId, role } = req.user;
     const { ticketId } = req.params;
 
     const [tickets] = await pool.query(
@@ -149,6 +156,10 @@ router.get('/:ticketId', async (req, res) => {
       [ticketId]
     );
     if (!tickets.length) return res.status(404).json({ message: 'Ticket not found' });
+
+    if (role === 'Client' && tickets[0].ClientUserID !== userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
 
     const [media] = await pool.query(
       'SELECT * FROM tblTicketMedia WHERE TicketID = ?',

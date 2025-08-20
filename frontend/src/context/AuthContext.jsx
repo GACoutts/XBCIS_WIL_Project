@@ -6,12 +6,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
+  // Fetch current session from backend
   const fetchMe = useCallback(async () => {
     try {
-      const res = await fetch('/api/me', { credentials: 'include' });
-      if (!res.ok) throw new Error('not authed');
+      const res = await fetch('http://localhost:5000/api/me', {
+        credentials: 'include',
+      });
       const data = await res.json();
-      setUser(data.user);
+      if (!res.ok) throw new Error('Not authenticated');
+      setUser(data.user); // <-- use data.user
     } catch {
       setUser(null);
     } finally {
@@ -23,30 +26,52 @@ export function AuthProvider({ children }) {
     fetchMe();
   }, [fetchMe]);
 
+  // Login
   const login = useCallback(async (email, password) => {
-    const res = await fetch('/api/login', {
+    const res = await fetch('http://localhost:5000/api/login', {
       method: 'POST',
-      credentials: 'include', // crucial to receive/set cookie
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
-    if (!res.ok) {
-      const msg = await res.json().catch(() => ({}));
-      throw new Error(msg?.message || 'Login failed');
-    }
     const data = await res.json();
-    setUser(data.user); // already trusted from server
+    if (!res.ok) throw new Error(data?.message || 'Login failed');
+
+    setUser(data.user); // <-- fixed: set user to data.user
     return data.user;
   }, []);
 
+  // Register
+  const register = useCallback(async ({ fullName, email, phone, password, role }) => {
+    const res = await fetch('http://localhost:5000/api/register', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, email, phone, password, role }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.message || 'Registration failed');
+
+    setUser(data.user); // <-- fixed: auto-login sets user correctly
+    return data.user;
+  }, []);
+
+  // Logout
   const logout = useCallback(async () => {
-    await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    await fetch('http://localhost:5000/api/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
     setUser(null);
   }, []);
 
-  const value = { user, initializing, login, logout, reload: fetchMe };
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, initializing, login, register, logout, reload: fetchMe }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
