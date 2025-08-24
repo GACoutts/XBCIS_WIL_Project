@@ -387,19 +387,19 @@ body {
     border-color: black;
 }
 
-.tickets-container::-webkit-scrollbar,
+.awaiting-tickets-container::-webkit-scrollbar,
 .contractor-container::-webkit-scrollbar,
 .property-stats-container::-webkit-scrollbar {
     width: 5px; 
 }
 
-.tickets-container::-webkit-scrollbar-track,
+.awaiting-tickets-container::-webkit-scrollbar-track,
 .contractor-container::-webkit-scrollbar-track,
 .property-stats-container::-webkit-scrollbar-track {
     background: transparent; 
 }
 
-.tickets-container::-webkit-scrollbar-thumb,
+.awaiting-tickets-container::-webkit-scrollbar-thumb,
 .contractor-container::-webkit-scrollbar-thumb,
 .property-stats-container::-webkit-scrollbar-thumb {
     background: transparent; 
