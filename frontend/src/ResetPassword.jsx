@@ -17,13 +17,18 @@ export default function ResetPassword() {
   const submit = async (e) => {
     e.preventDefault();
     setMsg('');
-    if (!pw || pw !== pw2) {
+    if (!pw || pw.length < 8) {
+      setMsg('Password must be at least 8 characters long.');
+      return;
+    }
+    if (pw !== pw2) {
       setMsg('Passwords do not match.');
       return;
     }
     try {
       const res = await fetch('/api/reset-password', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password: pw })
       });
