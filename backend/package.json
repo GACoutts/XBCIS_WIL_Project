@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "hash-password": "node scripts/hash-password.js"
+    "hash-password": "node scripts/hash-password.js",
+    "create-password-table": "node scripts/create-password-reset-table.js"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",
