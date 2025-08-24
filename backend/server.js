@@ -15,7 +15,10 @@ import passwordRoutes from './routes/password.js';
 // Setup & constants
 // -------------------------------------------------------------------------------------
 const app = express();
-app.use(cors());            // Vite proxy keeps same-origin in dev, this is fine
+app.use(cors({
+  origin: 'http://localhost:5173', // your frontend URL
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api', passwordRoutes);
