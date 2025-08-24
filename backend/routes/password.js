@@ -17,6 +17,9 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
+  },
+  tls: {
+    rejectUnauthorized: false // Accept self-signed certificates for testing
   }
 });
 const FROM = process.env.SMTP_FROM || 'no-reply@rawson.local';
@@ -68,16 +71,22 @@ router.post('/forgot-password', async (req, res) => {
     const resetUrl = `${APP_URL}/reset-password?token=${raw}`;
 
     // send email
-    await transporter.sendMail({
+    console.log(`[DEBUG] Sending password reset email to: ${user.Email}`);
+    console.log(`[DEBUG] Reset URL: ${resetUrl}`);
+    
+    const emailResult = await transporter.sendMail({
       from: FROM,
       to: user.Email,
       subject: 'Reset your Rawson password',
       html: `
         <p>We received a request to reset your password.</p>
         <p><a href="${resetUrl}">Click here to reset your password</a></p>
-        <p>This link expires in ${TTL_MIN} minutes. If you didn’t request this, just ignore this email.</p>
+        <p>This link expires in ${TTL_MIN} minutes. If you didn't request this, just ignore this email.</p>
       `
     });
+    
+    console.log(`[DEBUG] Email sent successfully. Message ID: ${emailResult.messageId}`);
+    console.log(`[DEBUG] Preview URL: ${nodemailer.getTestMessageUrl(emailResult)}`);
 
     return res.json(genericOk);
   } catch (e) {
