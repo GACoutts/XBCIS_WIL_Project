@@ -10,6 +10,7 @@ import pool, { dbHealth } from "./db.js";
 import { dbViewerRoutes } from "./db-viewer.js";
 import ticketsRoutes from "./routes/tickets.js";
 import passwordRoutes from './routes/password.js';
+import quoteRoutes from './routes/quotes.js';
 
 // -------------------------------------------------------------------------------------
 // Setup & constants
@@ -31,6 +32,8 @@ const __dirname = path.dirname(__filename);
 
 // Serve uploaded files from a stable path (../uploads relative to backend/)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.use('/api/quotes', quoteRoutes);
 
 // API routes
 app.use("/api/tickets", ticketsRoutes);
