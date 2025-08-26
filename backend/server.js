@@ -1,3 +1,4 @@
+import "dotenv/config"; // Please keep this line at the top of the file
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -8,7 +9,7 @@ import { fileURLToPath } from "url";
 import pool, { dbHealth } from "./db.js";
 import { dbViewerRoutes } from "./db-viewer.js";
 import ticketsRoutes from "./routes/tickets.js";
-import "dotenv/config";
+import passwordRoutes from './routes/password.js';
 
 // -------------------------------------------------------------------------------------
 // Setup & constants
@@ -20,6 +21,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
+app.use('/api', passwordRoutes);
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const JWT_EXPIRES = process.env.JWT_EXPIRES || "7d";

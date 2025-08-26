@@ -101,9 +101,13 @@ html, body, #root {
 
 /* Footer / helper text */
 .login-page-container .no-account {
+  display: flex;
+  flex-direction: column;   /* stack lines */
+  align-items: center;      /* center horizontally */
+  gap: 4px;                 /* small space between lines */        
   color: black;
   font-size: 12px;
-  margin-top: 8px;
+  margin-top: 12px;
   margin-bottom: 10px;
 }
 
@@ -113,6 +117,10 @@ html, body, #root {
   color: black;
   font-size: 12px;
   text-decoration: none;
+}
+
+.login-page-container .no-account a:hover {
+  text-decoration: underline; /* a little hover effect */
 }
 
 /* Submit */

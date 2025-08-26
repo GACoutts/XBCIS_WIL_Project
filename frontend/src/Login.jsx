@@ -80,8 +80,13 @@ export default function Login() {
         </div>
 
         <div className="no-account">
+          <div>
           <span>No account? </span>
           <Link to="/signup">Create one</Link>
+          </div>
+          <div>
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
         </div>
       </form>
     </div>
