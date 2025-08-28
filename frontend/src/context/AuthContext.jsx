@@ -6,20 +6,24 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
-  // Fetch current session from backend
+  // Robust session fetch (won't hang UI even if network fails)
   const fetchMe = useCallback(async () => {
+    let ok = false;
     try {
-      const res = await fetch('http://localhost:5000/api/me', {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error('Not authenticated');
-      setUser(data.user); // <-- use data.user
+      const res = await fetch('/api/me', { credentials: 'include' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.user) {
+        setUser(data.user);
+        ok = true;
+      } else {
+        setUser(null);
+      }
     } catch {
       setUser(null);
     } finally {
       setInitializing(false);
     }
+    return ok;
   }, []);
 
   useEffect(() => {
@@ -28,39 +32,35 @@ export function AuthProvider({ children }) {
 
   // Login
   const login = useCallback(async (email, password) => {
-    const res = await fetch('http://localhost:5000/api/login', {
+    const res = await fetch('/api/login', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.message || 'Login failed');
-
-    setUser(data.user); // <-- fixed: set user to data.user
+    setUser(data.user);
     return data.user;
   }, []);
 
-  // Register
-  const register = useCallback(async ({ fullName, email, phone, password, role }) => {
-    const res = await fetch('http://localhost:5000/api/register', {
+  // Register (server forces role=Client; no need to send role)
+  const register = useCallback(async ({ fullName, email, phone, password }) => {
+    const res = await fetch('/api/register', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, phone, password, role }),
+      body: JSON.stringify({ fullName, email, phone, password }),
     });
-
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.message || 'Registration failed');
-
-    setUser(data.user); // <-- fixed: auto-login sets user correctly
+    setUser(data.user);
     return data.user;
   }, []);
 
   // Logout
   const logout = useCallback(async () => {
-    await fetch('http://localhost:5000/api/logout', {
+    await fetch('/api/logout', {
       method: 'POST',
       credentials: 'include',
     });

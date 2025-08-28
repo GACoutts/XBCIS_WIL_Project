@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/AuthContext.jsx";
+import { Link } from 'react-router-dom';
 import "./styles/logticket.css";
 
 function Ticket() {
@@ -69,10 +70,10 @@ function Ticket() {
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
-            <li><a href="/">Dashboard</a></li>
-            <li><a href="/ticket">Tickets</a></li>
-            <li><a href="">Reports</a></li>
-            <li><a href="">Settings</a></li>
+            <li><Link to="/">Dashboard</Link></li>
+            <li><Link to="/ticket">Tickets</Link></li>
+            <li><Link to="/reports">Reports</Link></li>
+            <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>
         <div className="navbar-profile">

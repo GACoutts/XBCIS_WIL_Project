@@ -424,3 +424,16 @@ body {
 .property-stats-content {
     flex: 1;
 }
+
+.staff-admin-panel {
+  margin: 16px auto 24px;
+  padding: 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.staff-admin-panel .section-title {
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+}
