@@ -11,7 +11,7 @@ export default function ResetPassword() {
   const nav = useNavigate();
 
   useEffect(() => {
-    if (!token) setMsg('Invalid reset link.');
+    if (!token) setMsg('Invalid Reset Link');
   }, [token]);
 
   const submit = async (e) => {
@@ -43,27 +43,34 @@ export default function ResetPassword() {
 
   return (
     <div className="auth-page">
-      <form className="auth-card" onSubmit={submit}>
-        <div className="header"><h2>Set new password</h2></div>
+      
+        {msg && (
+        <div className="alert-error">
+      {msg}
+      </div>
+    )}
+    <div className="auth-wrapper">
+    <form className="auth-card" onSubmit={submit}>
+        <div className="header"><h2>Set New Password</h2></div>
         <hr className="underline" />
-        {msg && <div className="alert-error">{msg}</div>}
         <div className="inputs">
           <div className="input">
-            <label className="input-head" htmlFor="pw">New password</label>
+            <label className="input-head" htmlFor="pw">New Password</label>
             <input id="pw" type="password" value={pw} onChange={(e)=>setPw(e.target.value)} required />
           </div>
           <div className="input">
-            <label className="input-head" htmlFor="pw2">Confirm password</label>
+            <label className="input-head" htmlFor="pw2">Confirm Password</label>
             <input id="pw2" type="password" value={pw2} onChange={(e)=>setPw2(e.target.value)} required />
           </div>
         </div>
         <div className="submit-container">
-          <button className="submit" type="submit">Reset password</button>
+          <button className="submit" type="submit">Reset Password</button>
         </div>
         <div className="no-account">
           <Link to="/login">Back to login</Link>
         </div>
       </form>
+    </div>
     </div>
   );
 }
