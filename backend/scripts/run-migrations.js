@@ -13,7 +13,8 @@ async function runMigrations() {
   const migrations = [
     '09-create-refresh-tokens.sql',
     '10-create-audit-logs.sql',
-    '11-create-revoked-access-jtis.sql'
+    '11-create-revoked-access-jtis.sql',
+    '12-create-password-resets.sql'
   ];
 
   try {

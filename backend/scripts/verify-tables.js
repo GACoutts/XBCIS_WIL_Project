@@ -7,7 +7,7 @@ async function verifyTables() {
     
     const connection = await pool.getConnection();
     
-    const tables = ['tblRefreshTokens', 'tblAuditLogs', 'tblRevokedAccessJti'];
+    const tables = ['tblRefreshTokens', 'tblAuditLogs', 'tblRevokedAccessJti', 'tblPasswordResets'];
     
     for (const tableName of tables) {
       try {

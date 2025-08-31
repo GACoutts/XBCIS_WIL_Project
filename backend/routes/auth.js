@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import pool from '../db.js';
 import { requireAuth, tryRefresh } from '../middleware/authMiddleware.js';
-import { authRateLimit } from '../middleware/rateLimiter.js';
+import { authRateLimit, passwordResetRateLimit } from '../middleware/rateLimiter.js';
 import { 
   issueSession, 
   rotateRefreshToken, 
@@ -397,6 +397,151 @@ router.delete('/sessions/:tokenId', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Revoke session error:', err);
     return res.status(500).json({ message: 'Server error revoking session' });
+  }
+});
+
+// POST /request-password-reset - Generate password reset token and send email
+router.post('/request-password-reset', passwordResetRateLimit, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Check if user exists (but don't reveal this in response)
+    const [rows] = await pool.execute(
+      'SELECT UserID, FullName, Email FROM tblusers WHERE Email = ? AND Status = "Active" LIMIT 1',
+      [email]
+    );
+
+    // Always return success to prevent email enumeration
+    if (!rows.length) {
+      return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+    }
+
+    const user = rows[0];
+    const { ip, userAgent } = getClientInfo(req);
+
+    // Generate secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expiresAt = new Date(Date.now() + parseInt(process.env.RESET_TOKEN_TTL_MIN || '30', 10) * 60 * 1000);
+
+    // Store reset token in database
+    await pool.execute(
+      'INSERT INTO tblPasswordResets (UserID, TokenHash, ExpiresAt, IP, UserAgent) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE TokenHash = VALUES(TokenHash), ExpiresAt = VALUES(ExpiresAt), IP = VALUES(IP), UserAgent = VALUES(UserAgent), CreatedAt = NOW()',
+      [user.UserID, resetTokenHash, expiresAt, ip, userAgent]
+    );
+
+    // Log audit event
+    await logAudit({
+      actorUserId: user.UserID,
+      targetUserId: user.UserID,
+      action: 'password-reset-requested',
+      metadata: { tokenHash: resetTokenHash.substring(0, 8) + '...' },
+      ip,
+      userAgent
+    });
+
+    // TODO: Send email with reset link
+    // const resetUrl = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
+    // await sendPasswordResetEmail(user.Email, user.FullName, resetUrl);
+    
+    // For now, log the token (remove this in production)
+    console.log(`Password reset token for ${user.Email}: ${resetToken}`);
+    console.log(`Reset URL: ${process.env.APP_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`);
+
+    return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+  } catch (err) {
+    console.error('Password reset request error:', err);
+    return res.status(500).json({ message: 'Server error during password reset request' });
+  }
+});
+
+// POST /reset-password - Reset password using token
+router.post('/reset-password', passwordResetRateLimit, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+
+    // Hash the token to find it in database
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find valid reset token
+    const [rows] = await pool.execute(
+      `SELECT pr.UserID, u.Email, u.FullName 
+       FROM tblPasswordResets pr
+       JOIN tblusers u ON pr.UserID = u.UserID
+       WHERE pr.TokenHash = ? AND pr.ExpiresAt > NOW() AND pr.UsedAt IS NULL AND u.Status = 'Active'
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    const user = rows[0];
+    const { ip, userAgent } = getClientInfo(req);
+
+    // Hash new password
+    const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+    const passwordHash = await bcrypt.hash(password, rounds);
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Update password
+      await connection.execute(
+        'UPDATE tblusers SET PasswordHash = ? WHERE UserID = ?',
+        [passwordHash, user.UserID]
+      );
+
+      // Mark reset token as used
+      await connection.execute(
+        'UPDATE tblPasswordResets SET UsedAt = NOW() WHERE TokenHash = ?',
+        [tokenHash]
+      );
+
+      // Revoke all existing refresh tokens for security
+      await connection.execute(
+        'UPDATE tblRefreshTokens SET RevokedAt = NOW() WHERE UserID = ? AND RevokedAt IS NULL',
+        [user.UserID]
+      );
+
+      await connection.commit();
+
+      // Log audit event
+      await logAudit({
+        actorUserId: user.UserID,
+        targetUserId: user.UserID,
+        action: 'password-reset-completed',
+        metadata: { tokenHash: tokenHash.substring(0, 8) + '...', allSessionsRevoked: true },
+        ip,
+        userAgent
+      });
+
+      return res.json({ message: 'Password has been reset successfully' });
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+  } catch (err) {
+    console.error('Password reset error:', err);
+    return res.status(500).json({ message: 'Server error during password reset' });
   }
 });
 

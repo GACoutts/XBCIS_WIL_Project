@@ -13,7 +13,7 @@ import passwordRoutes from './routes/password.js';
 import quoteRoutes from './routes/quotes.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
-import { generalRateLimit, authRateLimit } from './middleware/rateLimiter.js';
+import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
 
 // -------------------------------------------------------------------------------------
 // Setup & constants
@@ -252,6 +252,83 @@ app.get("/api/me", async (req, res) => {
 app.post("/api/logout", (req, res) => {
   res.clearCookie("token", { path: "/", sameSite: "lax" });
   return res.json({ ok: true });
+});
+
+// -------------------------------------------------------------------------------------
+// Legacy password reset endpoint (calls new auth system)
+// -------------------------------------------------------------------------------------
+app.post("/api/reset-password", passwordResetRateLimit, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+
+    // Hash the token to find it in database
+    const crypto = await import('crypto');
+    const tokenHash = crypto.default.createHash('sha256').update(token).digest('hex');
+
+    // Find valid reset token
+    const [rows] = await pool.execute(
+      `SELECT pr.UserID, u.Email, u.FullName 
+       FROM tblPasswordResets pr
+       JOIN tblusers u ON pr.UserID = u.UserID
+       WHERE pr.TokenHash = ? AND pr.ExpiresAt > NOW() AND pr.UsedAt IS NULL AND u.Status = 'Active'
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    const user = rows[0];
+
+    // Hash new password
+    const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+    const passwordHash = await bcrypt.hash(password, rounds);
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Update password
+      await connection.execute(
+        'UPDATE tblusers SET PasswordHash = ? WHERE UserID = ?',
+        [passwordHash, user.UserID]
+      );
+
+      // Mark reset token as used
+      await connection.execute(
+        'UPDATE tblPasswordResets SET UsedAt = NOW() WHERE TokenHash = ?',
+        [tokenHash]
+      );
+
+      // Revoke all existing refresh tokens for security
+      await connection.execute(
+        'UPDATE tblRefreshTokens SET RevokedAt = NOW() WHERE UserID = ? AND RevokedAt IS NULL',
+        [user.UserID]
+      );
+
+      await connection.commit();
+      return res.json({ message: 'Password has been reset successfully' });
+
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+  } catch (err) {
+    console.error('Password reset error:', err);
+    return res.status(500).json({ message: 'Server error during password reset' });
+  }
 });
 
 // -------------------------------------------------------------------------------------
