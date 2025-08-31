@@ -11,6 +11,9 @@ import { dbViewerRoutes } from "./db-viewer.js";
 import ticketsRoutes from "./routes/tickets.js";
 import passwordRoutes from './routes/password.js';
 import quoteRoutes from './routes/quotes.js';
+import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
+import { generalRateLimit, authRateLimit } from './middleware/rateLimiter.js';
 
 // -------------------------------------------------------------------------------------
 // Setup & constants
@@ -22,7 +25,11 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieParser());
+// Apply general rate limiting to all requests
+app.use('/api', generalRateLimit);
 app.use('/api', passwordRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const JWT_EXPIRES = process.env.JWT_EXPIRES || "7d";
@@ -42,7 +49,8 @@ app.use("/api/tickets", ticketsRoutes);
 dbViewerRoutes(app);
 
 // -------------------------------------------------------------------------------------
-// Utility: issue a cookie token and return minimal user object
+// Legacy authentication (deprecated - keeping for backward compatibility)
+// New auth routes use dual-token system in /api/auth/*
 // -------------------------------------------------------------------------------------
 function setAuthCookie(res, payload) {
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
@@ -67,14 +75,28 @@ app.get("/", (req, res) => {
     <h1>🏢 Rawson Backend API</h1>
     <p>Building Management System Backend</p>
     <h2>Available Endpoints:</h2>
+    <h3>🔐 Authentication (New Dual-Token System)</h3>
+    <ul>
+      <li>POST /api/auth/login - User authentication with dual tokens</li>
+      <li>POST /api/auth/register - User registration with dual tokens</li>
+      <li>GET /api/auth/me - Get current user (auto-refresh)</li>
+      <li>POST /api/auth/refresh - Manually refresh tokens</li>
+      <li>POST /api/auth/logout - Logout current session</li>
+      <li>POST /api/auth/logout-all - Logout all user sessions</li>
+      <li>GET /api/auth/sessions - List active sessions</li>
+      <li>DELETE /api/auth/sessions/:id - Revoke specific session</li>
+      <li>DELETE /api/auth/sessions - Revoke all other sessions</li>
+    </ul>
+    <h3>📋 System</h3>
     <ul>
       <li><a href="/api/health">GET /api/health</a> - Database health check</li>
       <li><a href="/db-viewer">GET /db-viewer</a> - Web database viewer</li>
-      <li>POST /api/login - User authentication</li>
-      <li>POST /api/register - User registration</li>
-      <li>GET /api/me - Read current session</li>
-      <li>POST /api/logout - Clear session</li>
-      <li>GET /api/db/tables - List database tables</li>
+    </ul>
+    <h3>⚠️ Legacy Auth (Deprecated)</h3>
+    <ul>
+      <li>POST /api/login - Old authentication (use /api/auth/login)</li>
+      <li>POST /api/register - Old registration (use /api/auth/register)</li>
+      <li>GET /api/me - Old session read (use /api/auth/me)</li>
     </ul>
   `);
 });
@@ -94,9 +116,9 @@ app.get("/api/health", async (_req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
-// Auth: register
+// Auth: register (Legacy - use /api/auth/register instead)
 // -------------------------------------------------------------------------------------
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", authRateLimit, async (req, res) => {
   try {
     const { fullName, email, password, phone, role } = req.body;
 
@@ -143,9 +165,9 @@ app.post("/api/register", async (req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
-// Auth: login (sets cookie)
+// Auth: login (Legacy - use /api/auth/login instead)
 // -------------------------------------------------------------------------------------
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", authRateLimit, async (req, res) => {
   try {
     const { email, username, password } = req.body;
     const identifier = email || username;

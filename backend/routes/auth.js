@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import pool from '../db.js';
 import { requireAuth, tryRefresh } from '../middleware/authMiddleware.js';
+import { authRateLimit } from '../middleware/rateLimiter.js';
 import { 
   issueSession, 
   rotateRefreshToken, 
@@ -25,7 +26,7 @@ function getClientInfo(req) {
 }
 
 // POST /login - Authenticate user and issue session
-router.post('/login', async (req, res) => {
+router.post('/login', authRateLimit, async (req, res) => {
   try {
     const { email, username, password } = req.body;
     const identifier = email || username;
@@ -87,7 +88,7 @@ router.post('/login', async (req, res) => {
 });
 
 // POST /register - Register new user and issue session
-router.post('/register', async (req, res) => {
+router.post('/register', authRateLimit, async (req, res) => {
   try {
     const { fullName, email, password, phone, role } = req.body;
 
