@@ -40,6 +40,9 @@ const __dirname = path.dirname(__filename);
 // Serve uploaded files from a stable path (../uploads relative to backend/)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Serve demo page
+app.use("/demo", express.static(path.join(__dirname, "demo")));
+
 app.use('/api/quotes', quoteRoutes);
 
 // API routes
@@ -86,6 +89,10 @@ app.get("/", (req, res) => {
       <li>GET /api/auth/sessions - List active sessions</li>
       <li>DELETE /api/auth/sessions/:id - Revoke specific session</li>
       <li>DELETE /api/auth/sessions - Revoke all other sessions</li>
+    </ul>
+    <h3>🎪 Demo & Testing</h3>
+    <ul>
+      <li><a href="/demo" target="_blank">🔐 Session Management Demo</a> - Interactive demo</li>
     </ul>
     <h3>📋 System</h3>
     <ul>
