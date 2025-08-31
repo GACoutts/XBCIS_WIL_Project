@@ -41,7 +41,9 @@ const __dirname = path.dirname(__filename);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Serve demo page
-app.use("/demo", express.static(path.join(__dirname, "demo")));
+app.get('/demo', (req, res) => {
+  res.sendFile(path.join(__dirname, 'demo', 'session-demo.html'));
+});
 
 app.use('/api/quotes', quoteRoutes);
 
