@@ -55,7 +55,7 @@ router.post('/forgot-password', async (req, res) => {
 
     // optional: invalidate previous active tokens
     await pool.execute(
-      'UPDATE tblPasswordResetTokens SET UsedAt = NOW() WHERE UserID = ? AND UsedAt IS NULL AND ExpiresAt > NOW()',
+      'UPDATE tblPasswordResets SET UsedAt = NOW() WHERE UserID = ? AND UsedAt IS NULL AND ExpiresAt > NOW()',
       [user.UserID]
     );
 
@@ -64,7 +64,7 @@ router.post('/forgot-password', async (req, res) => {
     const expires = new Date(Date.now() + TTL_MIN * 60 * 1000);
 
     await pool.execute(
-      'INSERT INTO tblPasswordResetTokens (UserID, TokenHash, ExpiresAt) VALUES (?, ?, ?)',
+      'INSERT INTO tblPasswordResets (UserID, TokenHash, ExpiresAt) VALUES (?, ?, ?)',
       [user.UserID, hash, expires]
     );
 
@@ -106,8 +106,8 @@ router.post('/reset-password', async (req, res) => {
 
     // find valid token
     const [rows] = await pool.execute(
-      `SELECT t.TokenID, t.UserID
-       FROM tblPasswordResetTokens t
+      `SELECT t.UserID
+       FROM tblPasswordResets t
        WHERE t.TokenHash = ? AND t.UsedAt IS NULL AND t.ExpiresAt > NOW()
        LIMIT 1`,
       [tokenHash]
@@ -117,15 +117,15 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired reset link.' });
     }
 
-    const { TokenID, UserID } = rows[0];
+    const { UserID } = rows[0];
 
     // update password
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const newHash = await bcrypt.hash(password, rounds);
     await pool.execute('UPDATE tblusers SET PasswordHash = ? WHERE UserID = ?', [newHash, UserID]);
 
-    // invalidate token
-    await pool.execute('UPDATE tblPasswordResetTokens SET UsedAt = NOW() WHERE TokenID = ?', [TokenID]);
+    // invalidate token by marking as used
+    await pool.execute('UPDATE tblPasswordResets SET UsedAt = NOW() WHERE UserID = ? AND TokenHash = ?', [UserID, tokenHash]);
 
     return res.json({ ok: true, message: 'Password has been reset successfully.' });
   } catch (e) {
