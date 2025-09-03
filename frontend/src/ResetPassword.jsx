@@ -11,7 +11,7 @@ export default function ResetPassword() {
   const nav = useNavigate();
 
   useEffect(() => {
-    if (!token) setMsg('Invalid Reset Link');
+    if (!token) setMsg('Invalid reset link');
   }, [token]);
 
   const submit = async (e) => {
@@ -55,16 +55,16 @@ export default function ResetPassword() {
         <hr className="underline" />
         <div className="inputs">
           <div className="input">
-            <label className="input-head" htmlFor="pw">New Password</label>
+            <label className="input-head" htmlFor="pw">New password</label>
             <input id="pw" type="password" value={pw} onChange={(e)=>setPw(e.target.value)} required />
           </div>
           <div className="input">
-            <label className="input-head" htmlFor="pw2">Confirm Password</label>
+            <label className="input-head" htmlFor="pw2">Confirm password</label>
             <input id="pw2" type="password" value={pw2} onChange={(e)=>setPw2(e.target.value)} required />
           </div>
         </div>
         <div className="submit-container">
-          <button className="submit" type="submit">Reset Password</button>
+          <button className="submit" type="submit">Reset password</button>
         </div>
         <div className="no-account">
           <Link to="/login">Back to login</Link>

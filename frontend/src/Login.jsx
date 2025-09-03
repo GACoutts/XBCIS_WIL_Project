@@ -33,15 +33,16 @@ export default function Login() {
 
   return (
     <div className="login-page-container">
+
+      {error ? <div className="alert-error">{error}</div> : null}
+
       <form className="container" onSubmit={onSubmit} noValidate>
         <div className="header">
-          <div className="logo-placeholder">Logo Will Go Here</div>
-          <h2>Sign in</h2>
+          <div className="logo-placeholder">Logo will go here</div>
+          <h2>Login</h2>
         </div>
 
         <hr className="underline" />
-
-        {error ? <div className="alert-error">{error}</div> : null}
 
         <div className="inputs">
           <div className="input">
@@ -75,7 +76,7 @@ export default function Login() {
 
         <div className="submit-container">
           <button type="submit" className="submit" disabled={submitting}>
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? "Signing in…" : "Login"}
           </button>
         </div>
 
