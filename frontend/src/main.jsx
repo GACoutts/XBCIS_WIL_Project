@@ -1,16 +1,20 @@
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
-import './styles/index.css'
-import App from './App.jsx'
-import { AuthProvider } from './context/AuthContext.jsx';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
+import './styles/index.css';
+import App from './App.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
+const root = createRoot(document.getElementById('root'));
+
+root.render(
+  <BrowserRouter>
+    <AuthProvider>
+      <ErrorBoundary>
         <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+      </ErrorBoundary>
+    </AuthProvider>
+  </BrowserRouter>
 );

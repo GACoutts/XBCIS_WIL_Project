@@ -10,10 +10,15 @@ import pool, { dbHealth } from "./db.js";
 import { dbViewerRoutes } from "./db-viewer.js";
 import ticketsRoutes from "./routes/tickets.js";
 import passwordRoutes from './routes/password.js';
+<<<<<<< HEAD
 import quoteRoutes from './routes/quotes.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
+=======
+import adminRoutes from './routes/admin.js';
+import roleRequestRoutes from './routes/roleRequests.js';
+>>>>>>> user-roles-setup-(use-this)
 
 // -------------------------------------------------------------------------------------
 // Setup & constants
@@ -50,6 +55,9 @@ app.use('/api/quotes', quoteRoutes);
 // API routes
 app.use("/api/tickets", ticketsRoutes);
 
+app.use('/api/admin', adminRoutes);
+app.use('/api/roles', roleRequestRoutes);
+
 // DB viewer
 dbViewerRoutes(app);
 
@@ -63,7 +71,7 @@ function setAuthCookie(res, payload) {
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 7 * 24 * 60 * 60 * 1000, // keep aligned with JWT_EXPIRES
     path: "/",
   });
@@ -129,23 +137,18 @@ app.get("/api/health", async (_req, res) => {
 // -------------------------------------------------------------------------------------
 app.post("/api/register", authRateLimit, async (req, res) => {
   try {
-    const { fullName, email, password, phone, role } = req.body;
+    const { fullName, email, password, phone } = req.body;
 
-    if (!fullName || !email || !password || !role) {
+    if (!fullName || !email || !password) {
       return res
         .status(400)
-        .json({ message: "Missing required fields: fullName, email, password, role" });
-    }
-
-    const validRoles = ["Client", "Landlord", "Contractor", "Staff"];
-    if (!validRoles.includes(role)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid role. Must be one of: " + validRoles.join(", ") });
+        .json({ message: "Missing required fields: fullName, email, password" });
     }
 
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
     const hash = await bcrypt.hash(password, rounds);
+
+    const role = "Client"; // default role
 
     const [result] = await pool.execute(
       "INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role) VALUES (?, ?, ?, ?, ?)",
@@ -259,7 +262,11 @@ app.get("/api/me", async (req, res) => {
 // Auth: logout (clear cookie)
 // -------------------------------------------------------------------------------------
 app.post("/api/logout", (req, res) => {
-  res.clearCookie("token", { path: "/", sameSite: "lax" });
+  res.clearCookie("token", {
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === 'production'
+  });
   return res.json({ ok: true });
 });
 

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { Link } from 'react-router-dom';
 import {ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend} from "recharts";
 
 function LandlordDashboard(){
@@ -154,19 +155,19 @@ const ticks = Array.from({ length: (maxRounded / 2) + 1 }, (_, i) => i * 2);
         <div className="navbar-right">
             <ul className="navbar-menu">
                 <li>
-                    <a href="">Dashboard</a>
+                    <Link to="/">Dashboard</Link>
                 </li>
                 <li>
-                    <a href="">Tickets</a>
+                    <Link to="/tickets">Tickets</Link>
                 </li>
                 <li>
-                    <a href="">Reports</a>
+                    <Link to="/reports">Reports</Link>
                 </li>
                 <li>
-                    <a href="">Properties</a>
+                    <Link to="/properties">Properties</Link>
                 </li>
                 <li>
-                    <a href="">Settings</a>
+                    <Link to="/settings">Settings</Link>
                 </li>
             </ul>
         </div>
