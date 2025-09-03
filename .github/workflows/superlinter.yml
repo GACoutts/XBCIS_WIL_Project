@@ -16,3 +16,4 @@ jobs:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SQLFLUFF_DIALECT: mysql 
+          VALIDATE_SQLFLUFF: true
