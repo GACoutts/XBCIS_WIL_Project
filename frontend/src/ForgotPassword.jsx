@@ -6,53 +6,95 @@ export default function ForgotPassword() {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState('');
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    setErr('');
-    try {
-      const res = await fetch('/api/forgot-password', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() })
-      });
-      // Always shows a generic message
-      await res.json();
-      setDone(true);
-    } catch (e) {
-      setDone(true); // still show generic message
-    }
-  };
+  const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
 
-  if (done) {
-    return (
-      <div className="auth-page">
-        <form className="auth-card">
-          <div className="header"><h2>Check your email</h2></div>
-          <hr className="underline" />
-          <p className="text">If your email is registered, we’ve sent a reset link to your inbox.</p>
-        </form>
-      </div>
-    );
+  const handleSubmit = async () => {
+  setErr('');
+
+  // Custom validation
+  const trimmedEmail = email.trim();
+  
+  if (!trimmedEmail) {
+    setErr('Please enter your email address');
+    return;
+  }
+  
+  if (!validateEmail(trimmedEmail)) {
+    setErr('Please enter a valid email address');
+    return;
   }
 
+  try {
+    const res = await fetch('/api/forgot-password', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: trimmedEmail })
+    });
+    
+    const data = await res.json();
+    
+    if (!res.ok) {
+      setErr(data.message || 'An error occurred. Please try again.');
+      return;
+    }
+    
+    setDone(true);
+  } catch (error) {
+    setErr('Network error. Please check your connection and try again.');
+  }
+};
+
+const handleKeyPress = (e) => {
+  if (e.key === 'Enter') {
+    handleSubmit();
+  }
+};
+
+  if (done) {
   return (
     <div className="auth-page">
-      <form className="auth-card" onSubmit={onSubmit}>
+      <div className="auth-container">
+        <div className="auth-card">
+          <div className="header"><h2>Check your email</h2></div>
+          <hr className="underline" />
+          <p className="text">If your email is registered, we've sent a reset link to your inbox.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+  return (
+  <div className="auth-page">
+    <div className="auth-container">
+      {err && <div className="alert-error">{err}</div>}
+      <div className="auth-card">
         <div className="header"><h2>Forgot password</h2></div>
         <hr className="underline" />
-        {err && <div className="alert-error">{err}</div>}
         <div className="inputs">
           <div className="input">
             <label className="input-head" htmlFor="email">Email</label>
-            <input id="email" type="email" value={email}
-              onChange={(e) => setEmail(e.target.value)} required />
+            <input 
+              id="email" 
+              type="email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyPress={handleKeyPress}
+              autoComplete="email"
+            />
           </div>
         </div>
         <div className="submit-container">
-          <button className="submit" type="submit">Send reset link</button>
+          <button className="submit" type="button" onClick={handleSubmit}>
+            Send reset link
+          </button>
         </div>
-      </form>
+      </div>
     </div>
-  );
+  </div>
+);
 }
