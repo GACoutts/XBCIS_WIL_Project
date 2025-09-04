@@ -1,18 +1,12 @@
 // backend/middleware/authMiddleware.js - Enhanced RBAC authentication
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
-<<<<<<< HEAD
 import crypto from 'crypto';
 import pool from '../db.js';
 import { ROLES, getRoleOrder, rotateRefreshToken, isAccessJtiRevoked, clearAuthCookies } from '../utils/tokens.js';
-=======
-import "dotenv/config";
-import pool from '../db.js';
->>>>>>> user-roles-setup-(use-this)
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-<<<<<<< HEAD
 // Extract client info from request
 function getClientInfo(req) {
   return {
@@ -162,38 +156,3 @@ export function hasRoleOrHigher(requiredRole) {
 
 // Legacy compatibility - use requireAuth for existing code
 export const authMiddleware = requireAuth;
-=======
-export async function authMiddleware(req, res, next) {
-  try {
-    const token = req.cookies?.access_token || req.cookies?.token;
-    if (!token) return res.status(401).json({ message: "Not authenticated" });
-
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.userId;
-
-    // Always fetch the latest role & status from DB
-    const [rows] = await pool.execute(
-      'SELECT UserID, Role, Status FROM tblusers WHERE UserID = ? LIMIT 1',
-      [userId]
-    );
-    if (!rows?.length || rows[0].Status !== 'Active') {
-      return res.status(401).json({ message: 'Invalid session' });
-    }
-
-    req.user = { userId: rows[0].UserID, role: rows[0].Role };
-    return next();
-  } catch {
-    return res.status(401).json({ message: 'Invalid session' });
-  }
-}
-
-export function authorizeRoles(...allowed) {
-  return (req, res, next) => {
-    if (!req.user?.role) return res.status(401).json({ message: 'Not authenticated' });
-    if (!allowed.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Forbidden: insufficient role' });
-    }
-    return next(); 
-  };
-}
->>>>>>> user-roles-setup-(use-this)
