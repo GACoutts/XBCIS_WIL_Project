@@ -169,7 +169,7 @@
   border-radius: 4px;
   font-size: 12px;
   margin: 4px 0 0 0;
-  text-align: left;
+  text-align: center;
 }
 
 .signup-page-container .input-row input {
@@ -180,4 +180,16 @@
   font-size: 11px;
   margin-left: 93px;
   white-space: nowrap; 
+}
+
+.signup-page-container .success {
+  background: #e8f5e8;
+  border: 1px solid #caf6ca;
+  color: #1f7a1f;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 4px auto 0 auto;
+  text-align: center;
+  width: 350px; /* same width as your signup box */
 }

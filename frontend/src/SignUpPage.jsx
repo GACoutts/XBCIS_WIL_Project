@@ -123,6 +123,7 @@ export default function SignUpPage() {
 
   return (
     <div className="signup-page-container">
+      {successMsg ? <p className="success" style={{ position: 'absolute', top: '-85px', left: '50%', transform: 'translateX(-50%)', width: '350px', textAlign: 'center', zIndex: 10 }}>{successMsg}</p> : null}
       <div className="signup-container">
         <div className="logo-placeholder">Logo will go here</div>
 
@@ -131,23 +132,20 @@ export default function SignUpPage() {
         </div>
         <hr className="underline" />
 
-        {/* Server messages */}
-        {serverError ? <p className="error" style={{ marginTop: 8 }}>{serverError}</p> : null}
-        {successMsg ? <p className="success" style={{ marginTop: 8 }}>{successMsg}</p> : null}
-
         <form className="inputs" onSubmit={handleSubmit} noValidate>
           <div className="input">
             <div className="input-head">Full name</div>
             <div className="input-row">
-            <input
-              type="text"
-              name="fullName"
-              placeholder="E.G. John Doe"
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-            />
-            {errors.fullName && <span className="error">{errors.fullName}</span>}
+          <input
+          type="text"
+          name="fullName"
+          placeholder="E.G. John Doe"
+          value={formData.fullName}
+          onChange={handleChange}
+          required
+          />
+          {errors.fullName && <span className="error">{errors.fullName}</span>}
+          {serverError && !errors.fullName && <span className="error">{serverError}</span>} 
           </div>
           </div>
 
