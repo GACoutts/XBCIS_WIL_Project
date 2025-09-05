@@ -27,7 +27,7 @@ export default function RequestRole() {
   }
 
   return (
-    <div style={{ maxWidth: 560, margin: '24px auto', padding: 16, border: '1px solid #ddd', borderRadius: 8 }}>
+    <div className="admin-card" style={{ maxWidth: 600, margin: "24px auto" }}>
       <h2>Request a Role Upgrade</h2>
       <p>Choose the role you want. Staff will review and approve/deny.</p>
       {msg && <div style={{ color: 'green', marginBottom: 8 }}>{msg}</div>}
@@ -35,16 +35,27 @@ export default function RequestRole() {
 
       <form onSubmit={submit}>
         <label>Requested role</label>
-        <select value={requestedRole} onChange={e => setRequestedRole(e.target.value)} required>
+        <select
+          value={requestedRole}
+          onChange={e => setRequestedRole(e.target.value)}
+          required
+        >
           <option value="Landlord">Landlord</option>
           <option value="Contractor">Contractor</option>
           <option value="Staff">Staff</option>
         </select>
 
         <label style={{ display: 'block', marginTop: 12 }}>Notes (optional)</label>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} style={{ width: '100%' }} />
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          rows={3}
+          style={{ width: '100%' }}
+        />
 
-        <button type="submit" style={{ marginTop: 12 }}>Submit request</button>
+        <button type="submit" className="admin-btn" style={{ marginTop: 12 }}>
+          Submit request
+        </button>
       </form>
     </div>
   );
