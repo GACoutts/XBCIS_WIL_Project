@@ -479,20 +479,20 @@ body {
 /* --- Table Styling --- */
 .admin-table,
 .review-roles-table {
-  width: 100%; /* Full width of .admin-card content area */
-  max-width: 100%; /* Prevent stretching beyond container */
+  width: 100%; 
+  max-width: 100%; 
   border-collapse: separate;
   border-spacing: 0;
   font-size: 14px;
   margin: 0;
-  box-sizing: border-box; /* Include padding in width */
+  box-sizing: border-box; 
 }
 
 .admin-table thead,
 .review-roles-table thead {
   position: relative;
-  display: table; /* Ensure thead follows table layout */
-  width: 100%; /* Full width */
+  display: table; 
+  width: 100%; 
 }
 
 .admin-table thead::after,
@@ -503,7 +503,7 @@ body {
   right: 0;
   bottom: 0;
   height: 1px;
-  background-color: #FBD402; /* Full-width yellow line */
+  background-color: #FBD402; 
 }
 
 .admin-table th,
@@ -513,32 +513,32 @@ body {
   padding: 10px;
   border-bottom: 1px solid #FBD402;
   text-align: left;
-  vertical-align: middle; /* Ensure vertical alignment */
-  box-sizing: border-box; /* Include padding in width */
+  vertical-align: middle; 
+  box-sizing: border-box; 
 }
 
 .admin-table th,
 .review-roles-table th {
   font-weight: 600;
-  border-bottom: none; /* Remove individual th borders */
+  border-bottom: none; 
 }
 
 .admin-table tbody,
 .review-roles-table tbody {
-  display: block; /* Enable scrolling */
-  max-height: 120px; /* Height for ~3 rows */
+  display: block; 
+  max-height: 120px; 
   overflow-y: auto;
-  width: 100%; /* Ensure tbody matches table width */
-  max-width: 100%; /* Prevent stretching */
+  width: 100%; 
+  max-width: 100%; 
 }
 
 .admin-table thead,
 .review-roles-table thead,
 .admin-table tbody tr,
 .review-roles-table tbody tr {
-  display: table; /* Maintain table layout for rows */
-  width: 100%; /* Full width */
-  table-layout: fixed; /* Fix column widths */
+  display: table; 
+  width: 100%; 
+  table-layout: fixed; 
 }
 
 /* Handle long content */
@@ -547,7 +547,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 0; /* Allow cell width to be determined by column width */
+  max-width: 0; 
 }
 
 /* Scrollbar styling for tbody */
@@ -567,17 +567,16 @@ body {
   border-radius: 5px;
 }
 
-/* Adjust admin-card to control width */
 .admin-card {
-  margin: 20px 90px; /* Maintain margins */
+  margin: 20px 90px; 
   background: white;
   border-radius: 5px;
   border: 1px solid #FBD402;
-  overflow-x: auto; /* Allow horizontal scroll if needed */
+  overflow-x: auto; 
   padding: 16px 0;
-  width: auto; /* Allow natural width based on content and margins */
-  max-width: calc(100% - 180px); /* Account for left and right margins (90px each) */
-  box-sizing: border-box; /* Include padding in width */
+  width: auto; 
+  max-width: calc(100% - 180px); 
+  box-sizing: border-box; 
 }
 
 /* Error message */
@@ -637,7 +636,7 @@ body {
 
 .admin-table td button:last-child,
 .review-roles-table td button:last-child {
-  margin-right: 0; /* Remove margin on last button */
+  margin-right: 0; 
 }
 
 /* Specific styling for ManageRoles table */
@@ -647,16 +646,16 @@ body {
 }
 .admin-table th:nth-child(2),
 .admin-table td:nth-child(2) {
-  width: 40%; /* Email column */
+  width: 40%; 
 }
 .admin-table th:nth-child(3),
 .admin-table td:nth-child(3) {
-  width: 30%; /* Role column */
+  width: 30%; 
 }
 
 .admin-table td select {
-  width: 80%; /* Reduce to 80% of cell width */
-  max-width: 150px; /* Set a maximum width to limit stretching */
+  width: 80%; 
+  max-width: 150px; 
   box-sizing: border-box;
   font-size: 14px;
   padding: 4px;
@@ -696,8 +695,8 @@ body {
 
 .admin-table tbody,
 .review-roles-table tbody {
-  min-height: 120px; /* Match max-height to avoid white block */
-  max-height: 120px; /* Retain three-row scrolling */
+  min-height: 120px; 
+  max-height: 120px; 
   overflow-y: auto;
   width: 100%;
   max-width: 100%;

@@ -5,11 +5,12 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  min-height: 100vh; /* full viewport height */
+  height: 100vh; /* full viewport height */
   margin: 0;
-  padding-top: var(--navbar-height); /* leave space for navbar */
+  padding-top: calc(var(--navbar-height) + 20px); /* navbar height + some spacing */
   box-sizing: border-box;
-  overflow-y: auto; /* enable vertical scrolling */
+  overflow: hidden; /* enable vertical scrolling */
+   position: relative;
 }
 
 /* NAVBAR */
@@ -58,7 +59,7 @@
   width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
 }
 
-/* MAIN CONTAINER (single column) */
+/* MAIN CONTAINER (fully centered) */
 .logticket .container {
   background-color: #FBD402;
   border: 1px solid black;
@@ -66,10 +67,12 @@
   padding: 16px 20px;
   width: 700px;
   text-align: center;
-  margin-top: 20px; /* small spacing from top */
   height: auto;
   max-height: none;
-  overflow: visible; /* allow content to expand */
+ position: absolute;
+  transform: translateY(-90px) scale(0.9);
+  
+  
 }
 
 /* Inputs inside container */
@@ -226,4 +229,12 @@
   display: flex; align-items: center; justify-content: center;
   text-align: center;
   border: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* Disable scrolling for the entire page */
+  position: relative;
 }
