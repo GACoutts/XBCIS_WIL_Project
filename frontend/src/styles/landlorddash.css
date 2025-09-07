@@ -32,7 +32,8 @@ body {
   width: 100%; 
   box-sizing: border-box; 
   z-index: 1000; 
-  font-family: Arial, sans-serif; 
+  font-family: Arial, sans-serif;
+  height: var(--navbar-height); 
 }
 
 .navbar-logo { 

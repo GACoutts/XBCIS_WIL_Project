@@ -29,7 +29,7 @@ body {
   box-sizing: border-box; 
   z-index: 1000; 
   font-family: Arial, sans-serif; 
-  height: auto; 
+  height: var(--navbar-height);
 }
 
 .navbar-logo { 
