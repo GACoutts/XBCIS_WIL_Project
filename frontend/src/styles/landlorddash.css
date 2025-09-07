@@ -285,3 +285,20 @@ body {
 .summary-label { color: #666; font-weight: 600; font-size: 13px; }
 .summary-value { font-size: 14px; font-weight: 700; }
 .total-row .summary-value { font-size: 16px; }
+
+.navbar .navbar-profile {
+  position: relative;
+}
+
+.navbar .logout-popup button {
+  background-color: #FBD402;
+  color: black;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  left: 50%;
+  transform: translateX(-8%) translateY(15%);
+}
