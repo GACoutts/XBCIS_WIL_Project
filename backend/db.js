@@ -16,11 +16,11 @@ if (!DB_USER || DB_PASSWORD === undefined || !DB_NAME) {
 }
 
 const pool = mysql.createPool({
-  host: '127.0.0.1',
+  host: DB_HOST,
   port: Number(DB_PORT),
-  user: 'rawson_local',
-  password: 'Ppottie987!',
-  database: 'Rawson',
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
