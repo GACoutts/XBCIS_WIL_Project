@@ -8,10 +8,25 @@ export default function ResetPassword() {
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [msg, setMsg] = useState('');
+  const [isValidToken, setIsValidToken] = useState(null);
   const nav = useNavigate();
 
   useEffect(() => {
-    if (!token) setMsg('Invalid reset link');
+    if (!token) {
+      setMsg('🚫 No reset token provided. Please use the link from your email.');
+      setIsValidToken(false);
+      return;
+    }
+    
+    // Basic token format validation
+    if (token.length < 32) {
+      setMsg('🚫 Invalid reset token format. Please request a new password reset.');
+      setIsValidToken(false);
+      return;
+    }
+    
+    setIsValidToken(true);
+    setMsg('✅ Reset token validated. You can set a new password.');
   }, [token]);
 
   const submit = async (e) => {

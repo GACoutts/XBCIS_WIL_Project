@@ -53,7 +53,7 @@ mysql -u root -p < sql/09-create-quote-documents-table.sql
 mysql -u root -p < sql/10-create-landlord-approvals-table.sql
 mysql -u root -p < sql/11-create-contractor-schedules-table.sql
 mysql -u root -p < sql/12-create-contractor-updates-table.sql
-mysql -u root -p < sql/13-create-notifications-table.sql
+mysql -u root -p < sql/13-create-notifications-table.sqlF
 mysql -u root -p < sql/14-create-communications-table.sql
 ```
 

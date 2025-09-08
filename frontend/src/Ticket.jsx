@@ -28,8 +28,6 @@ function Ticket() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user.userId,
-          title,
           description,
           urgencyLevel: urgency
         }),
