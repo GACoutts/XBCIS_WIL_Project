@@ -16,6 +16,7 @@ import quoteRoutes from './routes/quotes.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import roleRequestRoutes from './routes/roleRequests.js';
+import landlordRoutes from './routes/landlord.js';
 
 // Middleware
 import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
@@ -54,6 +55,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/roles', roleRequestRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/tickets', ticketsRoutes);
+app.use('/api/landlord', landlordRoutes);
 
 // DB viewer
 dbViewerRoutes(app);
@@ -108,6 +110,15 @@ app.get("/", (_req, res) => {
     <h3>🎪 Demo & Testing</h3>
     <ul>
       <li><a href="/demo" target="_blank">🔐 Session Management Demo</a></li>
+    </ul>
+    <h3>🏠 Landlord API</h3>
+    <ul>
+      <li>GET /api/landlord/tickets - Get comprehensive ticket history with quotes and appointments</li>
+      <li>GET /api/landlord/tickets/:ticketId/history</li>
+      <li>GET /api/landlord/tickets/:ticketId/quotes</li>
+      <li>GET /api/landlord/tickets/:ticketId/appointments</li>
+      <li>POST /api/landlord/quotes/:quoteId/approve</li>
+      <li>POST /api/landlord/quotes/:quoteId/reject</li>
     </ul>
     <h3>📋 System</h3>
     <ul>
