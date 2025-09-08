@@ -163,4 +163,49 @@ router.get("/ticket/:ticketId", async (req, res) => {
   }
 });
 
+// Get all quotes for a ticket (Landlord view)
+router.get("/ticket/:ticketId/landlord", async (req, res) => {
+  try {
+    if (req.user.role !== "Landlord") return res.status(403).json({ message: "Unauthorized" });
+
+    const { ticketId } = req.params;
+
+    // Basic check that the ticket exists
+    const [ticketRows] = await db.query(
+      "SELECT TicketID /*, LandlordUserID */ FROM tblTickets WHERE TicketID = ? LIMIT 1",
+      [ticketId]
+    );
+    if (!ticketRows.length) return res.status(404).json({ message: "Ticket not found" });
+
+    // TODO: If you track ownership, enforce it here:
+    // if (ticketRows[0].LandlordUserID !== req.user.userId) return res.status(403).json({ message: "Forbidden" });
+
+    const [quotes] = await db.query(
+      `SELECT q.QuoteID, q.QuoteAmount, q.QuoteDescription, q.QuoteStatus, q.SubmittedAt,
+              u.FullName as ContractorName,
+              GROUP_CONCAT(d.DocumentURL) as Documents
+       FROM tblQuotes q
+       JOIN tblusers u ON q.ContractorUserID = u.UserID
+       LEFT JOIN tblQuoteDocuments d ON q.QuoteID = d.QuoteID
+       WHERE q.TicketID = ?
+       GROUP BY q.QuoteID
+       ORDER BY q.SubmittedAt DESC`,
+      [ticketId]
+    );
+
+    // Normalize documents into arrays and make them absolute URLs
+    const host = `${req.protocol}://${req.get('host')}`;
+    const normalized = quotes.map(q => {
+      const docs = q.Documents ? q.Documents.split(',').map(x => x.trim()) : [];
+      const absoluteDocs = docs.map(d => d.startsWith('http') ? d : `${host}${d.startsWith('/') ? '' : '/'}${d}`);
+      return { ...q, Documents: absoluteDocs };
+    });
+
+    res.json(normalized);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;

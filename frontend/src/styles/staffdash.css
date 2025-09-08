@@ -7,9 +7,10 @@ body {
   background: white; 
   font-family: Arial, sans-serif; 
   display: flex; flex-direction: column; 
-  height: 100vh; 
-  overflow: hidden; 
-  height: 100vh; 
+  min-height: 100vh; 
+  overflow-y: auto;
+  overflow-x: hidden; 
+  min-height: 100vh !important;
   margin: 0; 
   padding-top: var(--navbar-height); 
   box-sizing: border-box; 
@@ -30,7 +31,7 @@ body {
   box-sizing: border-box; 
   z-index: 1000; 
   font-family: Arial, sans-serif; 
-  height: auto; 
+  height: var(--navbar-height);
 }
 
 .navbar-logo { 
@@ -424,3 +425,298 @@ body {
 .property-stats-content {
     flex: 1;
 }
+
+.staff-admin-panel {
+  margin: 16px auto 24px;
+  padding: 1px;
+  background: #fff;
+}
+
+.staff-admin-panel .section-title {
+  font-size: 1.25rem;
+  margin-bottom: -3px;
+  margin-left: 90px;
+  margin-top: -10px;
+}
+
+.admin-card {
+  margin: 20px 90px;
+  background: white;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  overflow-x: auto;
+  padding: 16px;
+}
+
+/* Card title */
+.admin-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: black;
+  align-items: center;
+}
+
+/* Error message */
+.admin-card .error-msg {
+  color: #7a1f1f;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #f6caca;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background-color: #fff5f5;
+  line-height: 1.5;
+}
+
+/* Success message */
+.admin-card .success-msg {
+  color: #1f7a1f;
+  margin-bottom: 8px;
+  border: 1px solid #caf6ca;
+}
+
+/* --- Table Styling --- */
+.admin-table,
+.review-roles-table {
+  width: 100%; 
+  max-width: 100%; 
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+  margin: 0;
+  box-sizing: border-box; 
+}
+
+.admin-table thead,
+.review-roles-table thead {
+  position: relative;
+  display: table; 
+  width: 100%; 
+}
+
+.admin-table thead::after,
+.review-roles-table thead::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background-color: #FBD402; 
+}
+
+.admin-table th,
+.review-roles-table th,
+.admin-table td,
+.review-roles-table td {
+  padding: 10px;
+  border-bottom: 1px solid #FBD402;
+  text-align: left;
+  vertical-align: middle; 
+  box-sizing: border-box; 
+}
+
+.admin-table th,
+.review-roles-table th {
+  font-weight: 600;
+  border-bottom: none; 
+}
+
+.admin-table tbody,
+.review-roles-table tbody {
+  display: block; 
+  max-height: 120px; 
+  overflow-y: auto;
+  width: 100%; 
+  max-width: 100%; 
+}
+
+.admin-table thead,
+.review-roles-table thead,
+.admin-table tbody tr,
+.review-roles-table tbody tr {
+  display: table; 
+  width: 100%; 
+  table-layout: fixed; 
+}
+
+/* Handle long content */
+.admin-table td,
+.review-roles-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0; 
+}
+
+/* Scrollbar styling for tbody */
+.admin-table tbody::-webkit-scrollbar,
+.review-roles-table tbody::-webkit-scrollbar {
+  width: 5px;
+}
+
+.admin-table tbody::-webkit-scrollbar-track,
+.review-roles-table tbody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-table tbody::-webkit-scrollbar-thumb,
+.review-roles-table tbody::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 5px;
+}
+
+.admin-card {
+  margin: 20px 90px; 
+  background: white;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  overflow-x: auto; 
+  padding: 16px 0;
+  width: auto; 
+  max-width: calc(100% - 180px); 
+  box-sizing: border-box; 
+}
+
+/* Error message */
+.admin-card .error-msg {
+  color: #7a1f1f;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #f6caca;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background-color: #fff5f5;
+  line-height: 1.5;
+}
+
+/* Success message */
+.admin-card .success-msg {
+  color: #1f7a1f;
+  margin-bottom: 8px;
+  border: 1px solid #caf6ca;
+}
+
+/* Card title */
+.admin-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: black;
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+/* Buttons */
+.admin-btn,
+.admin-table td button,
+.review-roles-table td button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #FBD402;
+  margin-right: 8px;
+}
+
+.admin-btn:disabled,
+.admin-table td button:disabled,
+.review-roles-table td button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-table td button:last-child,
+.review-roles-table td button:last-child {
+  margin-right: 0; 
+}
+
+/* Specific styling for ManageRoles table */
+.admin-table th:nth-child(1),
+.admin-table td:nth-child(1) {
+  width: 30%; /* Name column */
+}
+.admin-table th:nth-child(2),
+.admin-table td:nth-child(2) {
+  width: 40%; 
+}
+.admin-table th:nth-child(3),
+.admin-table td:nth-child(3) {
+  width: 30%; 
+}
+
+.admin-table td select {
+  width: 80%; 
+  max-width: 150px; 
+  box-sizing: border-box;
+  font-size: 14px;
+  padding: 4px;
+  text-align: center;
+}
+
+/* Specific styling for ReviewRoleRequests table */
+.review-roles-table th:nth-child(1),
+.review-roles-table td:nth-child(1) {
+  width: 15%; /* User column */
+}
+.review-roles-table th:nth-child(2),
+.review-roles-table td:nth-child(2) {
+  width: 20%; /* Email column */
+}
+.review-roles-table th:nth-child(3),
+.review-roles-table td:nth-child(3) {
+  width: 15%; /* Current column */
+}
+.review-roles-table th:nth-child(4),
+.review-roles-table td:nth-child(4) {
+  width: 15%; /* Requested column */
+}
+.review-roles-table th:nth-child(5),
+.review-roles-table td:nth-child(5) {
+  width: 20%; /* Notes column */
+}
+.review-roles-table th:nth-child(6),
+.review-roles-table td:nth-child(6) {
+  width: 15%; /* Actions column */
+}
+
+.admin-table tr:last-child td,
+.review-roles-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody,
+.review-roles-table tbody {
+  min-height: 120px; 
+  max-height: 120px; 
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+
+.navbar .navbar-profile {
+  position: relative;
+}
+
+.navbar .logout-popup button {
+  background-color: #FBD402;
+  color: black;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  left: 50%;
+  transform: translateX(-8%) translateY(15%);
+}
+

@@ -1,10 +1,15 @@
 import React, { useState } from "react";
 import gearIcon from "./assets/settings.png";
 import "./styles/staffdash.css";
+import ManageRoles from './components/ManageRoles.jsx';
+import ReviewRoleRequests from './components/ReviewRoleRequest.jsx';
+import { Link } from 'react-router-dom';
+import { useAuth } from "./context/AuthContext.jsx";
 
-function StaffDashboard(){
+function StaffDashboard() {
 
-    const [tickets, setTickets] = useState([
+  const [showLogout, setShowLogout] = useState(false);
+  const [tickets, setTickets] = useState([
     {
       id: "#029495",
       property: "23 Apple Road",
@@ -15,7 +20,7 @@ function StaffDashboard(){
     },
     {
       id: "#029495",
-      property: "23 Apple Road", 
+      property: "23 Apple Road",
       issue: "Leaky Tap",
       submitted: "04-03-2025",
       urgency: "Medium",
@@ -24,7 +29,7 @@ function StaffDashboard(){
     {
       id: "#029495",
       property: "23 Apple Road",
-      issue: "Leaky Tap", 
+      issue: "Leaky Tap",
       submitted: "04-03-2025",
       urgency: "Low",
       status: "Rejected"
@@ -55,7 +60,7 @@ function StaffDashboard(){
     }
   ];
 
-   const propertyStatsData = [
+  const propertyStatsData = [
     {
       property: "23 Apple Road",
       landlord: "John Doe",
@@ -80,10 +85,15 @@ function StaffDashboard(){
     }
   ];
 
+  const handleLogout = async () => {
+    await logout();
+    window.location.reload(); // redirect to login or refresh
+  };
+
   const getUrgencyColor = (urgency) => {
     switch (urgency.toLowerCase()) {
       case 'high': return 'high-urgency';
-      case 'medium': return 'medium-urgency';  
+      case 'medium': return 'medium-urgency';
       case 'low': return 'low-urgency';
       default: return '';
     }
@@ -132,113 +142,133 @@ function StaffDashboard(){
     return `status-${statusLower}`;
   };
 
-    return(
-        <>
-        <nav className="navbar">
+  return (
+    <>
+      <nav className="navbar">
         <div className="navbar-logo">
-            <img src="https://placehold.co/120x40" alt="logo" />
+          <img src="https://placehold.co/120x40" alt="logo" />
         </div>
         <div className="navbar-right">
-            <ul className="navbar-menu">
-                <li>
-                    <a href="">Dashboard</a>
-                </li>
-                <li>
-                    <a href="">Tickets</a>
-                </li>
-                <li>
-                    <a href="">Reports</a>
-                </li>
-                <li>
-                    <a href="">Quotes</a>
-                </li>
-                <li>
-                    <a href="">Contractors</a>
-                </li>
-                <li>
-                    <a href="">Settings</a>
-                </li>
-            </ul>
+          <ul className="navbar-menu">
+            <li>
+              <Link to="/">Dashboard</Link>
+            </li>
+            <li>
+              <Link to="/tickets">Tickets</Link>
+            </li>
+            <li>
+              <Link to="/reports">Reports</Link>
+            </li>
+            <li>
+              <Link to="/quotes">Quotes</Link>
+            </li>
+            <li>
+              <Link to="/contractors">Contractors</Link>
+            </li>
+            <li>
+              <Link to="/settings">Settings</Link>
+            </li>
+          </ul>
         </div>
-      <div className="navbar-profile">
-        <img src="https://placehold.co/40" alt="profile" />
-      </div>
-    </nav>
+        <div className="navbar-profile">
+          <button
+            className="profile-btn"
+            onClick={() => setShowLogout(!showLogout)}
+          >
+            <img src="https://placehold.co/40" alt="profile" />
+          </button>
+          {showLogout && (
+            <div className="logout-popup">
+              <button onClick={handleLogout}>Log Out</button>
+            </div>
+          )}
+        </div>
+      </nav>
 
-     <div className = "dashboard-title">
+      <div className="dashboard-title">
         <h1>Dashboard</h1>
-    </div>
-    <div className="sub-titles-container">
+      </div>
+
+    {/* Staff admin panel */}
+      <section className="staff-admin-panel">
+        <h2 className="section-title">Role Requests</h2>
+        <ReviewRoleRequests />
+
+        <h2 className="section-title" style={{ marginTop: 16 }}>Manage User Roles</h2>
+        <ManageRoles />
+      </section>
+
+      <div className="sub-titles-container">
         <div className="sub-title">
-            <h2>Awaiting Tickets</h2> 
+          <h2>Awaiting Tickets</h2>
         </div>
         <div className="contractor-sub-title">
-            <h2>Contractor Management</h2>
+          <h2>Contractor Management</h2>
         </div>
-    </div>
-    <div className="cards-wrapper">
+      </div>
+      <div className="cards-wrapper">
 
         <div className="awaiting-tickets-container">
-        <div className="table-header">
-          <div className="header-content">
-            <div className="header-grid">
-              <div className="header-item">Ticket ID</div>
-              <div className="header-item">Property</div>
-              <div className="header-item">Issue</div>
-              <div className="header-item">Submitted</div>
-              <div className="header-status">Urgency/Status</div>
-            </div>
-          </div>
-        </div>
-        
-        {tickets.map((ticket, index) => (
-          <div key={index} className="ticket-card">
-            <div className="ticket-layout">
-              <div className="ticket-content">
-                <div className="ticket-info-grid">
-                  <div className="info-value ticket-id">{ticket.id}</div>
-                  <div className="info-value">{ticket.property}</div>
-                  <div className="info-value issue-cell">
-                    <span>{ticket.issue}</span>
-                    <img src={gearIcon} alt="Settings" className="gear-icon" />
-                    </div>
-                  <div className="info-value">{ticket.submitted}</div>
-                  <div className="urgency-status-column">
-                    <span className={`urgency-badge ${getUrgencyColor(ticket.urgency)}`}>
-                      {ticket.urgency}
-                    </span>
-                    <span className={`status-badge ${getStatusColor(ticket.status)}`}>
-                      {ticket.status}
-                    </span>
-                  </div>
-                </div>
-                <div className="action-buttons">
-                  <button 
-                    className="action-btn assign-btn"
-                    onClick={() => handleAssignContractor(ticket.id)}
-                  >
-                    Assign Contractor
-                  </button>
-                  <button 
-                    className="action-btn quote-btn"
-                    onClick={() => handleViewQuote(ticket.id)}
-                  >
-                    View Quote
-                  </button>
-                  <button 
-                    className="action-btn status-btn"
-                    onClick={() => handleChangeStatus(ticket.id)}
-                  >
-                    Change Status
-                  </button>
-                </div>
+          <div className="table-header">
+            <div className="header-content">
+              <div className="header-grid">
+                <div className="header-item">Ticket ID</div>
+                <div className="header-item">Property</div>
+                <div className="header-item">Issue</div>
+                <div className="header-item">Submitted</div>
+                <div className="header-status">Urgency/Status</div>
               </div>
             </div>
           </div>
-        ))}
-      </div>
 
-      <div className="contractor-container">
+          {tickets.map((ticket, index) => (
+            <div key={index} className="ticket-card">
+              <div className="ticket-layout">
+                <div className="ticket-content">
+                  <div className="ticket-info-grid">
+                    <div className="info-value ticket-id">{ticket.id}</div>
+                    <div className="info-value">{ticket.property}</div>
+                    <div className="info-value issue-cell">
+                      <span>{ticket.issue}</span>
+                      <img src={gearIcon} alt="Settings" className="gear-icon" />
+                    </div>
+                    <div className="info-value">{ticket.submitted}</div>
+                    <div className="urgency-status-column">
+                      <span className={`urgency-badge ${getUrgencyColor(ticket.urgency)}`}>
+                        {ticket.urgency}
+                      </span>
+                      <span className={`status-badge ${getStatusColor(ticket.status)}`}>
+                        {ticket.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="action-buttons">
+                    <button
+                      className="action-btn assign-btn"
+                      onClick={() => handleAssignContractor(ticket.id)}
+                    >
+                      Assign Contractor
+                    </button>
+                    <button
+                      className="action-btn quote-btn"
+                      onClick={() => handleViewQuote(ticket.id)}
+                    >
+                      View Quote
+                    </button>
+                    <button
+                      className="action-btn status-btn"
+                      onClick={() => handleChangeStatus(ticket.id)}
+                    >
+                      Change Status
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="contractor-container">
           <div className="table-header">
             <div className="header-content">
               <div className="contractor-header-grid">
@@ -290,59 +320,59 @@ function StaffDashboard(){
             </div>
           ))}
         </div>
-        </div>
-      
+      </div>
+
       <div className="sub-title2">
-            <h2>Property Stats</h2> 
-        </div>
-        <div className="property-stats-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="property-stats-header-grid">
-                <div className="header-item">Property</div>
-                <div className="header-item">Landlord</div>
-                <div className="header-item">Tenant</div>
-                <div className="header-item">Tickets Logged</div>
-                <div className="header-item">Total Spend</div>
-              </div>
+        <h2>Property Stats</h2>
+      </div>
+      <div className="property-stats-container">
+        <div className="table-header">
+          <div className="header-content">
+            <div className="property-stats-header-grid">
+              <div className="header-item">Property</div>
+              <div className="header-item">Landlord</div>
+              <div className="header-item">Tenant</div>
+              <div className="header-item">Tickets Logged</div>
+              <div className="header-item">Total Spend</div>
             </div>
           </div>
+        </div>
 
-          {propertyStatsData.map((property, index) => (
-            <div key={index} className="property-stats-card">
-              <div className="property-stats-layout">
-                <div className="property-stats-content">
-                  <div className="property-stats-info-grid">
-                    <div className="info-item">
-                      <div className="info-value">{property.property}</div>
-                    </div>
-                    <div className="info-item">
-                      <div className="info-value">{property.landlord}</div>
-                    </div>
-                    <div className="info-item">
-                      <div className="info-value">{property.tenant}</div>
-                    </div>
-                    <div className="info-item">
-                      <div className="tickets-logged-cell">
-                        <div className="tickets-summary">
-                          <div className="total-tickets">Total: {property.ticketsLogged.total}</div>
-                          <div className="done-tickets">Done: {property.ticketsLogged.done}</div>
-                          <div className="progress-tickets">In Progress: {property.ticketsLogged.inProgress}</div>
-                        </div>
+        {propertyStatsData.map((property, index) => (
+          <div key={index} className="property-stats-card">
+            <div className="property-stats-layout">
+              <div className="property-stats-content">
+                <div className="property-stats-info-grid">
+                  <div className="info-item">
+                    <div className="info-value">{property.property}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-value">{property.landlord}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-value">{property.tenant}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="tickets-logged-cell">
+                      <div className="tickets-summary">
+                        <div className="total-tickets">Total: {property.ticketsLogged.total}</div>
+                        <div className="done-tickets">Done: {property.ticketsLogged.done}</div>
+                        <div className="progress-tickets">In Progress: {property.ticketsLogged.inProgress}</div>
                       </div>
                     </div>
-                    <div className="info-item">
-                      <div className="info-value total-spend">{property.totalSpend}</div>
-                    </div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-value total-spend">{property.totalSpend}</div>
                   </div>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      
-        </>
-    );
+          </div>
+        ))}
+      </div>
+
+    </>
+  );
 }
 
 export default StaffDashboard

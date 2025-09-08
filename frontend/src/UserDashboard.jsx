@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "./context/AuthContext"; // import your auth context
+import { Link } from 'react-router-dom';
+import { useAuth } from "./context/AuthContext.jsx"; // import your auth context
 import gearIcon from "./assets/settings.png";
 import "./styles/userdash.css";
 
@@ -40,10 +41,10 @@ function UserDashboard() {
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
-            <li><a href="/">Dashboard</a></li>
-            <li><a href="/ticket">Tickets</a></li>
-            <li><a href="">Reports</a></li>
-            <li><a href="">Settings</a></li>
+            <li><Link to="/">Dashboard</Link></li>
+            <li><Link to="/ticket">Tickets</Link></li>
+            <li><Link to="/reports">Reports</Link></li>
+            <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>
         <div className="navbar-profile">
@@ -66,7 +67,7 @@ function UserDashboard() {
         <div className="sub-title"><h2>My Tickets</h2></div>
 
         <div className="dash-submit-container">
-          <a href="/ticket" className="dash-submit">Log a New Ticket</a>
+          <Link to="/ticket" className="dash-submit">Log a New Ticket</Link>
         </div>
 
         {loading ? (

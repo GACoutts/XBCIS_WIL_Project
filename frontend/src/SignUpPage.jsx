@@ -123,34 +123,35 @@ export default function SignUpPage() {
 
   return (
     <div className="signup-page-container">
+      {successMsg ? <p className="success" style={{ position: 'absolute', top: '-85px', left: '50%', transform: 'translateX(-50%)', width: '350px', textAlign: 'center', zIndex: 10 }}>{successMsg}</p> : null}
       <div className="signup-container">
-        <div className="logo-placeholder">Logo Will Go Here</div>
+        <div className="logo-placeholder">Logo will go here</div>
 
         <div className="header">
-          <h2>Create An Account:</h2>
+          <h2>Create An Account</h2>
         </div>
         <hr className="underline" />
 
-        {/* Server messages */}
-        {serverError ? <p className="error" style={{ marginTop: 8 }}>{serverError}</p> : null}
-        {successMsg ? <p className="success" style={{ marginTop: 8 }}>{successMsg}</p> : null}
-
         <form className="inputs" onSubmit={handleSubmit} noValidate>
           <div className="input">
-            <div className="input-head">Full Name:</div>
-            <input
-              type="text"
-              name="fullName"
-              placeholder="E.G. John Doe"
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-            />
-            {errors.fullName && <p className="error">{errors.fullName}</p>}
+            <div className="input-head">Full name</div>
+            <div className="input-row">
+          <input
+          type="text"
+          name="fullName"
+          placeholder="E.G. John Doe"
+          value={formData.fullName}
+          onChange={handleChange}
+          required
+          />
+          {errors.fullName && <span className="error">{errors.fullName}</span>}
+          {serverError && !errors.fullName && <span className="error">{serverError}</span>} 
+          </div>
           </div>
 
           <div className="input">
-            <div className="input-head">Email Address:</div>
+            <div className="input-head">Email address</div>
+            <div className="input-row">
             <input
               type="email"
               name="email"
@@ -160,11 +161,13 @@ export default function SignUpPage() {
               required
               autoComplete="username"
             />
-            {errors.email && <p className="error">{errors.email}</p>}
+            {errors.email && <span className="error">{errors.email}</span>}
+          </div>
           </div>
 
           <div className="input">
-            <div className="input-head">Phone Number (optional):</div>
+            <div className="input-head">Phone number (optional)</div>
+            <div className="input-row">
             <input
               type="tel"
               name="phone"
@@ -172,11 +175,13 @@ export default function SignUpPage() {
               value={formData.phone}
               onChange={handleChange}
             />
-            {errors.phone && <p className="error">{errors.phone}</p>}
+            {errors.phone && <span className="error">{errors.phone}</span>}
+          </div>
           </div>
 
           <div className="input">
-            <div className="input-head">Password:</div>
+            <div className="input-head">Password</div>
+            <div className="input-row">
             <input
               type="password"
               name="password"
@@ -186,11 +191,13 @@ export default function SignUpPage() {
               required
               autoComplete="new-password"
             />
-            {errors.password && <p className="error">{errors.password}</p>}
+            {errors.password && <span className="error">{errors.password}</span>}
+          </div>
           </div>
 
           <div className="input">
-            <div className="input-head">Confirm Password:</div>
+            <div className="input-head">Confirm password</div>
+            <div className="input-row">
             <input
               type="password"
               name="confirmPassword"
@@ -200,12 +207,13 @@ export default function SignUpPage() {
               required
               autoComplete="new-password"
             />
-            {errors.confirmPassword && <p className="error">{errors.confirmPassword}</p>}
+            {errors.confirmPassword && <span className="error">{errors.confirmPassword}</span>}
+          </div>
           </div>
 
           <div className="submit-container">
             <button type="submit" className="submit" disabled={submitting}>
-              {submitting ? "Creating account…" : "Sign Up"}
+              {submitting ? "Creating account…" : "Sign up"}
             </button>
           </div>
         </form>
@@ -242,10 +250,10 @@ export default function SignUpPage() {
           {errors.role && <p className="error">{errors.role}</p>}
 
         <div className="got-account">
-          Got an account? <Link to="/login" className="link">Sign In</Link>
+          Got an account? <Link to="/login" className="link">Sign in</Link>
         </div>
         <div className="forgot-password">
-          Forgot Password? <Link to="/login" className="link"><b>Reset Here</b></Link>
+          Forgot password? <Link to="/login" className="link">Reset here</Link>
         </div>
       </div>
     </div>

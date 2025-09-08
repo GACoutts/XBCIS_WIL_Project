@@ -173,4 +173,79 @@ router.get('/:ticketId', authMiddleware, async (req, res) => {
   }
 });
 
+// -------------------------------------------------------------------------------------
+// Get ticket status history (timeline)
+// -------------------------------------------------------------------------------------
+router.get('/:ticketId/history', authMiddleware, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    const { ticketId } = req.params;
+
+    // Load ticket and basic access control (clients can only see their own ticket)
+    const [tickets] = await pool.query('SELECT * FROM tblTickets WHERE TicketID = ?', [ticketId]);
+    if (!tickets.length) return res.status(404).json({ message: 'Ticket not found' });
+
+    const t = tickets[0];
+    if (role === 'Client' && t.ClientUserID !== userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    // Pull the timeline from history table
+    const [history] = await pool.query(
+      `SELECT TicketID, Status, Notes, UpdatedByUserID, UpdatedAt
+       FROM tblTicketStatusHistory
+       WHERE TicketID = ?
+       ORDER BY UpdatedAt ASC`,
+      [ticketId]
+    );
+
+    // (Optional) include created event if you don’t already log it into tblTicketStatusHistory
+    const createdEvent = {
+      TicketID: t.TicketID,
+      Status: 'Created',
+      Notes: t.Description || null,
+      UpdatedByUserID: t.ClientUserID,
+      UpdatedAt: t.CreatedAt || t.SubmittedAt || t.CreatedOn || t.CreatedDate || null
+    };
+
+    const withCreated = createdEvent.UpdatedAt ? [createdEvent, ...history] : history;
+
+    res.json({ ticketId: ticketId, timeline: withCreated });
+  } catch (err) {
+    console.error('Error fetching history:', err);
+    res.status(500).json({ message: 'Error fetching history' });
+  }
+});
+
+// -------------------------------------------------------------------------------------
+// Get ticket appointments (if you have tblAppointments)
+// -------------------------------------------------------------------------------------
+router.get('/:ticketId/appointments', authMiddleware, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    const { ticketId } = req.params;
+
+    const [tickets] = await pool.query('SELECT * FROM tblTickets WHERE TicketID = ?', [ticketId]);
+    if (!tickets.length) return res.status(404).json({ message: 'Ticket not found' });
+
+    const t = tickets[0];
+    if (role === 'Client' && t.ClientUserID !== userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT AppointmentID, TicketID, ContractorUserID, ScheduledAt, Status, Notes, CreatedAt, UpdatedAt
+       FROM tblAppointments
+       WHERE TicketID = ?
+       ORDER BY ScheduledAt DESC`,
+      [ticketId]
+    );
+
+    res.json({ ticketId, appointments: rows });
+  } catch (err) {
+    console.error('Error fetching appointments:', err);
+    res.status(500).json({ message: 'Error fetching appointments' });
+  }
+});
+
 export default router;
