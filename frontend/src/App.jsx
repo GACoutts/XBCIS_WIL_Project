@@ -13,13 +13,18 @@ import DebugHUD from './components/DebugHUD.jsx';
 
 // Role management components
 import RequestRole from './RequestRole.jsx';
+import ManageRoles from './components/ManageRoles.jsx';
+import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
 // import ContractorDashboard from './ContractorDashboard.jsx'; // Optional for later
 
 export default function App() {
+  // Only show DebugHUD in development mode
+  const isDevelopment = import.meta.env.DEV || import.meta.env.VITE_DEBUG_HUD === 'true';
+  
   return (
     <>
-      {/* Debug overlay always visible in bottom-right */}
-      <DebugHUD />
+      {/* Debug overlay - only in development */}
+      {isDevelopment && <DebugHUD />}
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
@@ -72,6 +77,25 @@ export default function App() {
 
         {/* Role management */}
         <Route path="/request-role" element={<ProtectedRoute><RequestRole /></ProtectedRoute>} />
+        
+        {/* Staff role management routes */}
+        <Route
+          path="/staff/manage-roles"
+          element={
+            <RoleRoute roles={['Staff']}>
+              <ManageRoles />
+            </RoleRoute>
+          }
+        />
+        
+        <Route
+          path="/staff/role-requests"
+          element={
+            <RoleRoute roles={['Staff']}>
+              <ReviewRoleRequest />
+            </RoleRoute>
+          }
+        />
 
         {/* Optional contractor route for future use
         <Route
