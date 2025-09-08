@@ -1,8 +1,51 @@
 import React, { useEffect, useState } from 'react';
 const API = 'http://localhost:5000/api';
 
+const testItems = [
+  {
+    RequestID: '1',
+    FullName: 'John Doe',
+    Email: 'john.doe@example.com',
+    CurrentRole: 'Client',
+    RequestedRole: 'Landlord',
+    Notes: 'Needs property management access.',
+  },
+  {
+    RequestID: '2',
+    FullName: 'Jane Smith',
+    Email: 'jane.smith@example.com',
+    CurrentRole: 'Contractor',
+    RequestedRole: 'Staff',
+    Notes: 'Request for admin privileges.',
+  },
+  {
+    RequestID: '3',
+    FullName: 'Mike Johnson',
+    Email: 'mike.johnson@example.com',
+    CurrentRole: 'Client',
+    RequestedRole: 'Contractor',
+    Notes: '',
+  },
+  {
+    RequestID: '4',
+    FullName: 'Sarah Lee',
+    Email: 'sarah.lee@example.com',
+    CurrentRole: 'Staff',
+    RequestedRole: 'Landlord',
+    Notes: 'Long note about needing multi-role access for testing purposes.',
+  },
+  {
+    RequestID: '5',
+    FullName: 'Emily Brown',
+    Email: 'emily.brown@example.com',
+    CurrentRole: 'Landlord',
+    RequestedRole: 'Client',
+    Notes: 'Temporary role change requested.',
+  },
+];
+
 export default function ReviewRoleRequests() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(testItems);
   const [err, setErr] = useState('');
 
   async function load(status = 'Pending') {
@@ -12,7 +55,7 @@ export default function ReviewRoleRequests() {
     if (!res.ok) { setErr(data?.message || 'Failed to load'); return; }
     setItems(data.requests);
   }
-  useEffect(() => { load('Pending'); }, []);
+  //useEffect(() => { load('Pending'); }, []);
 
   async function decide(id, action) {
     setErr('');
@@ -24,24 +67,29 @@ export default function ReviewRoleRequests() {
   }
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <h3>Pending Role Requests</h3>
-      {err && <div style={{ color: 'red' }}>{err}</div>}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div className="admin-card">
+      <div className="admin-card-header">
+        <h3>Pending Role Requests</h3>
+        {err && <div className="error-msg">{err}</div>}
+      </div>
+      <table className="review-roles-table">
         <thead>
-          <tr><th align="left">User</th><th align="left">Email</th><th>Current</th><th>Requested</th><th>Notes</th><th>Actions</th></tr>
+          <tr>
+            <th>User</th><th>Email</th><th>Current</th>
+            <th>Requested</th><th>Notes</th><th>Actions</th>
+          </tr>
         </thead>
         <tbody>
           {items.map(r => (
             <tr key={r.RequestID}>
               <td>{r.FullName}</td>
               <td>{r.Email}</td>
-              <td align="center">{r.CurrentRole}</td>
-              <td align="center">{r.RequestedRole}</td>
+              <td>{r.CurrentRole}</td>
+              <td>{r.RequestedRole}</td>
               <td>{r.Notes || ''}</td>
               <td>
-                <button onClick={() => decide(r.RequestID, 'approve')}>Approve</button>
-                <button onClick={() => decide(r.RequestID, 'reject')} style={{ marginLeft: 8 }}>Reject</button>
+                <button className="admin-btn" onClick={() => decide(r.RequestID, 'approve')}>Approve</button>
+                <button className="admin-btn" onClick={() => decide(r.RequestID, 'reject')}>Reject</button>
               </td>
             </tr>
           ))}

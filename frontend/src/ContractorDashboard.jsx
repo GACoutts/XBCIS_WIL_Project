@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import gearIcon from './assets/setting.png';
+import { useAuth } from "./context/AuthContext.jsx";
+import './styles/ContractorDashboard.css';
 
 function CDashboard() {
   // State for active tab
   const [activeTab, setActiveTab] = useState('assigned');
+  const { logout } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
   
   // Sample data for assigned jobs
   const assignedJobs = [
@@ -67,6 +71,11 @@ function CDashboard() {
     }
   ];
 
+  const handleLogout = async () => {
+    await logout();
+    window.location.reload(); // redirect to login or refresh
+  };
+
   return (
     <>
       <nav className="navbar">
@@ -90,7 +99,17 @@ function CDashboard() {
           </ul>
         </div>
         <div className="navbar-profile">
-          <img src="https://placehold.co/40" alt="profile" />
+          <button
+            className="profile-btn"
+            onClick={() => setShowLogout(!showLogout)}
+          >
+            <img src="https://placehold.co/40" alt="profile" />
+          </button>
+          {showLogout && (
+            <div className="logout-popup">
+              <button onClick={handleLogout}>Log Out</button>
+            </div>
+          )}
         </div>
       </nav>
 

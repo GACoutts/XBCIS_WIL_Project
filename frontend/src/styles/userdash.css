@@ -80,13 +80,14 @@
   align-items: center;
   justify-content: center;
   text-align: center;
+  text-decoration: none;
 }
 
 /* headings */
-.dashboard-page .dashboard-title { padding-left: 90px; }
+.dashboard-page .dashboard-title { padding-left: 90px; margin-top: -50px; }
 .dashboard-page .sub-title {
   padding-left: 91px;
-  margin-top: -15px;
+  margin-top: -25px;
   font-size: 13px;
   margin-bottom: -60px;
 }
@@ -207,4 +208,21 @@
   padding: 60px 0; /* space from navbar and top content */
   font-size: 18px;
   color: #555;
+}
+
+.dashboard-page .navbar-profile {
+  position: relative;
+}
+
+.dashboard-page .logout-popup button {
+  background-color: #FBD402;
+  color: black;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  left: 50%;
+  transform: translateX(-8%) translateY(15%);
 }

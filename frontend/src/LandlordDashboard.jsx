@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend
 } from "recharts";
+import { useAuth } from "./context/AuthContext.jsx";
 
 import {
   getTickets,
@@ -24,6 +25,14 @@ function LandlordDashboard() {
   const [tickets, setTickets] = useState([]);
   const [quotes, setQuotes] = useState({}); // { ticketId: [quotes...] }
   const [rangeMonths, setRangeMonths] = useState(3);
+  const { logout } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
+
+    const handleLogout = async () => {
+    await logout();
+    window.location.reload(); // redirect to login or refresh
+  };
+
 
   // Fetch tickets
   useEffect(() => {
@@ -178,7 +187,17 @@ function LandlordDashboard() {
           </ul>
         </div>
         <div className="navbar-profile">
-          <img src="https://placehold.co/40" alt="profile" />
+          <button
+            className="profile-btn"
+            onClick={() => setShowLogout(!showLogout)}
+          >
+            <img src="https://placehold.co/40" alt="profile" />
+          </button>
+          {showLogout && (
+            <div className="logout-popup">
+              <button onClick={handleLogout}>Log Out</button>
+            </div>
+          )}
         </div>
       </nav>
 

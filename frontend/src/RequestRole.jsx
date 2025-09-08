@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './styles/requestrole.css';
 
 const API = 'http://localhost:5000/api';
 
@@ -20,32 +21,46 @@ export default function RequestRole() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to submit request');
-      setMsg(data.message || 'Request submitted.');
+      setMsg(data.message || 'Request submitted');
     } catch (e) {
       setErr(e.message);
     }
   }
 
   return (
-    <div style={{ maxWidth: 560, margin: '24px auto', padding: 16, border: '1px solid #ddd', borderRadius: 8 }}>
+    <div className="request-role-page-container">
+      {msg && <div className="msg">{msg}</div>}
+      {err && <div className="err">{err}</div>}
+    <div className="admin-card">
       <h2>Request a Role Upgrade</h2>
+      <hr className="underline" />
       <p>Choose the role you want. Staff will review and approve/deny.</p>
-      {msg && <div style={{ color: 'green', marginBottom: 8 }}>{msg}</div>}
-      {err && <div style={{ color: 'red', marginBottom: 8 }}>{err}</div>}
 
       <form onSubmit={submit}>
         <label>Requested role</label>
-        <select value={requestedRole} onChange={e => setRequestedRole(e.target.value)} required>
+        <select
+          value={requestedRole}
+          onChange={e => setRequestedRole(e.target.value)}
+          required
+        >
           <option value="Landlord">Landlord</option>
           <option value="Contractor">Contractor</option>
           <option value="Staff">Staff</option>
         </select>
 
-        <label style={{ display: 'block', marginTop: 12 }}>Notes (optional)</label>
-        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} style={{ width: '100%' }} />
-
-        <button type="submit" style={{ marginTop: 12 }}>Submit request</button>
+        <label>Notes (optional)</label>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          rows={3}
+        />
+      <div className="submit-container">
+        <button type="submit" className="admin-btn">
+          Submit request
+        </button>
+      </div>
       </form>
+    </div>
     </div>
   );
 }

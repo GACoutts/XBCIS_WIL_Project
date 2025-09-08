@@ -1,15 +1,16 @@
 .logticket {
-  --navbar-height: 60px; /* or match your navbar's actual height */
+  --navbar-height: 60px;
   background: white;
   font-family: Arial, sans-serif;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  min-height: 100vh; /* full viewport height */
+  height: 100vh;
   margin: 0;
-  padding-top: var(--navbar-height); /* leave space for navbar */
+  padding-top: calc(var(--navbar-height) + 20px);
   box-sizing: border-box;
-  overflow-y: auto; /* enable vertical scrolling */
+  overflow: hidden;
+  position: relative;
 }
 
 /* NAVBAR */
@@ -58,18 +59,22 @@
   width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
 }
 
-/* MAIN CONTAINER (single column) */
+/* MAIN CONTAINER */
 .logticket .container {
   background-color: #FBD402;
   border: 1px solid black;
   border-radius: 5px;
-  padding: 16px 20px;
+  padding: 24px 20px;
   width: 700px;
   text-align: center;
-  margin-top: 20px; /* small spacing from top */
   height: auto;
   max-height: none;
-  overflow: visible; /* allow content to expand */
+  position: absolute;
+  transform: translateY(-90px) scale(0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 200px;
 }
 
 /* Inputs inside container */
@@ -123,21 +128,22 @@
 .logticket .underline {
   border: none;
   border-top: 1px solid black;
-
-  /* keep underline inside container so it doesn't peek out */
   margin-left: 0;
   margin-right: 0;
-
-  margin-top: 30px;
-  margin-bottom: 10px;
   width: auto;
 }
-.logticket .header { padding-top: 6px; padding-bottom: 6px; margin-bottom: 15px;} 
+
 .logticket .header .text h2 {
   margin-top: 0;                     
   text-align: center;
-  margin-bottom: 15px;
-  font-size: 25px;
+  font-size: 22px;
+}
+
+/* Confirmation text */
+.logticket .text {
+  font-size: 18px;
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* Upload button row */
@@ -147,8 +153,8 @@
   gap: 20px;
   align-items: center;
   padding-left: 20px;
-  margin-top: 10px; /* increase spacing from previous element */
-  margin-bottom: 15px; /* add space below so urgency isn't too close */
+  margin-top: 10px;
+  margin-bottom: 15px;
   width: 100%;
   max-width: 500px;
 }
@@ -182,10 +188,9 @@
   width: fit-content;
   max-width: 100%;
 }
-/* Move the optional file upload label slightly lower */
 .logticket .input-head.attach-label {
   display: block;
-  margin-top: 15px; /* adjust as needed */
+  margin-top: 15px;
 }
 .logticket .urgency-options label {
   display: flex;
@@ -226,4 +231,29 @@
   display: flex; align-items: center; justify-content: center;
   text-align: center;
   border: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.logticket .container-confirmation {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  min-height: 150px;
+  background-color: #FBD402;
+  border: 1px solid black;
+  border-radius: 5px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 1100;
 }
