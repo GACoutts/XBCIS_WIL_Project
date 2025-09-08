@@ -1,23 +1,190 @@
-const express = require("express");
-const router = express.Router();
-const db = require("../db"); // adjust if necessary
-const authMiddleware = require("../middleware/authMiddleware");
+import express from 'express';
+import pool from '../db.js';
+import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
 
-// GET /api/landlord/tickets
-router.get("/tickets", authMiddleware, async (req, res) => {
+const router = express.Router();
+
+// GET /api/landlord/tickets - Enhanced endpoint with comprehensive data
+router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
-    if (req.user.role !== "landlord") {
-      return res.status(403).json({ message: "Unauthorized" });
+    const { userId } = req.user;
+    const { limit = 50, offset = 0, status, dateFrom, dateTo } = req.query;
+
+    // Validate query parameters
+    const limitNum = Math.min(Math.max(parseInt(limit) || 50, 1), 100);
+    const offsetNum = Math.max(parseInt(offset) || 0, 0);
+
+    // Build WHERE clause for filtering
+    // NOTE: tblTickets does not have a direct LandlordUserID column in the schema.
+    // We infer landlord ownership via approvals made by this landlord on quotes
+    // associated with the ticket.
+    let whereConditions = [
+      `EXISTS (
+         SELECT 1
+         FROM tblQuotes qx
+         JOIN tblLandlordApprovals lax ON lax.QuoteID = qx.QuoteID
+         WHERE qx.TicketID = t.TicketID AND lax.LandlordUserID = ?
+       )`
+    ];
+    let queryParams = [userId];
+
+    if (status) {
+      whereConditions.push('t.CurrentStatus = ?');
+      queryParams.push(status);
     }
 
-    const [tickets] = await db.query(
-      "SELECT id AS TicketID, propertyAddress AS PropertyAddress, description AS Description, submittedAt AS SubmittedAt FROM tblTickets WHERE landlordId = ?",
-      [req.user.userId]
-    );
+    if (dateFrom) {
+      whereConditions.push('t.CreatedAt >= ?');
+      queryParams.push(dateFrom);
+    }
 
-    res.json({ tickets });
+    if (dateTo) {
+      whereConditions.push('t.CreatedAt <= ?');
+      queryParams.push(dateTo);
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
+    // Main query with comprehensive data including quotes and appointments
+    const ticketsQuery = `
+      SELECT 
+        t.TicketID,
+        t.TicketRefNumber,
+        t.Description,
+        t.UrgencyLevel,
+        t.CreatedAt,
+        t.CurrentStatus,
+        
+        -- Client information
+        client.FullName as ClientName,
+        client.Email as ClientEmail,
+        client.Phone as ClientPhone,
+        
+        -- Quote summary (latest approved quote)
+        q.QuoteID,
+        q.QuoteAmount,
+        q.QuoteStatus,
+        q.SubmittedAt as QuoteSubmittedAt,
+        contractor.FullName as ContractorName,
+        contractor.Email as ContractorEmail,
+        
+        -- Appointment summary (next scheduled appointment)
+        cs.ScheduleID,
+        cs.ProposedDate as AppointmentDate,
+        cs.ClientConfirmed as AppointmentConfirmed,
+        
+        -- Landlord approval status
+        la.ApprovalStatus as LandlordApprovalStatus,
+        la.ApprovedAt as LandlordApprovedAt
+        
+      FROM tblTickets t
+      
+      -- Join client information
+      LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
+      
+      -- Join latest approved quote (prioritize approved, then latest)
+      LEFT JOIN tblQuotes q ON t.TicketID = q.TicketID 
+        AND q.QuoteID = (
+          SELECT q2.QuoteID FROM tblQuotes q2 
+          WHERE q2.TicketID = t.TicketID 
+          ORDER BY 
+            CASE WHEN q2.QuoteStatus = 'Approved' THEN 1 ELSE 2 END,
+            q2.SubmittedAt DESC
+          LIMIT 1
+        )
+      
+      -- Join contractor info for the quote
+      LEFT JOIN tblusers contractor ON q.ContractorUserID = contractor.UserID
+      
+      -- Join next appointment
+      LEFT JOIN tblContractorSchedules cs ON t.TicketID = cs.TicketID
+        AND cs.ScheduleID = (
+          SELECT cs2.ScheduleID FROM tblContractorSchedules cs2
+          WHERE cs2.TicketID = t.TicketID
+          AND cs2.ProposedDate >= NOW()
+          ORDER BY cs2.ProposedDate ASC
+          LIMIT 1
+        )
+      
+      -- Join landlord approval
+      LEFT JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
+      
+      WHERE ${whereClause}
+      ORDER BY t.CreatedAt DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    queryParams.push(limitNum, offsetNum);
+
+    const [tickets] = await pool.execute(ticketsQuery, queryParams);
+
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM tblTickets t
+      WHERE ${whereClause}
+    `;
+    
+    const [countResult] = await pool.execute(countQuery, queryParams.slice(0, -2));
+    const totalCount = countResult[0].total;
+
+    // Transform the results to include nested objects
+    const formattedTickets = tickets.map(ticket => ({
+      ticketId: ticket.TicketID,
+      referenceNumber: ticket.TicketRefNumber,
+      description: ticket.Description,
+      urgencyLevel: ticket.UrgencyLevel,
+      status: ticket.CurrentStatus,
+      createdAt: ticket.CreatedAt,
+      
+      client: {
+        name: ticket.ClientName,
+        email: ticket.ClientEmail,
+        phone: ticket.ClientPhone
+      },
+      
+      quote: ticket.QuoteID ? {
+        id: ticket.QuoteID,
+        amount: parseFloat(ticket.QuoteAmount || 0),
+        status: ticket.QuoteStatus,
+        submittedAt: ticket.QuoteSubmittedAt,
+        contractor: {
+          name: ticket.ContractorName,
+          email: ticket.ContractorEmail
+        },
+        landlordApproval: {
+          status: ticket.LandlordApprovalStatus,
+          approvedAt: ticket.LandlordApprovedAt
+        }
+      } : null,
+      
+      nextAppointment: ticket.ScheduleID ? {
+        id: ticket.ScheduleID,
+        scheduledDate: ticket.AppointmentDate,
+        clientConfirmed: ticket.AppointmentConfirmed
+      } : null
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        tickets: formattedTickets,
+        pagination: {
+          total: totalCount,
+          limit: limitNum,
+          offset: offsetNum,
+          hasMore: offsetNum + limitNum < totalCount
+        }
+      }
+    });
+    
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error('Error fetching landlord tickets:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching tickets', 
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
@@ -122,4 +289,4 @@ router.get("/tickets/:ticketId/appointments", authMiddleware, async (req, res) =
   }
 });
 
-module.exports = router;
+export default router;
