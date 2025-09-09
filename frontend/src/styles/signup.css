@@ -1,0 +1,195 @@
+/*SIGN UP PAGE*/
+
+.signup-page-container {
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  height: 100vh;   
+  margin-top: 25px;
+  font-family: Arial, sans-serif;
+  position: relative;
+}
+
+/* The yellow card */
+.signup-page-container .signup-container {
+  background: #FBD402;
+  border: 1px solid black;
+  border-radius: 5px;
+  padding: 5px 10px;
+  margin: 5px auto;
+  text-align: center;
+  width: 350px;
+  height: 450px;
+  position: relative;
+  transform: scale(1.25);
+  transform-origin: center center;
+}
+
+/* Header + underline */
+.signup-page-container .header {
+  width: 205px;
+  margin: 0 auto;
+  padding: 10px 0;
+}
+.signup-page-container .header h2 {
+  text-align: left;
+  margin: 0;
+  font-size: 20px;
+  margin-bottom: -2px;
+}
+.signup-page-container .underline {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  border: none;
+  border-top: 1px solid black;
+  margin: 0;
+  width: 100%;
+}
+
+/* Inputs layout */
+.signup-page-container .inputs {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 205px;
+  margin: 0 auto;
+}
+.signup-page-container .input {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 5px;
+}
+.signup-page-container .input-head {
+  text-align: left;
+  margin-bottom: 1px;
+  font-size: 13px;
+}
+.signup-page-container .input input {
+  padding: 3px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Small text blocks */
+.signup-page-container .got-account {
+  color: black;
+  font-size: 12px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.signup-page-container .forgot-password {
+  cursor: pointer;
+  color: black;
+  font-size: 12px;
+}
+
+/* Submit button */
+.signup-page-container .submit-container { text-align: center; }
+.signup-page-container .submit {
+  border-radius: 5px;
+  background: black;
+  cursor: pointer;
+  font-size: 13px;
+  color: white;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  display: inline-block;
+  width: 100px;
+  padding: 0;
+  line-height: 22px;
+  margin-top: 7px;
+  border: none;
+}
+
+/* Logo placeholder */
+.signup-page-container .logo-placeholder {
+  background: #b0b0b0;
+  color: black;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px auto;
+  width: 150px;
+  text-align: center;
+  font-size: 12px;
+}
+
+/* Role selection */
+.signup-page-container .role-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.signup-page-container .role-selection span {
+  font-size: 11px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.signup-page-container .role-circle {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;            /* belt & suspenders */
+  min-height: 16px;
+  flex: 0 0 16px; 
+  border: 2px solid black;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  display: inline-block;
+}
+.signup-page-container .role-circle.active { background: black; }
+
+.signup-page-container .link {
+  text-decoration: none;  
+  color: black;           
+}
+
+.signup-page-container .input-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.signup-page-container .error {
+  background: #ffe8e8;
+  border: 1px solid #f6caca;
+  color: #7a1f1f;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 4px 0 0 0;
+  text-align: center;
+}
+
+.signup-page-container .input-row input {
+  flex: 0 0 200px;   
+}
+
+.signup-page-container .input-row .error {
+  font-size: 11px;
+  margin-left: 93px;
+  white-space: nowrap; 
+}
+
+.signup-page-container .success {
+  background: #e8f5e8;
+  border: 1px solid #caf6ca;
+  color: #1f7a1f;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 4px auto 0 auto;
+  text-align: center;
+  width: 350px; /* same width as your signup box */
+}

@@ -1,0 +1,135 @@
+html, body, #root {
+  height: 100%;
+}
+
+#root {
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: block;
+}
+
+/* Page background & centering */
+.request-role-page-container {
+  background: white;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  transform: scale(1.2);
+  transform-origin: center center;
+  flex-direction: column;
+}
+
+/* Card container (scoped to avoid collisions) */
+.request-role-page-container .admin-card {
+  background: #FBD402; 
+  border: 1px solid black; 
+  border-radius: 5px;
+  margin: 24px auto;
+  text-align: center;
+  width: 300px;
+  position: relative;
+  font-family: Arial, sans-serif;
+}
+
+/* Header */
+.request-role-page-container .admin-card h2 {
+  text-align: center;
+  margin: 10px 0 2px 0;
+  font-family: Arial, sans-serif;
+  font-size: 20px;
+}
+
+/* Underline */
+.request-role-page-container .admin-card .underline {
+  border: none;
+  border-top: 1px solid black;
+  margin: 0;
+  width: 100%;
+}
+
+/* Form and inputs */
+.request-role-page-container .admin-card form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 260px;
+  margin: 0 auto;
+}
+
+.request-role-page-container .admin-card label {
+  text-align: left;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  margin-bottom: 1px;
+  margin-top: 8px;
+}
+
+.request-role-page-container .admin-card select,
+.request-role-page-container .admin-card textarea {
+  padding: 3px;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+  border: 1px solid black;
+  border-radius: 3px;
+}
+
+.request-role-page-container .admin-card textarea {
+  resize: none;
+}
+
+/* Submit button */
+.request-role-page-container .admin-card .admin-btn {
+  border-radius: 5px;
+  background: black;
+  cursor: pointer;
+  font-size: 12px;
+  color: white;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  display: inline-block;
+  width: 150px;
+  padding: 1px;
+  line-height: 25px;
+  margin-top: 12px;
+  border: none;
+  font-weight: 500;
+}
+
+.request-role-page-container .admin-card .submit-container {
+  text-align: center;
+}
+
+/* Messages (success/error) */
+.request-role-page-container .msg {
+  background: #e8ffe8;
+  border: 1px solid #caf6ca;
+  color: #1f7a1f;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  width: 190px;
+  max-width: 90%;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  transform: translateY(18px);
+}
+
+.request-role-page-container .err {
+  background: #ffe8e8;
+  border: 1px solid #f6caca;
+  color: #7a1f1f;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  width: 190px;
+  max-width: 90%;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  transform: translateY(18px);
+}
