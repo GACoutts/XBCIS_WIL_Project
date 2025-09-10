@@ -10,6 +10,12 @@ XBCIS Work Integrated Learning project developing a comprehensive building manag
 npm run dev:both
 ```
 
+**Bypass Powershell:** This will bypass the restriction that powershell poses
+
+```bash
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
 ### ✅ Prerequisites
 
 Before running the project, ensure you have:
