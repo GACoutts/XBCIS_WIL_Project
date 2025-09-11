@@ -44,7 +44,7 @@ const testItems = [
   },
 ];
 
-export default function ReviewRoleRequests() {
+export default function ReviewRoleRequests({ newTickets = [] }) {
   const [items, setItems] = useState(testItems);
   const [err, setErr] = useState('');
 
@@ -66,6 +66,12 @@ export default function ReviewRoleRequests() {
     await load('Pending');
   }
 
+  // Accept/Reject for tickets
+  async function handleTicketAction(ticketId, action) {
+    // TODO: Implement backend call for ticket approval/rejection if needed
+    alert(`Ticket ${ticketId} ${action}ed`);
+  }
+
   return (
     <div className="admin-card">
       <div className="admin-card-header">
@@ -80,8 +86,9 @@ export default function ReviewRoleRequests() {
           </tr>
         </thead>
         <tbody>
+          {/* Role Requests */}
           {items.map(r => (
-            <tr key={r.RequestID}>
+            <tr key={`role-${r.RequestID}`}>
               <td>{r.FullName}</td>
               <td>{r.Email}</td>
               <td>{r.CurrentRole}</td>
@@ -93,7 +100,26 @@ export default function ReviewRoleRequests() {
               </td>
             </tr>
           ))}
-          {!items.length && <tr><td colSpan={6} style={{ padding: 12 }}>No pending requests.</td></tr>}
+          {/* New Tickets */}
+          {newTickets.map(t => (
+            <tr key={`ticket-${t.TicketID}`}>
+              <td>{t.FullName || '-'}</td>
+              <td>{t.Email || '-'}</td>
+              <td>{t.CurrentRole || '-'}</td>
+              <td>{"Ticket: " + (t.TicketRefNumber || t.TicketID)}</td>
+              <td>{t.Description}</td>
+              <td>
+                <button className="admin-btn" onClick={() => handleTicketAction(t.TicketID, 'accept')}>Accept</button>
+                <button className="admin-btn" onClick={() => handleTicketAction(t.TicketID, 'reject')}>Reject</button>
+              </td>
+            </tr>
+          ))}
+          {/* Empty State */}
+          {!items.length && !newTickets.length && (
+            <tr>
+              <td colSpan={6} style={{ padding: 12 }}>No pending requests.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

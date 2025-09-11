@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import gearIcon from "./assets/settings.png";
 import "./styles/staffdash.css";
 import ManageRoles from './components/ManageRoles.jsx';
@@ -9,32 +9,8 @@ import { useAuth } from "./context/AuthContext.jsx";
 function StaffDashboard() {
 
   const [showLogout, setShowLogout] = useState(false);
-  const [tickets, setTickets] = useState([
-    {
-      id: "#029495",
-      property: "23 Apple Road",
-      issue: "Leaky Tap",
-      submitted: "04-03-2025",
-      urgency: "High",
-      status: "Awaiting Appointment"
-    },
-    {
-      id: "#029495",
-      property: "23 Apple Road",
-      issue: "Leaky Tap",
-      submitted: "04-03-2025",
-      urgency: "Medium",
-      status: "Approved"
-    },
-    {
-      id: "#029495",
-      property: "23 Apple Road",
-      issue: "Leaky Tap",
-      submitted: "04-03-2025",
-      urgency: "Low",
-      status: "Rejected"
-    }
-  ]);
+  const [allTickets, setAllTickets] = useState([]);
+  const [newTickets, setNewTickets] = useState([]);
 
   const contractorsData = [
     {
@@ -84,6 +60,23 @@ function StaffDashboard() {
       totalSpend: "R0"
     }
   ];
+
+  useEffect(() => {
+    async function fetchTickets() {
+      try {
+        const res = await fetch("/api/tickets", { credentials: "include" });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.tickets)) {
+          setAllTickets(data.tickets);
+          setNewTickets(data.tickets.filter(t => t.CurrentStatus === "New"));
+        }
+      } catch (err) {
+        setAllTickets([]);
+        setNewTickets([]);
+      }
+    }
+    fetchTickets();
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -192,10 +185,7 @@ function StaffDashboard() {
     {/* Staff admin panel */}
       <section className="staff-admin-panel">
         <h2 className="section-title">Role Requests</h2>
-        <ReviewRoleRequests />
-
-        <h2 className="section-title" style={{ marginTop: 16 }}>Manage User Roles</h2>
-        <ManageRoles />
+        <ReviewRoleRequests /> {/* No newTickets prop */}
       </section>
 
       <div className="sub-titles-container">
@@ -208,6 +198,7 @@ function StaffDashboard() {
       </div>
       <div className="cards-wrapper">
 
+        {/* Awaiting Tickets Section */}
         <div className="awaiting-tickets-container">
           <div className="table-header">
             <div className="header-content">
@@ -217,48 +208,38 @@ function StaffDashboard() {
                 <div className="header-item">Issue</div>
                 <div className="header-item">Submitted</div>
                 <div className="header-status">Urgency/Status</div>
+                <div className="header-actions">Actions</div>
               </div>
             </div>
           </div>
 
-          {tickets.map((ticket, index) => (
-            <div key={index} className="ticket-card">
+          {newTickets.map((ticket, index) => (
+            <div key={ticket.TicketID || index} className="ticket-card">
               <div className="ticket-layout">
-                <div className="ticket-content">
-                  <div className="ticket-info-grid">
-                    <div className="info-value ticket-id">{ticket.id}</div>
-                    <div className="info-value">{ticket.property}</div>
-                    <div className="info-value issue-cell">
-                      <span>{ticket.issue}</span>
-                      <img src={gearIcon} alt="Settings" className="gear-icon" />
-                    </div>
-                    <div className="info-value">{ticket.submitted}</div>
-                    <div className="urgency-status-column">
-                      <span className={`urgency-badge ${getUrgencyColor(ticket.urgency)}`}>
-                        {ticket.urgency}
-                      </span>
-                      <span className={`status-badge ${getStatusColor(ticket.status)}`}>
-                        {ticket.status}
-                      </span>
-                    </div>
+                <div className="ticket-info-grid">
+                  <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
+                  <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
+                  <div className="info-value issue-cell">
+                    <span>{ticket.Description || ticket.issue}</span>
+                    <img src={gearIcon} alt="Settings" className="gear-icon" />
+                  </div>
+                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+                  <div className="urgency-status-column">
+                    <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
+                      {ticket.UrgencyLevel || ticket.urgency}
+                    </span>
+                    <span className={`status-badge ${getStatusColor(ticket.CurrentStatus || ticket.status)}`}>
+                      {ticket.CurrentStatus || ticket.status}
+                    </span>
                   </div>
                   <div className="action-buttons">
-                    <button
-                      className="action-btn assign-btn"
-                      onClick={() => handleAssignContractor(ticket.id)}
-                    >
+                    <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
                       Assign Contractor
                     </button>
-                    <button
-                      className="action-btn quote-btn"
-                      onClick={() => handleViewQuote(ticket.id)}
-                    >
+                    <button className="action-btn quote-btn" onClick={() => handleViewQuote(ticket.TicketID)}>
                       View Quote
                     </button>
-                    <button
-                      className="action-btn status-btn"
-                      onClick={() => handleChangeStatus(ticket.id)}
-                    >
+                    <button className="action-btn status-btn" onClick={() => handleChangeStatus(ticket.TicketID)}>
                       Change Status
                     </button>
                   </div>
