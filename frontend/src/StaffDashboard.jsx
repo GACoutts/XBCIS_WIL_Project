@@ -135,6 +135,15 @@ function StaffDashboard() {
     return `status-${statusLower}`;
   };
 
+  // Filter new tickets to only those less than a month old
+  const recentNewTickets = newTickets.filter(ticket => {
+    if (!ticket.CreatedAt) return false;
+    const createdDate = new Date(ticket.CreatedAt);
+    const now = new Date();
+    const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
+    return diffDays <= 31;
+  });
+
   return (
     <>
       <nav className="navbar">
@@ -198,56 +207,61 @@ function StaffDashboard() {
       </div>
       <div className="cards-wrapper">
 
-        {/* Awaiting Tickets Section */}
-        <div className="awaiting-tickets-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="header-grid">
-                <div className="header-item">Ticket ID</div>
-                <div className="header-item">Property</div>
-                <div className="header-item">Issue</div>
-                <div className="header-item">Submitted</div>
-                <div className="header-status">Urgency/Status</div>
-                <div className="header-actions">Actions</div>
-              </div>
-            </div>
-          </div>
-
-          {newTickets.map((ticket, index) => (
-            <div key={ticket.TicketID || index} className="ticket-card">
-              <div className="ticket-layout">
-                <div className="ticket-info-grid">
-                  <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-                  <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
-                  <div className="info-value issue-cell">
-                    <span>{ticket.Description || ticket.issue}</span>
-                    <img src={gearIcon} alt="Settings" className="gear-icon" />
-                  </div>
-                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-                  <div className="urgency-status-column">
-                    <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
-                      {ticket.UrgencyLevel || ticket.urgency}
-                    </span>
-                    <span className={`status-badge ${getStatusColor(ticket.CurrentStatus || ticket.status)}`}>
-                      {ticket.CurrentStatus || ticket.status}
-                    </span>
-                  </div>
-                  <div className="action-buttons">
-                    <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                      Assign Contractor
-                    </button>
-                    <button className="action-btn quote-btn" onClick={() => handleViewQuote(ticket.TicketID)}>
-                      View Quote
-                    </button>
-                    <button className="action-btn status-btn" onClick={() => handleChangeStatus(ticket.TicketID)}>
-                      Change Status
-                    </button>
-                  </div>
+        {/* Awaiting Tickets Section - only show if there are recent new tickets */}
+        {recentNewTickets.length > 0 && (
+          <div className="awaiting-tickets-container">
+            <div className="table-header">
+              <div className="header-content">
+                <div className="header-grid">
+                  <div className="header-item">Ticket ID</div>
+                  <div className="header-item">Property</div>
+                  <div className="header-item">Issue</div>
+                  <div className="header-item">Submitted</div>
+                  <div className="header-status">Urgency/Status</div>
+                  <div className="header-actions">Actions</div>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+
+            {recentNewTickets
+              .slice() // create a copy to avoid mutating state
+              .sort((a, b) => new Date(b.CreatedAt) - new Date(a.CreatedAt))
+              .map((ticket, index) => (
+                <div key={ticket.TicketID || index} className="ticket-card">
+                  <div className="ticket-layout">
+                    <div className="ticket-info-grid">
+                      <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
+                      <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
+                      <div className="info-value issue-cell">
+                        <span>{ticket.Description || ticket.issue}</span>
+                        <img src={gearIcon} alt="Settings" className="gear-icon" />
+                      </div>
+                      <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+                      <div className="urgency-status-column">
+                        <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
+                          {ticket.UrgencyLevel || ticket.urgency}
+                        </span>
+                        <span className={`status-badge ${getStatusColor(ticket.CurrentStatus || ticket.status)}`}>
+                          {ticket.CurrentStatus || ticket.status}
+                        </span>
+                      </div>
+                      <div className="action-buttons">
+                        <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
+                          Assign Contractor
+                        </button>
+                        <button className="action-btn quote-btn" onClick={() => handleViewQuote(ticket.TicketID)}>
+                          View Quote
+                        </button>
+                        <button className="action-btn status-btn" onClick={() => handleChangeStatus(ticket.TicketID)}>
+                          Change Status
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
 
         <div className="contractor-container">
           <div className="table-header">
