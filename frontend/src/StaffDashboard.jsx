@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from "./context/AuthContext.jsx";
 
 function StaffDashboard() {
-
+  const {logout} = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   const [allTickets, setAllTickets] = useState([]);
   const [newTickets, setNewTickets] = useState([]);
@@ -153,7 +153,7 @@ function StaffDashboard() {
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li>
-              <Link to="/">Dashboard</Link>
+              <Link to="/staff">Dashboard</Link>
             </li>
             <li>
               <Link to="/tickets">Tickets</Link>
