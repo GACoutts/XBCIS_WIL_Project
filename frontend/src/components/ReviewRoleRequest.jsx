@@ -122,28 +122,30 @@ export default function ReviewRoleRequests() {
       </table>
 
       <style jsx>{`
-        .toast-msg {
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          background: #4caf50;
-          color: white;
-          padding: 10px 20px;
-          border-radius: 5px;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-          z-index: 999;
-          animation: fadein 0.3s, fadeout 0.3s 2.7s;
-        }
+  .toast-msg {
+    position: fixed;
+    top: 80px;           /* push below nav bar */
+    left: 50%;           
+    transform: translateX(-50%); 
+    background: #4caf50;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    z-index: 2000;       /* higher than nav */
+    animation: fadein 0.3s, fadeout 0.3s 2.7s;
+  }
 
-        @keyframes fadein {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeout {
-          from { opacity: 1; transform: translateY(0); }
-          to { opacity: 0; transform: translateY(10px); }
-        }
-      `}</style>
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeout {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
+  }
+`}</style>
+
     </div>
   );
 }
