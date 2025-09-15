@@ -94,6 +94,27 @@ function StaffDashboard() {
     }
   };
 
+  const getEffectiveDate = (ticket) => {
+  if (!ticket.CreatedAt) return new Date();
+
+  const createdDate = new Date(ticket.CreatedAt);
+  const now = new Date();
+
+  // If ticket is older than 31 days, bump it monthly
+  const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
+
+  if (diffDays > 31) {
+    // Compute how many months old it is
+    const monthsOld = Math.floor(diffDays / 30);
+    // Push it forward by monthsOld months
+    const bumpedDate = new Date(createdDate);
+    bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
+    return bumpedDate;
+  }
+
+  return createdDate; // If <= 31 days, keep original date
+};
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'Awaiting Appointment': return 'status-awaiting';
@@ -103,13 +124,20 @@ function StaffDashboard() {
     }
   };
 
-  const recentNewTickets = newTickets.filter(ticket => {
-    if (!ticket.CreatedAt) return false;
-    const createdDate = new Date(ticket.CreatedAt);
-    const now = new Date();
-    const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-    return diffDays <= 31;
-  });
+  // Inside StaffDashboard component, replace recentNewTickets with:
+  const getDisplayStatus = (ticket) => {
+    if (!ticket.CurrentStatus) return "";
+
+    if (ticket.CurrentStatus === "New" && ticket.CreatedAt) {
+      const createdDate = new Date(ticket.CreatedAt);
+      const now = new Date();
+      const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
+      return diffDays <= 31 ? "New" : ""; // Hide "New" if older than 31 days
+    }
+
+    return ticket.CurrentStatus; // Show other statuses normally
+  };
+
 
   // Dummy data for contractors table
   const contractorsData = [
@@ -162,7 +190,7 @@ function StaffDashboard() {
       </div>
 
       <div className="cards-wrapper">
-        {recentNewTickets.length > 0 && (
+        {allTickets.length > 0 && (
           <div className="awaiting-tickets-container">
             <div className="table-header">
               <div className="header-content">
@@ -177,9 +205,9 @@ function StaffDashboard() {
               </div>
             </div>
 
-            {recentNewTickets
+            {allTickets
               .slice()
-              .sort((a, b) => new Date(b.CreatedAt) - new Date(a.CreatedAt))
+              .sort((a, b) => getEffectiveDate(b) - getEffectiveDate(a)) // sort by effective date
               .map((ticket, index) => (
                 <div key={ticket.TicketID || index} className="ticket-card">
                   <div className="ticket-layout">
@@ -195,8 +223,8 @@ function StaffDashboard() {
                         <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
                           {ticket.UrgencyLevel || ticket.urgency}
                         </span>
-                        <span className={`status-badge ${getStatusColor(ticket.CurrentStatus || ticket.status)}`}>
-                          {ticket.CurrentStatus || ticket.status}
+                        <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
+                          {getDisplayStatus(ticket) || ticket.status}
                         </span>
                       </div>
                       <div className="action-buttons">
@@ -287,53 +315,53 @@ function StaffDashboard() {
       )}
 
       <div className="sub-title2">
-  <h2>Property Stats</h2>
-</div>
-<div className="property-stats-container">
-  <div className="table-header">
-    <div className="header-content">
-      <div className="property-stats-header-grid">
-        <div className="header-item">Property</div>
-        <div className="header-item">Landlord</div>
-        <div className="header-item">Tenant</div>
-        <div className="header-item">Tickets Logged</div>
-        <div className="header-item">Total Spend</div>
+        <h2>Property Stats</h2>
       </div>
-    </div>
-  </div>
-
-  {propertyStatsData.map((property, index) => (
-    <div key={index} className="property-stats-card">
-      <div className="property-stats-layout">
-        <div className="property-stats-content">
-          <div className="property-stats-info-grid">
-            <div className="info-item">
-              <div className="info-value">{property.property}</div>
-            </div>
-            <div className="info-item">
-              <div className="info-value">{property.landlord}</div>
-            </div>
-            <div className="info-item">
-              <div className="info-value">{property.tenant}</div>
-            </div>
-            <div className="info-item">
-              <div className="tickets-logged-cell">
-                <div className="tickets-summary">
-                  <div className="total-tickets">Total: {property.ticketsLogged.total}</div>
-                  <div className="done-tickets">Done: {property.ticketsLogged.done}</div>
-                  <div className="progress-tickets">In Progress: {property.ticketsLogged.inProgress}</div>
-                </div>
-              </div>
-            </div>
-            <div className="info-item">
-              <div className="info-value total-spend">{property.totalSpend}</div>
+      <div className="property-stats-container">
+        <div className="table-header">
+          <div className="header-content">
+            <div className="property-stats-header-grid">
+              <div className="header-item">Property</div>
+              <div className="header-item">Landlord</div>
+              <div className="header-item">Tenant</div>
+              <div className="header-item">Tickets Logged</div>
+              <div className="header-item">Total Spend</div>
             </div>
           </div>
         </div>
+
+        {propertyStatsData.map((property, index) => (
+          <div key={index} className="property-stats-card">
+            <div className="property-stats-layout">
+              <div className="property-stats-content">
+                <div className="property-stats-info-grid">
+                  <div className="info-item">
+                    <div className="info-value">{property.property}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-value">{property.landlord}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-value">{property.tenant}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="tickets-logged-cell">
+                      <div className="tickets-summary">
+                        <div className="total-tickets">Total: {property.ticketsLogged.total}</div>
+                        <div className="done-tickets">Done: {property.ticketsLogged.done}</div>
+                        <div className="progress-tickets">In Progress: {property.ticketsLogged.inProgress}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-value total-spend">{property.totalSpend}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
-  ))}
-</div>
 
     </>
   );
