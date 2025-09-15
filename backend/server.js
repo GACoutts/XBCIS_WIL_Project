@@ -136,20 +136,21 @@ app.get("/api/health", async (_req, res) => {
 // -------------------------------------------------------------------------------------
 app.post("/api/register", authRateLimit, async (req, res) => {
   try {
-    const { fullName, email, password, phone } = req.body;
+    const { fullName, email, password, phone, role } = req.body;
     if (!fullName || !email || !password) return res.status(400).json({ message: "Missing required fields" });
 
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
     const hash = await bcrypt.hash(password, rounds);
-    const role = "Client";
+    const userRole = role || "Client"; // Use provided role or default to Client
 
+    // Set status to Inactive for all new users
     const [result] = await pool.execute(
-      "INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role) VALUES (?, ?, ?, ?, ?)",
-      [fullName, email, hash, phone || null, role]
+      "INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role, Status) VALUES (?, ?, ?, ?, ?, ?)",
+      [fullName, email, hash, phone || null, userRole, "Inactive"]
     );
 
-    setAuthCookie(res, { userId: result.insertId, role });
-    return res.status(201).json({ user: { userId: result.insertId, email, fullName, role }, message: "User registered successfully" });
+    setAuthCookie(res, { userId: result.insertId, role: userRole });
+    return res.status(201).json({ user: { userId: result.insertId, email, fullName, role: userRole }, message: "User registered successfully" });
   } catch (err) {
     if (err?.code === "ER_DUP_ENTRY") return res.status(409).json({ message: "Email already exists" });
     console.error(err);

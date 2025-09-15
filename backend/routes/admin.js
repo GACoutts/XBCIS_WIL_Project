@@ -508,4 +508,17 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// GET /inactive-users - List all users with Status = 'Inactive'
+router.get('/inactive-users', async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT UserID, FullName, Email, Role, Status FROM tblusers WHERE Status = 'Inactive' ORDER BY DateRegistered DESC`
+    );
+    return res.json({ users: rows });
+  } catch (err) {
+    console.error('Get inactive users error:', err);
+    return res.status(500).json({ message: 'Server error retrieving inactive users' });
+  }
+});
+
 export default router;
