@@ -97,6 +97,44 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// GET /contractors/active - List all active contractors
+router.get('/contractors/active', async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT UserID, FullName, Email 
+       FROM tblusers 
+       WHERE Role = 'Contractor' AND Status = 'Active' 
+       ORDER BY FullName ASC`
+    );
+
+    return res.json({ contractors: rows });
+  } catch (err) {
+    console.error('Get active contractors error:', err);
+    return res.status(500).json({ message: 'Server error retrieving contractors' });
+  }
+});
+
+// backend/routes/admin.js
+router.post('/contractor-schedule', async (req, res) => {
+  try {
+    const { TicketID, ContractorUserID, ProposedDate } = req.body;
+    if (!TicketID || !ContractorUserID || !ProposedDate) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    await pool.execute(
+      `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate)
+       VALUES (?, ?, ?)`,
+      [TicketID, ContractorUserID, ProposedDate]
+    );
+
+    return res.json({ message: 'Schedule created successfully' });
+  } catch (err) {
+    console.error('Contractor schedule error:', err);
+    return res.status(500).json({ message: 'Server error creating schedule' });
+  }
+});
+
 // GET /users/:id - Get specific user details
 router.get('/users/:id', async (req, res) => {
   try {
