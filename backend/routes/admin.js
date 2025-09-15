@@ -163,103 +163,73 @@ router.get('/users/:id', async (req, res) => {
 });
 
 // PUT /users/:id/role - Change user role (staff promotion functionality)
-router.put('/users/:id/role', async (req, res) => {
+router.put('/users/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.body;
+    const { status } = req.body;
     const { ip, userAgent } = getClientInfo(req);
 
-    if (!role) {
-      return res.status(400).json({ message: 'Role is required' });
-    }
+    if (!status) return res.status(400).json({ message: 'Status is required' });
+    const validStatuses = ['Active', 'Inactive', 'Suspended', 'Rejected'];
+    if (!validStatuses.includes(status))
+      return res.status(400).json({ message: 'Invalid status' });
 
-    const validRoles = ['Client', 'Landlord', 'Contractor', 'Staff'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ 
-        message: 'Invalid role. Must be one of: ' + validRoles.join(', ') 
-      });
-    }
-
-    // Get current user info
     const [rows] = await pool.execute(
       'SELECT UserID, FullName, Email, Role, Status FROM tblusers WHERE UserID = ? LIMIT 1',
       [id]
     );
-
-    if (!rows.length) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
+    if (!rows.length) return res.status(404).json({ message: 'User not found' });
     const targetUser = rows[0];
-    const oldRole = targetUser.Role;
+    const oldStatus = targetUser.Status;
 
-    // Prevent self-demotion from Staff role
-    if (req.user.userId === parseInt(id, 10) && req.user.role === 'Staff' && role !== 'Staff') {
-      return res.status(403).json({ message: 'Cannot demote yourself from Staff role' });
+    if (req.user.userId === parseInt(id, 10) && status !== 'Active') {
+      return res.status(403).json({ message: 'Cannot deactivate or suspend yourself' });
     }
-
-    // Check if role is actually changing
-    if (oldRole === role) {
-      return res.json({ 
-        message: 'User role unchanged', 
-        user: { 
-          userId: targetUser.UserID, 
-          role: targetUser.Role 
-        } 
-      });
+    if (oldStatus === status) {
+      return res.json({ message: 'User status unchanged', user: { userId: targetUser.UserID, status: targetUser.Status } });
     }
 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      // Update user role
-      await connection.execute(
-        'UPDATE tblusers SET Role = ? WHERE UserID = ?',
-        [role, id]
-      );
+      // Update user status
+      await connection.execute('UPDATE tblusers SET Status = ? WHERE UserID = ?', [status, id]);
 
-      // Revoke all refresh tokens to force re-login with new role
-      await revokeAllUserRefreshTokens({ userId: parseInt(id, 10), reason: 'role-change' });
+      // Revoke tokens if needed
+      if (status === 'Inactive' || status === 'Suspended') {
+        await revokeAllUserRefreshTokens({ userId: parseInt(id, 10), reason: `status-change-${status.toLowerCase()}` });
+      }
 
-      // Log audit event
+      // Log audit using the same transaction
       await logAudit({
         actorUserId: req.user.userId,
         targetUserId: parseInt(id, 10),
-        action: 'role-change',
-        metadata: { 
-          fromRole: oldRole, 
-          toRole: role,
-          targetUserEmail: targetUser.Email,
-          targetUserName: targetUser.FullName
-        },
+        action: 'status-change',
+        metadata: { fromStatus: oldStatus, toStatus: status, targetUserEmail: targetUser.Email, targetUserName: targetUser.FullName },
         ip,
-        userAgent
+        userAgent,
+        connection // pass transaction connection
       });
 
       await connection.commit();
 
       return res.json({
-        message: `User role changed from ${oldRole} to ${role}`,
-        user: {
-          userId: targetUser.UserID,
-          fullName: targetUser.FullName,
-          email: targetUser.Email,
-          role: role,
-          status: targetUser.Status
-        }
+        message: `User status changed from ${oldStatus} to ${status}`,
+        user: { userId: targetUser.UserID, fullName: targetUser.FullName, email: targetUser.Email, role: targetUser.Role, status }
       });
 
     } catch (error) {
       await connection.rollback();
+      console.error('Transaction failed:', error);
       throw error;
     } finally {
       connection.release();
     }
 
   } catch (err) {
-    console.error('Change user role error:', err);
-    return res.status(500).json({ message: 'Server error changing user role' });
+    console.error('Change user status error:', err);
+    return res.status(500).json({ message: 'Server error changing user status' });
   }
 });
 
