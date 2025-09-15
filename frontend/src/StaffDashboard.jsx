@@ -362,7 +362,8 @@ function StaffDashboard() {
           </div>
         ))}
       </div>
-
+      
+      <div className="page-bottom-spacer"></div>
     </>
   );
 }
