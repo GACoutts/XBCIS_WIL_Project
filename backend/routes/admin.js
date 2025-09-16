@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 // backend/routes/admin.js - Staff-only user and role management
 import 'dotenv/config';
 import express from 'express';
@@ -15,7 +15,12 @@ router.use(permitRoles('Staff'));
 // Extract client info from request
 function getClientInfo(req) {
   return {
-    ip: req.ip || req.connection.remoteAddress || req.socket.remoteAddress || req.headers['x-forwarded-for']?.split(',')[0]?.trim(),
+    ip:
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.ip ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      'Unknown',
     userAgent: req.headers['user-agent'] || 'Unknown'
   };
 }
@@ -24,56 +29,53 @@ function getClientInfo(req) {
 router.get('/users', async (req, res) => {
   try {
     const { page = 1, limit = 50, search, role, status } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const pageN = Math.max(1, parseInt(page, 10) || 1);
+    const limitN = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const offset = (pageN - 1) * limitN;
 
-    let query = `
-      SELECT UserID, FullName, Email, Role, Status, DateRegistered, Phone
+    let base = `
       FROM tblusers
     `;
-    
+
     const params = [];
-    const conditions = [];
+    const where = [];
 
     if (search) {
-      conditions.push('(FullName LIKE ? OR Email LIKE ?)');
+      where.push('(FullName LIKE ? OR Email LIKE ?)');
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    if (role && ['Client', 'Landlord', 'Contractor', 'Staff'].includes(role)) {
-      conditions.push('Role = ?');
+    const validRoles = ["Client", "Landlord", "Contractor", "Staff"];
+    if (role && validRoles.includes(role)) {
+      where.push("Role = ?");
       params.push(role);
     }
-
-    if (status && ['Active', 'Inactive', 'Suspended'].includes(status)) {
-      conditions.push('Status = ?');
+    const validStatuses = ["Active", "Inactive", "Suspended"];
+    if (status && validStatuses.includes(status)) {
+      where.push("Status = ?");
       params.push(status);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
+    const whereSql = where.length ? ` WHERE ${where.join(" AND ")}` : "";
 
-    query += ' ORDER BY DateRegistered DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit, 10), offset);
+    const [rows] = await pool.execute(
+      `
+      SELECT UserID, FullName, Email, Role, Status, DateRegistered, Phone
+      ${base}
+      ${whereSql}
+      ORDER BY DateRegistered DESC
+      LIMIT ? OFFSET ?
+      `,
+      [...params, limitN, offset]
+    );
 
-    const [rows] = await pool.execute(query, params);
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) as total ${base} ${whereSql}`,
+      params
+    );
+    const total = countRows[0]?.total || 0;
 
-    // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) as total FROM tblusers';
-    const countParams = [];
-    
-    if (conditions.length > 0) {
-      countQuery += ' WHERE ' + conditions.join(' AND ');
-      // Remove LIMIT and OFFSET params for count query
-      for (let i = 0; i < params.length - 2; i++) {
-        countParams.push(params[i]);
-      }
-    }
-
-    const [countResult] = await pool.execute(countQuery, countParams);
-    const total = countResult[0].total;
-
-    const users = rows.map(user => ({
+    const users = rows.map((user) => ({
       userId: user.UserID,
       fullName: user.FullName,
       email: user.Email,
@@ -86,10 +88,10 @@ router.get('/users', async (req, res) => {
     return res.json({
       users,
       pagination: {
-        page: parseInt(page, 10),
-        limit: parseInt(limit, 10),
+        page: pageN,
+        limit: limitN,
         total,
-        pages: Math.ceil(total / parseInt(limit, 10))
+        pages: Math.ceil(total / limitN)
       }
     });
   } catch (err) {
@@ -134,15 +136,21 @@ router.get('/users/:id', async (req, res) => {
       [id]
     );
 
-    const auditLogs = auditRows.map(log => ({
-      auditId: log.AuditID,
-      actorUserId: log.ActorUserID,
-      actorName: log.ActorName || 'System',
-      action: log.Action,
-      metadata: log.Metadata ? JSON.parse(log.Metadata) : null,
-      ip: log.IP,
-      createdAt: log.CreatedAt
-    }));
+    const auditLogs = auditRows.map((log) => {
+      let parsed = null;
+      if (log.Metadata) {
+        try { parsed = JSON.parse(log.Metadata); } catch { parsed = null; }
+      }
+      return {
+        auditId: log.AuditID,
+        actorUserId: log.ActorUserID,
+        actorName: log.ActorName || "System",
+        action: log.Action,
+        metadata: parsed,
+        ip: log.IP,
+        createdAt: log.CreatedAt,
+      };
+    });
 
     return res.json({
       user: {
@@ -176,8 +184,8 @@ router.put('/users/:id/role', async (req, res) => {
 
     const validRoles = ['Client', 'Landlord', 'Contractor', 'Staff'];
     if (!validRoles.includes(role)) {
-      return res.status(400).json({ 
-        message: 'Invalid role. Must be one of: ' + validRoles.join(', ') 
+      return res.status(400).json({
+        message: 'Invalid role. Must be one of: ' + validRoles.join(', ')
       });
     }
 
@@ -201,12 +209,12 @@ router.put('/users/:id/role', async (req, res) => {
 
     // Check if role is actually changing
     if (oldRole === role) {
-      return res.json({ 
-        message: 'User role unchanged', 
-        user: { 
-          userId: targetUser.UserID, 
-          role: targetUser.Role 
-        } 
+      return res.json({
+        message: 'User role unchanged',
+        user: {
+          userId: targetUser.UserID,
+          role: targetUser.Role
+        }
       });
     }
 
@@ -228,8 +236,8 @@ router.put('/users/:id/role', async (req, res) => {
         actorUserId: req.user.userId,
         targetUserId: parseInt(id, 10),
         action: 'role-change',
-        metadata: { 
-          fromRole: oldRole, 
+        metadata: {
+          fromRole: oldRole,
           toRole: role,
           targetUserEmail: targetUser.Email,
           targetUserName: targetUser.FullName
@@ -277,8 +285,8 @@ router.put('/users/:id/status', async (req, res) => {
 
     const validStatuses = ['Active', 'Inactive', 'Suspended'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
+      return res.status(400).json({
+        message: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
       });
     }
 
@@ -302,12 +310,12 @@ router.put('/users/:id/status', async (req, res) => {
 
     // Check if status is actually changing
     if (oldStatus === status) {
-      return res.json({ 
-        message: 'User status unchanged', 
-        user: { 
-          userId: targetUser.UserID, 
-          status: targetUser.Status 
-        } 
+      return res.json({
+        message: 'User status unchanged',
+        user: {
+          userId: targetUser.UserID,
+          status: targetUser.Status
+        }
       });
     }
 
@@ -323,9 +331,9 @@ router.put('/users/:id/status', async (req, res) => {
 
       // If status is changing to Inactive or Suspended, revoke all sessions
       if (status === 'Inactive' || status === 'Suspended') {
-        await revokeAllUserRefreshTokens({ 
-          userId: parseInt(id, 10), 
-          reason: `status-change-${status.toLowerCase()}` 
+        await revokeAllUserRefreshTokens({
+          userId: parseInt(id, 10),
+          reason: `status-change-${status.toLowerCase()}`
         });
       }
 
@@ -334,8 +342,8 @@ router.put('/users/:id/status', async (req, res) => {
         actorUserId: req.user.userId,
         targetUserId: parseInt(id, 10),
         action: 'status-change',
-        metadata: { 
-          fromStatus: oldStatus, 
+        metadata: {
+          fromStatus: oldStatus,
           toStatus: status,
           targetUserEmail: targetUser.Email,
           targetUserName: targetUser.FullName
@@ -374,64 +382,61 @@ router.put('/users/:id/status', async (req, res) => {
 router.get('/audit-logs', async (req, res) => {
   try {
     const { page = 1, limit = 100, action, userId, startDate, endDate } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const pageN = Math.max(1, parseInt(page, 10) || 1);
+    const limitN = Math.min(500, Math.max(1, parseInt(limit, 10) || 100));
+    const offset = (pageN - 1) * limitN;
 
-    let query = `
-      SELECT logs.AuditID, logs.ActorUserID, logs.TargetUserID, logs.Action, 
-             logs.Metadata, logs.IP, logs.UserAgent, logs.CreatedAt,
-             actor.FullName as ActorName, actor.Email as ActorEmail,
-             target.FullName as TargetName, target.Email as TargetEmail
+    let base = `
       FROM tblAuditLogs logs
       LEFT JOIN tblusers actor ON logs.ActorUserID = actor.UserID
       LEFT JOIN tblusers target ON logs.TargetUserID = target.UserID
     `;
-    
+
     const params = [];
-    const conditions = [];
+    const where = [];
 
-    if (action) {
-      conditions.push('logs.Action = ?');
-      params.push(action);
-    }
+    if (action) { where.push("logs.Action = ?"); params.push(action); }
+    if (userId) { where.push("(logs.ActorUserID = ? OR logs.TargetUserID = ?)"); params.push(userId, userId); }
+    if (startDate) { where.push("logs.CreatedAt >= ?"); params.push(startDate); }
+    if (endDate) { where.push("logs.CreatedAt <= ?"); params.push(endDate); }
 
-    if (userId) {
-      conditions.push('(logs.ActorUserID = ? OR logs.TargetUserID = ?)');
-      params.push(userId, userId);
-    }
+    const whereSql = where.length ? ` WHERE ${where.join(" AND ")}` : "";
 
-    if (startDate) {
-      conditions.push('logs.CreatedAt >= ?');
-      params.push(startDate);
-    }
+    const [rows] = await pool.execute(
 
-    if (endDate) {
-      conditions.push('logs.CreatedAt <= ?');
-      params.push(endDate);
-    }
+      `
+      SELECT logs.AuditID, logs.ActorUserID, logs.TargetUserID, logs.Action,
+             logs.Metadata, logs.IP, logs.UserAgent, logs.CreatedAt,
+             actor.FullName as ActorName, actor.Email as ActorEmail,
+             target.FullName as TargetName, target.Email as TargetEmail
+      ${base}
+      ${whereSql}
+      ORDER BY logs.CreatedAt DESC
+      LIMIT ? OFFSET ?
+      `,
+      [...params, limitN, offset]
+    );
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    query += ' ORDER BY logs.CreatedAt DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit, 10), offset);
-
-    const [rows] = await pool.execute(query, params);
-
-    const auditLogs = rows.map(log => ({
-      auditId: log.AuditID,
-      actorUserId: log.ActorUserID,
-      actorName: log.ActorName || 'System',
-      actorEmail: log.ActorEmail,
-      targetUserId: log.TargetUserID,
-      targetName: log.TargetName,
-      targetEmail: log.TargetEmail,
-      action: log.Action,
-      metadata: log.Metadata ? JSON.parse(log.Metadata) : null,
-      ip: log.IP,
-      userAgent: log.UserAgent,
-      createdAt: log.CreatedAt
-    }));
+    const auditLogs = rows.map((log) => {
+      let parsed = null;
+      if (log.Metadata) {
+        try { parsed = JSON.parse(log.Metadata); } catch { parsed = null; }
+      }
+      return {
+        auditId: log.AuditID,
+        actorUserId: log.ActorUserID,
+        actorName: log.ActorName || "System",
+        actorEmail: log.ActorEmail,
+        targetUserId: log.TargetUserID,
+        targetName: log.TargetName,
+        targetEmail: log.TargetEmail,
+        action: log.Action,
+        metadata: parsed,
+        ip: log.IP,
+        userAgent: log.UserAgent,
+        createdAt: log.CreatedAt,
+      };
+    });
 
     return res.json({ auditLogs });
   } catch (err) {
@@ -441,7 +446,7 @@ router.get('/audit-logs', async (req, res) => {
 });
 
 // GET /stats - Get system statistics
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (_req, res) => {
   try {
     // Get user counts by role and status
     const [userStats] = await pool.execute(`
@@ -489,84 +494,52 @@ router.get('/stats', async (req, res) => {
     };
 
     // Process user stats
-    userStats.forEach(stat => {
-      if (!stats.users.byRole[stat.Role]) {
-        stats.users.byRole[stat.Role] = 0;
-      }
-      if (!stats.users.byStatus[stat.Status]) {
-        stats.users.byStatus[stat.Status] = 0;
-      }
-      
-      stats.users.byRole[stat.Role] += stat.count;
-      stats.users.byStatus[stat.Status] += stat.count;
-      stats.users.total += stat.count;
+    userStats.forEach((s) => {
+      stats.users.byRole[s.Role] = (stats.users.byRole[s.Role] || 0) + s.count;
+      stats.users.byStatus[s.Status] = (stats.users.byStatus[s.Status] || 0) + s.count;
+      stats.users.total += s.count;
     });
 
     return res.json({ stats });
   } catch (err) {
     console.error('Get stats error:', err);
     return res.status(500).json({ message: 'Server error retrieving statistics' });
-=======
-// backend/routes/admin.js
-import express from 'express';
-import pool from '../db.js';
-import { authMiddleware, authorizeRoles } from '../middleware/authMiddleware.js';
-
-const router = express.Router();
-
-/** Direct role management (optional but handy) */
-router.get('/users', authMiddleware, authorizeRoles('Staff'), async (_req, res) => {
-  const [rows] = await pool.execute(
-    'SELECT UserID, FullName, Email, Role, Status FROM tblusers ORDER BY UserID DESC LIMIT 200'
-  );
-  return res.json({
-    users: rows.map(r => ({
-      userId: r.UserID,
-      fullName: r.FullName,
-      email: r.Email,
-      role: r.Role,
-      status: r.Status,
-    }))
-  });
-});
-
-router.post('/users/:userId/role', authMiddleware, authorizeRoles('Staff'), async (req, res) => {
-  try {
-    const targetId = parseInt(req.params.userId, 10);
-    const { role } = req.body || {};
-    const valid = ['Client', 'Landlord', 'Contractor', 'Staff'];
-    if (!valid.includes(role)) return res.status(400).json({ message: 'Invalid role' });
-    if (targetId === req.user.userId && role !== 'Staff') {
-      return res.status(400).json({ message: 'You cannot demote yourself' });
-    }
-    await pool.execute('UPDATE tblusers SET Role = ? WHERE UserID = ?', [role, targetId]);
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error('update role error', e);
-    return res.status(500).json({ message: 'Server error' });
   }
 });
 
-/** Role-request review workflow (Staff only) */
+/* =========================
+Role-request review (Staff)
+========================= */
 
-// List role requests (default Pending)
-router.get('/role-requests', authMiddleware, authorizeRoles('Staff'), async (req, res) => {
-  const status = ['Pending','Approved','Rejected'].includes(req.query.status) ? req.query.status : 'Pending';
-  const [rows] = await pool.execute(
-    `SELECT rr.RequestID, rr.UserID, rr.RequestedRole, rr.Status, rr.Notes, rr.CreatedAt, rr.ReviewedBy, rr.ReviewedAt,
-            u.FullName, u.Email, u.Role AS CurrentRole
+// GET /role-requests?status=Pending|Approved|Rejected
+router.get("/role-requests", async (req, res) => {
+  try {
+    const status =
+      ["Pending", "Approved", "Rejected"].includes(req.query.status)
+        ? req.query.status
+        : "Pending";
+
+    const [rows] = await pool.execute(
+      `SELECT rr.RequestID, rr.UserID, rr.RequestedRole, rr.Status, rr.Notes,
+              rr.CreatedAt, rr.ReviewedBy, rr.ReviewedAt,
+              u.FullName, u.Email, u.Role AS CurrentRole
        FROM tblRoleRequests rr
        JOIN tblusers u ON u.UserID = rr.UserID
-      WHERE rr.Status = ?
-      ORDER BY rr.CreatedAt ASC
-      LIMIT 500`,
-    [status]
-  );
-  return res.json({ requests: rows });
+       WHERE rr.Status = ?
+       ORDER BY rr.CreatedAt ASC
+       LIMIT 500`,
+      [status]
+    );
+
+    return res.json({ requests: rows });
+  } catch (e) {
+    console.error("list role-requests error", e);
+    return res.status(500).json({ message: "Server error" });
+  }
 });
 
-// Approve a request
-router.post('/role-requests/:id/approve', authMiddleware, authorizeRoles('Staff'), async (req, res) => {
+// POST /role-requests/:id/approve
+router.post("/role-requests/:id/approve", async (req, res) => {
   const requestId = parseInt(req.params.id, 10);
   const reviewerId = req.user.userId;
 
@@ -575,17 +548,24 @@ router.post('/role-requests/:id/approve', authMiddleware, authorizeRoles('Staff'
     await conn.beginTransaction();
 
     const [rows] = await conn.execute(
-      'SELECT RequestID, UserID, RequestedRole, Status FROM tblRoleRequests WHERE RequestID = ? FOR UPDATE',
+      "SELECT RequestID, UserID, RequestedRole, Status FROM tblRoleRequests WHERE RequestID = ? FOR UPDATE",
       [requestId]
     );
     const rr = rows[0];
-    if (!rr) { await conn.rollback(); return res.status(404).json({ message: 'Request not found' }); }
-    if (rr.Status !== 'Pending') {
-      await conn.rollback(); return res.status(400).json({ message: `Cannot approve a ${rr.Status} request` });
+    if (!rr) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Request not found" });
+    }
+    if (rr.Status !== "Pending") {
+      await conn.rollback();
+      return res.status(400).json({ message: `Cannot approve a ${rr.Status} request` });
     }
 
     // Update user role
-    await conn.execute('UPDATE tblusers SET Role = ? WHERE UserID = ?', [rr.RequestedRole, rr.UserID]);
+    await conn.execute("UPDATE tblusers SET Role = ? WHERE UserID = ?", [
+      rr.RequestedRole,
+      rr.UserID,
+    ]);
 
     // Mark request approved
     await conn.execute(
@@ -593,40 +573,62 @@ router.post('/role-requests/:id/approve', authMiddleware, authorizeRoles('Staff'
       [reviewerId, requestId]
     );
 
+    // Revoke sessions and log audit
+    await revokeAllUserRefreshTokens({ userId: rr.UserID, reason: "role-request-approved" });
+    await logAudit({
+      actorUserId: reviewerId,
+      targetUserId: rr.UserID,
+      action: "role-request-approve",
+      metadata: { requestId, newRole: rr.RequestedRole },
+      ip: getClientInfo(req).ip,
+      userAgent: getClientInfo(req).userAgent,
+    });
+
     await conn.commit();
     return res.json({ ok: true });
   } catch (e) {
     await conn.rollback();
-    console.error('approve role error', e);
-    return res.status(500).json({ message: 'Server error' });
+    console.error("approve role error", e);
+    return res.status(500).json({ message: "Server error" });
   } finally {
     conn.release();
   }
 });
 
-// Reject a request
-router.post('/role-requests/:id/reject', authMiddleware, authorizeRoles('Staff'), async (req, res) => {
+// POST /role-requests/:id/reject
+router.post("/role-requests/:id/reject", async (req, res) => {
   const requestId = parseInt(req.params.id, 10);
   const reviewerId = req.user.userId;
   const { notes } = req.body || {};
   try {
     const [rows] = await pool.execute(
-      'SELECT Status FROM tblRoleRequests WHERE RequestID = ?',
+      "SELECT Status, UserID, RequestedRole FROM tblRoleRequests WHERE RequestID = ?",
       [requestId]
     );
-    if (!rows[0]) return res.status(404).json({ message: 'Request not found' });
-    if (rows[0].Status !== 'Pending') return res.status(400).json({ message: `Cannot reject a ${rows[0].Status} request` });
+    const rr = rows[0];
+    if (!rr) return res.status(404).json({ message: "Request not found" });
+    if (rr.Status !== "Pending")
+      return res.status(400).json({ message: `Cannot reject a ${rr.Status} request` });
 
     await pool.execute(
       'UPDATE tblRoleRequests SET Status = "Rejected", Notes = IFNULL(?, Notes), ReviewedBy = ?, ReviewedAt = NOW() WHERE RequestID = ?',
       [notes || null, reviewerId, requestId]
     );
+
+    await logAudit({
+      actorUserId: reviewerId,
+      targetUserId: rr.UserID,
+      action: "role-request-reject",
+      metadata: { requestId, requestedRole: rr.RequestedRole, notes: notes || null },
+      ip: getClientInfo(req).ip,
+      userAgent: getClientInfo(req).userAgent,
+    });
+
     return res.json({ ok: true });
   } catch (e) {
-    console.error('reject role error', e);
-    return res.status(500).json({ message: 'Server error' });
->>>>>>> user-roles-setup-(use-this)
+    console.error("reject role error", e);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
-export default router;
+export default router;        

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./styles/signup.css";
+import { useAuth } from "./context/AuthContext";
 
 // Map UI role keys to backend roles
 const ROLE_MAP = {
@@ -12,6 +13,7 @@ const ROLE_MAP = {
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -75,44 +77,15 @@ export default function SignUpPage() {
     try {
       // 1) Register
       const apiRole = ROLE_MAP[formData.role]; // map UI role to backend role enum
-      const res = await fetch("/api/register", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: formData.fullName.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim() || null,
-          password: formData.password,
-          role: apiRole,
-        }),
+      await register({
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || null,
+        password: formData.password,
+        role: apiRole,
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.message || "Registration failed");
-      }
-
-      setSuccessMsg("Account created successfully. Signing you in…");
-
-      // 2) Auto-login (sets HttpOnly cookie)
-      const loginRes = await fetch("/api/login", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password,
-        }),
-      });
-
-      // If auto-login fails, just send them to /login
-      if (!loginRes.ok) {
-        navigate("/login", { replace: true });
-        return;
-      }
-
-      // 3) Go to app root
+      setSuccessMsg("Account created successfully. You’re in!");
       navigate("/", { replace: true });
     } catch (err) {
       setServerError(err.message || "Registration failed");

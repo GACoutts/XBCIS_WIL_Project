@@ -10,31 +10,54 @@ import pool, { dbHealth } from "./db.js";
 import { dbViewerRoutes } from "./db-viewer.js";
 import ticketsRoutes from "./routes/tickets.js";
 import passwordRoutes from './routes/password.js';
-<<<<<<< HEAD
 import quoteRoutes from './routes/quotes.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
-=======
-import adminRoutes from './routes/admin.js';
 import roleRequestRoutes from './routes/roleRequests.js';
->>>>>>> user-roles-setup-(use-this)
+
+// --- Cookie helpers from .env ---
+const envBool = (v, def=false) => {
+  if (v === undefined) return def;
+  const s = String(v).toLowerCase().trim();
+  return ["1","true","yes","on"].includes(s);
+};
+const cookieSecure = envBool(process.env.COOKIE_SECURE, process.env.NODE_ENV === "production");
+const cookieDomain = (process.env.COOKIE_DOMAIN || "").trim() || undefined;
+
+// SameSite values from env (fallbacks mirror your .env recommendations)
+const sameSiteAccess = (process.env.COOKIE_SAME_SITE_ACCESS || "Lax");
+const sameSiteRefresh = (process.env.COOKIE_SAME_SITE_REFRESH || "Strict");
+
+// Reusable builder for legacy cookie (access-equivalent)
+const buildAccessCookieOpts = () => ({
+  httpOnly: true,
+  sameSite: sameSiteAccess,     // <- use env
+  secure: cookieSecure,         // <- use env
+  domain: cookieDomain,         // <- use env (undefined in dev)
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: "/",
+});
+
 
 // -------------------------------------------------------------------------------------
 // Setup & constants
 // -------------------------------------------------------------------------------------
 const app = express();
+if (process.env.NODE_ENV === "production") {
+   app.set("trust proxy", 1);
+}
+
 app.use(cors({
-  origin: 'http://localhost:5173', // your frontend URL
+  origin: (process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173']).map(s => s.trim()), // frontend URL
   credentials: true
-}));
+})
+);
+
 app.use(express.json());
 app.use(cookieParser());
 // Apply general rate limiting to all requests
 app.use('/api', generalRateLimit);
-app.use('/api', passwordRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const JWT_EXPIRES = process.env.JWT_EXPIRES || "7d";
@@ -50,13 +73,12 @@ app.get('/demo', (req, res) => {
   res.sendFile(path.join(__dirname, 'demo', 'session-demo.html'));
 });
 
-app.use('/api/quotes', quoteRoutes);
-
-// API routes
+app.use("/api/auth", authRoutes);
+app.use("/api/password", passwordRoutes);      
+app.use("/api/admin", adminRoutes);
+app.use("/api/roles", roleRequestRoutes);      // users submit role requests here
+app.use("/api/quotes", quoteRoutes);
 app.use("/api/tickets", ticketsRoutes);
-
-app.use('/api/admin', adminRoutes);
-app.use('/api/roles', roleRequestRoutes);
 
 // DB viewer
 dbViewerRoutes(app);
@@ -67,14 +89,7 @@ dbViewerRoutes(app);
 // -------------------------------------------------------------------------------------
 function setAuthCookie(res, payload) {
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  // In dev (http://localhost) use secure:false. In production behind HTTPS set secure:true.
-  res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // keep aligned with JWT_EXPIRES
-    path: "/",
-  });
+  res.cookie("token", token, buildAccessCookieOpts());
 }
 
 // -------------------------------------------------------------------------------------
@@ -262,11 +277,7 @@ app.get("/api/me", async (req, res) => {
 // Auth: logout (clear cookie)
 // -------------------------------------------------------------------------------------
 app.post("/api/logout", (req, res) => {
-  res.clearCookie("token", {
-    path: "/",
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === 'production'
-  });
+  res.clearCookie("token", buildAccessCookieOpts());
   return res.json({ ok: true });
 });
 
@@ -351,6 +362,16 @@ app.post("/api/reset-password", passwordResetRateLimit, async (req, res) => {
 // Start server
 // -------------------------------------------------------------------------------------
 const PORT = process.env.PORT || 5000;
+
+const clientDistPath = path.join(__dirname, "../frontend/dist");
+app.use(express.static(clientDistPath));
+
+// SPA fallback: anything not /api or /uploads goes to index.html
+app.get(/^\/(?!api|uploads).*/, (_req, res) => {
+  res.sendFile(path.join(clientDistPath, "index.html"));
+});
+
+
 app.listen(PORT, () => {
   console.log(`Backend running on http://localhost:${PORT}`);
 });

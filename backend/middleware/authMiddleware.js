@@ -1,199 +1,173 @@
-// backend/middleware/authMiddleware.js - Enhanced RBAC authentication
+// backend/middleware/authMiddleware.js - RBAC auth (unified exports)
 import 'dotenv/config';
 import jwt from 'jsonwebtoken';
-<<<<<<< HEAD
+import pool from '../db.js';
 import crypto from 'crypto';
-import pool from '../db.js';
-import { ROLES, getRoleOrder, rotateRefreshToken, isAccessJtiRevoked, clearAuthCookies } from '../utils/tokens.js';
-=======
-import "dotenv/config";
-import pool from '../db.js';
->>>>>>> user-roles-setup-(use-this)
+import { isAccessJtiRevoked, rotateRefreshToken } from '../utils/tokens.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-<<<<<<< HEAD
-// Extract client info from request
-function getClientInfo(req) {
+// Normalize decoded token -> { userId, role }
+function toReqUser(decoded) {
+  // decoded: { jti, sub, role, type, iat, exp }
   return {
-    ip: req.ip || req.connection.remoteAddress || req.socket.remoteAddress || req.headers['x-forwarded-for']?.split(',')[0]?.trim(),
-    userAgent: req.headers['user-agent'] || 'Unknown'
+    userId: decoded?.sub ?? decoded?.userId ?? decoded?.id,
+    role: decoded?.role,
+    jti: decoded?.jti,
+    type: decoded?.type,
   };
 }
 
-// Verify access token and check revocation
-async function verifyAccessToken(token) {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Check if token is revoked
-    if (decoded.jti && await isAccessJtiRevoked(decoded.jti)) {
-      return { error: 'Token revoked', status: 401 };
-    }
-
-    return { user: { userId: decoded.sub, role: decoded.role, jti: decoded.jti } };
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return { error: 'Token expired', status: 401 };
-    }
-    return { error: 'Invalid token', status: 401 };
-  }
-}
-
-// Main authentication middleware
+/** Require a valid access token and an Active user in DB */
 export async function requireAuth(req, res, next) {
   try {
-    const token = req.cookies?.access_token;
-    if (!token) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    const result = await verifyAccessToken(token);
-    if (result.error) {
-      return res.status(result.status).json({ message: result.error });
-    }
-
-    req.user = result.user;
-    next();
-  } catch (error) {
-    console.error('Auth middleware error:', error);
-    return res.status(500).json({ message: 'Authentication error' });
-  }
-}
-
-// Try to refresh token transparently (for /api/me backward compatibility)
-export async function tryRefresh(req, res, next) {
-  try {
-    // First try normal auth
-    const accessToken = req.cookies?.access_token;
-    if (accessToken) {
-      const result = await verifyAccessToken(accessToken);
-      if (!result.error) {
-        req.user = result.user;
-        return next();
-      }
-    }
-
-    // If access token failed, try refresh
-    const refreshToken = req.cookies?.refresh_token;
-    if (!refreshToken) {
-      return res.status(401).json({ message: 'No session' });
-    }
-
-    // Hash refresh token
-    const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-    
-    // Get user from refresh token
-    const [rows] = await pool.execute(
-      `SELECT u.UserID, u.FullName, u.Email, u.Role, u.Status 
-       FROM tblRefreshTokens rt
-       JOIN tblusers u ON rt.UserID = u.UserID
-       WHERE rt.TokenHash = ? AND rt.RevokedAt IS NULL AND rt.ExpiresAt > NOW() AND u.Status = 'Active'
-       LIMIT 1`,
-      [refreshHash]
-    );
-
-    if (!rows.length) {
-      return res.status(401).json({ message: 'Invalid session' });
-    }
-
-    const user = rows[0];
-    const { ip, userAgent } = getClientInfo(req);
-
-    // Rotate refresh token
-    const rotateResult = await rotateRefreshToken({
-      res,
-      oldTokenHash: refreshHash,
-      user: { userId: user.UserID, role: user.Role },
-      userAgent,
-      ip
-    });
-
-    if (rotateResult.error) {
-      return res.status(rotateResult.status).json({ message: rotateResult.error });
-    }
-
-    // Set user for next middleware
-    req.user = {
-      userId: user.UserID,
-      role: user.Role,
-      jti: rotateResult.jti
-    };
-
-    next();
-  } catch (error) {
-    console.error('Refresh middleware error:', error);
-    return res.status(500).json({ message: 'Session refresh error' });
-  }
-}
-
-// Role-based access control - exact role match
-export function permitRoles(...allowedRoles) {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Insufficient privileges' });
-    }
-
-    next();
-  };
-}
-
-// Role hierarchy check - user has required role or higher
-export function hasRoleOrHigher(requiredRole) {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
-
-    const userRoleLevel = getRoleOrder(req.user.role);
-    const requiredRoleLevel = getRoleOrder(requiredRole);
-
-    if (userRoleLevel < requiredRoleLevel) {
-      return res.status(403).json({ message: 'Insufficient privileges' });
-    }
-
-    next();
-  };
-}
-
-// Legacy compatibility - use requireAuth for existing code
-export const authMiddleware = requireAuth;
-=======
-export async function authMiddleware(req, res, next) {
-  try {
     const token = req.cookies?.access_token || req.cookies?.token;
-    if (!token) return res.status(401).json({ message: "Not authenticated" });
+    if (!token) return res.status(401).json({ message: 'Not authenticated' });
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.userId;
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
 
-    // Always fetch the latest role & status from DB
+    const u = toReqUser(decoded);
+    if (!u.userId || u.type !== 'access' || !u.jti) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    // Enforce revocation list (logout/logout-all)
+    if (await isAccessJtiRevoked(u.jti)) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Always fetch latest role/status to reflect server truth
     const [rows] = await pool.execute(
       'SELECT UserID, Role, Status FROM tblusers WHERE UserID = ? LIMIT 1',
-      [userId]
+      [u.userId]
     );
     if (!rows?.length || rows[0].Status !== 'Active') {
       return res.status(401).json({ message: 'Invalid session' });
     }
 
-    req.user = { userId: rows[0].UserID, role: rows[0].Role };
+    // Attach canonical user (role from DB wins)
+    req.user = { userId: rows[0].UserID, role: rows[0].Role, jti: u.jti };
     return next();
-  } catch {
-    return res.status(401).json({ message: 'Invalid session' });
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    return res.status(500).json({ message: 'Authentication error' });
   }
 }
 
-export function authorizeRoles(...allowed) {
+/**
+ * tryRefresh
+ * - If access token valid & not revoked → attach req.user and next()
+ * - Else, try refresh rotation using refresh_token cookie:
+ *   - Verifies refresh token in DB
+ *   - Calls rotateRefreshToken (sets new cookies)
+ *   - Verifies NEW access token and attaches req.user
+ * - On failure: 401
+ */
+export async function tryRefresh(req, res, next) {
+  const access = req.cookies?.access_token || req.cookies?.token; // legacy fallback
+
+  // Fast path: accept current access if valid & not revoked
+  if (access) {
+    try {
+      const decoded = jwt.verify(access, JWT_SECRET);
+      const u = toReqUser(decoded);
+      if (u.userId && u.type === 'access' && u.jti && !(await isAccessJtiRevoked(u.jti))) {
+        req.user = u;
+        return next();
+      }
+    } catch {
+      // fall through to refresh
+    }
+  }
+
+  // Attempt refresh
+  try {
+    const refresh = req.cookies?.refresh_token;
+    if (!refresh) return res.status(401).json({ message: 'Unauthorized' });
+
+    const refreshHash = crypto.createHash('sha256').update(refresh).digest('hex');
+
+    // Verify refresh token in DB and fetch user context
+    const [rows] = await pool.execute(
+      `SELECT u.UserID, u.Role, u.Status
+         FROM tblRefreshTokens rt
+         JOIN tblusers u ON rt.UserID = u.UserID
+        WHERE rt.TokenHash = ?
+          AND rt.RevokedAt IS NULL
+          AND rt.ExpiresAt > NOW()
+          AND u.Status = 'Active'
+        LIMIT 1`,
+      [refreshHash]
+    );
+    if (!rows?.length) return res.status(401).json({ message: 'Unauthorized' });
+
+    const dbUser = rows[0];
+
+    // Rotate (sets new cookies + returns new access JWT)
+    const rotate = await rotateRefreshToken({
+      res,
+      oldTokenHash: refreshHash,
+      user: { userId: dbUser.UserID, role: dbUser.Role },
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      ip:
+        req.ip ||
+        req.connection?.remoteAddress ||
+        req.socket?.remoteAddress ||
+        req.headers['x-forwarded-for']?.split(',')[0]?.trim(),
+    });
+
+    if (rotate?.error) {
+      return res.status(rotate.status || 401).json({ message: rotate.error });
+    }
+
+    // Verify the new access token and attach user
+    const decoded = jwt.verify(rotate.accessToken, JWT_SECRET);
+    const u = toReqUser(decoded);
+    if (!u.userId || u.type !== 'access' || !u.jti) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    if (await isAccessJtiRevoked(u.jti)) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    req.user = u;
+    return next();
+  } catch (err) {
+    console.error('tryRefresh error:', err);
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+}
+
+/** Exact-role gate */
+export function permitRoles(...allowed) {
   return (req, res, next) => {
     if (!req.user?.role) return res.status(401).json({ message: 'Not authenticated' });
     if (!allowed.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Forbidden: insufficient role' });
+      return res.status(403).json({ message: 'Insufficient privileges' });
     }
-    return next(); 
+    return next();
   };
 }
->>>>>>> user-roles-setup-(use-this)
+
+/** Hierarchy gate (Client < Landlord/Contractor < Staff) */
+const ROLE_ORDER = { Client: 1, Landlord: 2, Contractor: 2, Staff: 3 };
+export function hasRoleOrHigher(requiredRole) {
+  return (req, res, next) => {
+    if (!req.user?.role) return res.status(401).json({ message: 'Not authenticated' });
+    const need = ROLE_ORDER[requiredRole] ?? 99;
+    const have = ROLE_ORDER[req.user.role] ?? 0;
+    if (have < need) return res.status(403).json({ message: 'Insufficient privileges' });
+    return next();
+  };
+}
+
+/* ===== Aliases for the other branch names (do not remove) ===== */
+export const authMiddleware = requireAuth;
+export function authorizeRoles(...allowed) { return permitRoles(...allowed); }
+
+export default requireAuth;
