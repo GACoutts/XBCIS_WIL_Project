@@ -4,7 +4,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { authMiddleware } from '../middleware/authMiddleware.js'; // fixed path
+import { authMiddleware } from '../middleware/authMiddleware.js';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
@@ -119,9 +120,26 @@ router.post('/:ticketId/media', upload.single('file'), async (req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
+// Auth middleware
+// -------------------------------------------------------------------------------------
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+
+function legacyAuth(req, res, next) {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ message: 'Not authenticated' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = { userId: decoded.userId, role: decoded.role };
+    next();
+  } catch {
+    return res.status(401).json({ message: 'Invalid session' });
+  }
+}
+
+// -------------------------------------------------------------------------------------
 // Get all tickets (role-based)
 // -------------------------------------------------------------------------------------
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', legacyAuth, async (req, res) => {
   try {
     const { userId, role } = req.user;
 
@@ -146,7 +164,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------------------------------
 // Get single ticket with media (secured for clients)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId', authMiddleware, async (req, res) => {
+router.get('/:ticketId', legacyAuth, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;
@@ -170,6 +188,81 @@ router.get('/:ticketId', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Error fetching ticket:', err);
     res.status(500).json({ message: 'Error fetching ticket' });
+  }
+});
+
+// -------------------------------------------------------------------------------------
+// Get ticket status history (timeline)
+// -------------------------------------------------------------------------------------
+router.get('/:ticketId/history', legacyAuth, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    const { ticketId } = req.params;
+
+    // Load ticket and basic access control (clients can only see their own ticket)
+    const [tickets] = await pool.query('SELECT * FROM tblTickets WHERE TicketID = ?', [ticketId]);
+    if (!tickets.length) return res.status(404).json({ message: 'Ticket not found' });
+
+    const t = tickets[0];
+    if (role === 'Client' && t.ClientUserID !== userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    // Pull the timeline from history table
+    const [history] = await pool.query(
+      `SELECT TicketID, Status, Notes, UpdatedByUserID, UpdatedAt
+       FROM tblTicketStatusHistory
+       WHERE TicketID = ?
+       ORDER BY UpdatedAt ASC`,
+      [ticketId]
+    );
+
+    // (Optional) include created event if you don’t already log it into tblTicketStatusHistory
+    const createdEvent = {
+      TicketID: t.TicketID,
+      Status: 'Created',
+      Notes: t.Description || null,
+      UpdatedByUserID: t.ClientUserID,
+      UpdatedAt: t.CreatedAt || t.SubmittedAt || t.CreatedOn || t.CreatedDate || null
+    };
+
+    const withCreated = createdEvent.UpdatedAt ? [createdEvent, ...history] : history;
+
+    res.json({ ticketId: ticketId, timeline: withCreated });
+  } catch (err) {
+    console.error('Error fetching history:', err);
+    res.status(500).json({ message: 'Error fetching history' });
+  }
+});
+
+// -------------------------------------------------------------------------------------
+// Get ticket appointments (if you have tblAppointments)
+// -------------------------------------------------------------------------------------
+router.get('/:ticketId/appointments', legacyAuth, async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    const { ticketId } = req.params;
+
+    const [tickets] = await pool.query('SELECT * FROM tblTickets WHERE TicketID = ?', [ticketId]);
+    if (!tickets.length) return res.status(404).json({ message: 'Ticket not found' });
+
+    const t = tickets[0];
+    if (role === 'Client' && t.ClientUserID !== userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT AppointmentID, TicketID, ContractorUserID, ScheduledAt, Status, Notes, CreatedAt, UpdatedAt
+       FROM tblAppointments
+       WHERE TicketID = ?
+       ORDER BY ScheduledAt DESC`,
+      [ticketId]
+    );
+
+    res.json({ ticketId, appointments: rows });
+  } catch (err) {
+    console.error('Error fetching appointments:', err);
+    res.status(500).json({ message: 'Error fetching appointments' });
   }
 });
 

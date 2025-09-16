@@ -311,9 +311,18 @@ export async function cleanupExpiredJtis() {
 }
 
 // Log audit event
-export async function logAudit({ actorUserId, targetUserId, action, metadata, ip, userAgent }) {
-  await pool.execute(
-    'INSERT INTO tblAuditLogs (ActorUserID, TargetUserID, Action, Metadata, IP, UserAgent) VALUES (?, ?, ?, ?, ?, ?)',
-    [actorUserId || null, targetUserId || null, action, metadata ? JSON.stringify(metadata) : null, ip || null, userAgent || null]
-  );
+export async function logAudit({ actorUserId, targetUserId, action, metadata, ip, userAgent, connection }) {
+  const metaStr = metadata ? JSON.stringify(metadata) : null;
+
+  if (!connection) {
+    // fallback to pool
+    const sql = 'INSERT INTO tblAuditLogs (ActorUserID, TargetUserID, Action, Metadata, IP, UserAgent) VALUES (?, ?, ?, ?, ?, ?)';
+    await pool.execute(sql, [actorUserId, targetUserId, action, metaStr, ip, userAgent]);
+  } else {
+    await connection.execute(
+      'INSERT INTO tblAuditLogs (ActorUserID, TargetUserID, Action, Metadata, IP, UserAgent) VALUES (?, ?, ?, ?, ?, ?)',
+      [actorUserId, targetUserId, action, metaStr, ip, userAgent]
+    );
+  }
 }
+

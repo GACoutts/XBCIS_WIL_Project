@@ -1,7 +1,6 @@
 :root { 
   --navbar-height: 60px;
   --approvals-grid: 120px 1fr 1fr 140px 120px 200px;
-
   --approval-row-height: 56px;    
   --approvals-visible-rows: 4;     
 }
@@ -9,16 +8,17 @@
 body { 
   background: white; 
   font-family: Arial, sans-serif; 
-  display: flex; flex-direction: column; 
+  display: flex; 
+  flex-direction: column; 
   height: 100vh; 
-  overflow: hidden; 
-  height: 100vh; 
+  overflow: auto;   /* allow scroll instead of hiding content */
   margin: 0; 
   padding-top: var(--navbar-height); 
   box-sizing: border-box; 
   align-items: stretch; 
 }
 
+/* Navbar */
 .navbar { 
   display: flex; 
   justify-content: space-between; 
@@ -32,8 +32,8 @@ body {
   width: 100%; 
   box-sizing: border-box; 
   z-index: 1000; 
-  font-family: Arial, sans-serif; 
-  height: auto; 
+  font-family: Arial, sans-serif;
+  height: var(--navbar-height); 
 }
 
 .navbar-logo { 
@@ -76,25 +76,50 @@ body {
   cursor: pointer; 
 }
 
-.dashboard-title{ 
-  padding-left: 90px; 
+/* Dashboard Title + Button */
+.dashboard-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 90px;
+  margin: 20px 0;
 }
 
-.sub-title{ 
+.dashboard-title h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.dashboard-title button {
+  background-color: #FBD402;
+  color: black;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.dashboard-title button:hover {
+  background-color: #e6c800;
+  transform: translateY(-1px);
+}
+
+/* Sub-title */
+.sub-title { 
   padding-left: 91px; 
   margin-top: -15px; 
   font-size: 13px; 
-  margin-bottom: -60px; 
+  margin-bottom: 0; 
 }
 
+/* Pending Approvals Table */
 .pendingapprovals-wrapper {
   max-width: 1211px;
-  margin: 24px auto;
-  padding: 0 16px 40px;
+  margin: 76px auto 40px 76px; 
+  padding: 0 16px;
   box-sizing: border-box;
-  margin-top: 76px;
-  margin-left: 76px;
-  margin-bottom: -50px;;
 }
 
 .pendingapprovals-card {
@@ -113,28 +138,55 @@ body {
   position: sticky;
   top: 0;
   z-index: 2;
-}
-
-.pendingapprovals-body,
-.pendingapprovals-table {
-  width: 100%;
-  margin: 0;
-  padding: 0;
+  display: grid;
+  grid-template-columns: var(--approvals-grid); 
+  gap: 12px;
+  align-items: center;
+  padding: 12px 18px;
   box-sizing: border-box;
 }
 
+.pendingapprovals-body {
+  width: 100%;
+  max-height: calc(var(--approval-row-height) * var(--approvals-visible-rows)); 
+  overflow-y: auto;
+}
+
+.pendingapprovals-body::-webkit-scrollbar {
+  width: 8px;
+}
+.pendingapprovals-body::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 5px;
+}
+
 .pendingapprovals-row {
+  display: grid;
+  grid-template-columns: var(--approvals-grid); 
+  gap: 12px;
+  align-items: center;
+  padding: 3px 18px;
+  box-sizing: border-box;
   border-bottom: 1px solid #f1e6cc;
-  color: black;
   font-size: 13px;
+  color: black;
 }
 
 .pendingapprovals-row:last-child {
   border-bottom: none;
 }
 
-.cell { padding: 8px 0; color: black; }
-.cell.property, .cell.issue { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.cell { 
+  padding: 8px 0; 
+  color: black; 
+  text-align: center;
+}
+.cell.property, .cell.issue { 
+  white-space: nowrap; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  max-width: 260px; 
+}
 
 .status-pill {
   display: inline-block;
@@ -146,30 +198,14 @@ body {
   margin-left: 10px;
 }
 
-.status-pill.pending {
-  background: white;
-  color: #FBD402;
-  border-color: black;
-}
-
-.status-pill.approved {
-  background: white;
-  color: green;
-  border-color: black;
-}
-
-.status-pill.rejected {
-  background: white;
-  color: red;
-  border-color: black;
-}
-
+.status-pill.pending { background: white; color: #FBD402; border-color: black; }
+.status-pill.approved { background: white; color: green; border-color: black; }
+.status-pill.rejected { background: white; color: red; border-color: black; }
 
 .actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
- 
 }
 
 .btn {
@@ -178,120 +214,28 @@ body {
   font-weight: 600;
   border-radius: 5px;
   cursor: pointer;
-  
 }
 
-.btn-approve {
-  background: green;
-  color: white;
-}
-
-.btn-reject {
-  background: red;
-  color: white;
-}
-
+.btn-approve { background: green; color: white; }
+.btn-reject { background: red; color: white; }
 .btn.disabled,
-.btn[disabled] {
-  opacity: 0.55;
-  cursor: default;
-  filter: grayscale(0.02);
-}
-
-.pendingapprovals-header,
-.pendingapprovals-row {
-  display: grid;
-  grid-template-columns: var(--approvals-grid); 
-  gap: 12px;
-  align-items: center;
-  padding: 3px 18px;
-  box-sizing: border-box;
-}
-
-.column-ticket, .cell.ticket { text-align: left; }
-.column-submitted, .cell.submitted { text-align: left; }
-.column-actions, .actions { justify-content: flex-end; }
-
-.pendingapprovals-header .column.column-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;   
-  padding-right: 0;      
-  text-align: right;
-}
-
-.pendingapprovals-header .column {
-  display: flex;
-  justify-content: center;   
-  align-items: center;       
-  text-align: center;
-  padding: 12px 18px;        
-  box-sizing: border-box;
-}
-
-.pendingapprovals-card .pendingapprovals-header .column {
-  display: flex;
-  justify-content: center;   
-  align-items: center;       
-  text-align: center;
-  padding: 12px 18px;        
-  box-sizing: border-box;
-}
-
-.pendingapprovals-card .pendingapprovals-header .column.column-actions {
-  
-  justify-content: center;     
-  padding-right: 6px;          
-}
-
-.pendingapprovals-row .cell.ticket,
-.pendingapprovals-row .cell.property,
-.pendingapprovals-row .cell.issue,
-.pendingapprovals-row .cell.submitted,
-.pendingapprovals-row .cell.status {
-  justify-self: center;   
-  text-align: center;     
-}
-
-.pendingapprovals-row .cell.actions {
-  justify-self: end;      
-  text-align: right;      
-}
-
-
-
-.pendingapprovals-body {
-  max-height: calc(var(--approval-row-height) * var(--approvals-visible-rows)); 
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch; 
-}
-
-.pendingapprovals-body::-webkit-scrollbar {
-  width: 8px;
-}
-.pendingapprovals-body::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 5px;
-}
+.btn[disabled] { opacity: 0.55; cursor: default; filter: grayscale(0.02); }
 
 .pendingapprovals-row .cell.actions .btn {
   width: 88px;
   height: 27px;
-  align-items: center;
-  justify-content: center;
 }
 
+/* Maintenance Overview */
 .maintenance-overview {
   max-width: 1343px;
   margin: 16px auto 80px;
   display: grid;
-  grid-template-columns: 1fr 360px;; 
+  grid-template-columns: 1fr 360px; 
   gap: 20px;
   padding: 0 16px;
   box-sizing: border-box;
-  margin-left: 10px; 
   transform: scale(0.9);
-  
 }
 
 .maintenance-chart-card {
@@ -307,13 +251,11 @@ body {
 .maintenance-chart-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 3px;
 }
 
-.maintenance-chart {
-  width: 100%;
-  margin-bottom: 0;
-}
+.maintenance-chart { width: 100%; margin-bottom: 0; }
 
 .maintenance-summary {
   display: flex;
@@ -330,10 +272,7 @@ body {
   font-size: 14px;
 }
 
-.summary-card h4 {
-  margin: 0 0 8px 0;
-  font-size: 16px;
-}
+.summary-card h4 { margin: 0 0 8px 0; font-size: 16px; }
 
 .summary-row {
   display: flex;
@@ -344,19 +283,23 @@ body {
   color: black;
 }
 
-.summary-label {
-  color: #666;
-  font-weight: 600;
-  font-size: 13px;
+.summary-label { color: #666; font-weight: 600; font-size: 13px; }
+.summary-value { font-size: 14px; font-weight: 700; }
+.total-row .summary-value { font-size: 16px; }
+
+.navbar .navbar-profile {
+  position: relative;
 }
 
-.summary-value {
-  font-size: 14px;
-  font-weight: 700;
+.navbar .logout-popup button {
+  background-color: #FBD402;
+  color: black;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  left: 50%;
+  transform: translateX(-8%) translateY(15%);
 }
-
-.total-row .summary-value {
-  font-size: 16px;
-}
-
-
