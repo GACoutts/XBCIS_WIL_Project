@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ResponsiveContainer,
   BarChart,
@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend
 } from "recharts";
+import { useAuth } from "./context/AuthContext.jsx";
 
 import {
   getTickets,
@@ -19,11 +20,21 @@ import {
 } from "./landlordApi"; // adjust path
 
 function LandlordDashboard() {
+  const navigate = useNavigate();
+
   const [tickets, setTickets] = useState([]);
   const [quotes, setQuotes] = useState({}); // { ticketId: [quotes...] }
   const [rangeMonths, setRangeMonths] = useState(3);
+  const { logout } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
 
-  // Fetch tickets on mount
+    const handleLogout = async () => {
+    await logout();
+    window.location.reload(); // redirect to login or refresh
+  };
+
+
+  // Fetch tickets
   useEffect(() => {
     async function loadTickets() {
       try {
@@ -53,13 +64,12 @@ function LandlordDashboard() {
     if (tickets.length) loadQuotes();
   }, [tickets]);
 
-  // Approve/reject a quote
+  // Approve/reject quote
   async function handleAction(ticketId, quoteId, action) {
     try {
       if (action === "approve") await approveQuote(quoteId);
       else await rejectQuote(quoteId);
 
-      // Update local quotes state
       setQuotes((prev) => ({
         ...prev,
         [ticketId]: prev[ticketId].map((q) =>
@@ -73,7 +83,7 @@ function LandlordDashboard() {
     }
   }
 
-  // Filter tickets for overview chart
+  // Filter tickets for chart
   const filteredTickets = useMemo(() => {
     const now = new Date();
     return tickets.filter((t) => {
@@ -86,7 +96,7 @@ function LandlordDashboard() {
     });
   }, [tickets, rangeMonths]);
 
-  // Prepare chart data
+  // Chart data
   const chartData = useMemo(() => {
     const map = new Map();
     filteredTickets.forEach((t) => {
@@ -162,6 +172,7 @@ function LandlordDashboard() {
 
   return (
     <>
+      {/* Navbar */}
       <nav className="navbar">
         <div className="navbar-logo">
           <img src="https://placehold.co/120x40" alt="logo" />
@@ -176,13 +187,50 @@ function LandlordDashboard() {
           </ul>
         </div>
         <div className="navbar-profile">
-          <img src="https://placehold.co/40" alt="profile" />
+          <button
+            className="profile-btn"
+            onClick={() => setShowLogout(!showLogout)}
+          >
+            <img src="https://placehold.co/40" alt="profile" />
+          </button>
+          {showLogout && (
+            <div className="logout-popup">
+              <button onClick={handleLogout}>Log Out</button>
+            </div>
+          )}
         </div>
       </nav>
 
-      <div className="dashboard-title"><h1>Dashboard</h1></div>
-      <div className="sub-title"><h2>Pending Approvals</h2></div>
+      {/* Dashboard Title + Independent Button */}
+      <div
+        className="dashboard-title"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          margin: "20px 0"
+        }}
+      >
+        <h1 style={{ margin: 0 }}>Dashboard</h1>
+        <button
+          style={{
+            padding: "8px 16px",
+            fontSize: 14,
+            backgroundColor: "#FBD402",
+            color: "black",
+            border: "none",
+            borderRadius: "5px",
+            cursor: "pointer",
+            fontWeight: 600
+          }}
+          onClick={() => navigate("/landlord-quotes")}
+        >
+          View Contractor Quotes
+        </button>
+      </div>
 
+      {/* Pending Approvals */}
+      <div className="sub-title"><h2>Pending Approvals</h2></div>
       <div className="pendingapprovals-wrapper">
         <div className="pendingapprovals-card">
           <div className="pendingapprovals-header">
@@ -193,7 +241,6 @@ function LandlordDashboard() {
             <div className="column column-status">Status</div>
             <div className="column column-actions">Actions</div>
           </div>
-
           <div className="pendingapprovals-body">
             {tickets.map((ticket) => {
               const ticketQuotes = quotes[ticket.TicketID] || [];
@@ -238,12 +285,12 @@ function LandlordDashboard() {
       {/* Maintenance Overview Chart */}
       <div className="maintenance-overview">
         <div className="maintenance-chart-card">
-          <div className="maintenance-chart-header">
+          <div className="maintenance-chart-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <h3 style={{ margin: 0 }}>Maintenance Costs Review</h3>
               <div style={{ fontSize: 12, color: "#666" }}>Last {rangeMonths} months</div>
             </div>
-            <div style={{ marginLeft: "auto" }}>
+            <div>
               <label style={{ fontSize: 12, marginRight: 8 }}>Range:</label>
               <select value={rangeMonths} onChange={(e) => setRangeMonths(Number(e.target.value))}>
                 <option value={1}>1 month</option>

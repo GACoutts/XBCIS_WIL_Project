@@ -4,9 +4,11 @@ import "./styles/staffdash.css";
 import ManageRoles from './components/ManageRoles.jsx';
 import ReviewRoleRequests from './components/ReviewRoleRequest.jsx';
 import { Link } from 'react-router-dom';
+import { useAuth } from "./context/AuthContext.jsx";
 
 function StaffDashboard() {
 
+  const [showLogout, setShowLogout] = useState(false);
   const [tickets, setTickets] = useState([
     {
       id: "#029495",
@@ -82,6 +84,11 @@ function StaffDashboard() {
       totalSpend: "R0"
     }
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.reload(); // redirect to login or refresh
+  };
 
   const getUrgencyColor = (urgency) => {
     switch (urgency.toLowerCase()) {
@@ -164,7 +171,17 @@ function StaffDashboard() {
           </ul>
         </div>
         <div className="navbar-profile">
-          <img src="https://placehold.co/40" alt="profile" />
+          <button
+            className="profile-btn"
+            onClick={() => setShowLogout(!showLogout)}
+          >
+            <img src="https://placehold.co/40" alt="profile" />
+          </button>
+          {showLogout && (
+            <div className="logout-popup">
+              <button onClick={handleLogout}>Log Out</button>
+            </div>
+          )}
         </div>
       </nav>
 
