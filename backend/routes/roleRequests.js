@@ -1,12 +1,12 @@
 // backend/routes/roleRequests.js
 import express from 'express';
 import pool from '../db.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import { requireAuth } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
 // POST /api/roles/request  { requestedRole: 'Landlord' | 'Contractor' | 'Staff', notes? }
-router.post('/request', authMiddleware, async (req, res) => {
+router.post('/request', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { requestedRole, notes } = req.body || {};

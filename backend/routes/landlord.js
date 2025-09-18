@@ -180,15 +180,17 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
 router.get("/tickets/:ticketId/history", requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const { userId } = req.user;
+    const { ticketId } = req.params;
 
     const [history] = await pool.execute(
-      "SELECT id AS HistoryID, status AS Status, changedAt AS ChangedAt, changedBy AS ChangedBy FROM tblTicketStatusHistory WHERE ticketId = ? ORDER BY changedAt ASC",
-      [req.params.ticketId]
+      "SELECT StatusHistoryID as HistoryID, Status, UpdatedAt as ChangedAt, UpdatedByUserID as ChangedBy FROM tblTicketStatusHistory WHERE TicketID = ? ORDER BY UpdatedAt ASC",
+      [ticketId]
     );
 
-    res.json({ ticketId: req.params.ticketId, timeline: history });
+    res.json({ ticketId, timeline: history });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error("Fetch ticket history error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -196,18 +198,20 @@ router.get("/tickets/:ticketId/history", requireAuth, permitRoles('Landlord'), a
 router.get("/tickets/:ticketId/quotes", requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const { userId } = req.user;
+    const { ticketId } = req.params;
 
     const [quotes] = await pool.execute(
       `SELECT q.QuoteID, q.ContractorUserID AS ContractorID, q.QuoteAmount, q.QuoteStatus, q.SubmittedAt AS CreatedAt
        FROM tblQuotes q
        JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
        WHERE q.TicketID = ? AND la.LandlordUserID = ?`,
-      [req.params.ticketId, userId]
+      [ticketId, userId]
     );
 
     res.json(quotes);
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error("Fetch quotes error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -215,19 +219,21 @@ router.get("/tickets/:ticketId/quotes", requireAuth, permitRoles('Landlord'), as
 router.post("/quotes/:quoteId/approve", requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const { userId } = req.user;
+    const { quoteId } = req.params;
 
     // Update quote status
-    await pool.execute("UPDATE tblQuotes SET QuoteStatus = 'Approved' WHERE QuoteID = ?", [req.params.quoteId]);
+    await pool.execute("UPDATE tblQuotes SET QuoteStatus = 'Approved' WHERE QuoteID = ?", [quoteId]);
 
     // Update landlord approval
     await pool.execute(
       "UPDATE tblLandlordApprovals SET ApprovalStatus = 'Approved', ApprovedAt = NOW() WHERE QuoteID = ? AND LandlordUserID = ?",
-      [req.params.quoteId, userId]
+      [quoteId, userId]
     );
 
     res.json({ message: "Quote approved successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error("Approve quote error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -235,19 +241,21 @@ router.post("/quotes/:quoteId/approve", requireAuth, permitRoles('Landlord'), as
 router.post("/quotes/:quoteId/reject", requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const { userId } = req.user;
+    const { quoteId } = req.params;
 
     // Update quote status
-    await pool.execute("UPDATE tblQuotes SET QuoteStatus = 'Rejected' WHERE QuoteID = ?", [req.params.quoteId]);
+    await pool.execute("UPDATE tblQuotes SET QuoteStatus = 'Rejected' WHERE QuoteID = ?", [quoteId]);
 
     // Update landlord approval
     await pool.execute(
       "UPDATE tblLandlordApprovals SET ApprovalStatus = 'Rejected', ApprovedAt = NOW() WHERE QuoteID = ? AND LandlordUserID = ?",
-      [req.params.quoteId, userId]
+      [quoteId, userId]
     );
 
     res.json({ message: "Quote rejected successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error("Reject quote error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -255,6 +263,7 @@ router.post("/quotes/:quoteId/reject", requireAuth, permitRoles('Landlord'), asy
 router.get("/tickets/:ticketId/appointments", requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const { userId } = req.user;
+    const { ticketId } = req.params;
 
     const [appointments] = await pool.execute(
       `SELECT cs.ScheduleID AS AppointmentID, cs.ProposedDate AS Date, cs.ClientConfirmed 
@@ -264,12 +273,13 @@ router.get("/tickets/:ticketId/appointments", requireAuth, permitRoles('Landlord
        JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
        WHERE cs.TicketID = ? AND la.LandlordUserID = ?
        ORDER BY cs.ProposedDate DESC`,
-      [req.params.ticketId, userId]
+      [ticketId, userId]
     );
 
-    res.json({ ticketId: req.params.ticketId, appointments });
+    res.json({ ticketId, appointments });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err });
+    console.error("Fetch appointments error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 

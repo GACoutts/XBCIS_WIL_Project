@@ -39,9 +39,10 @@ function LandlordDashboard() {
     async function loadTickets() {
       try {
         const data = await getTickets();
-        setTickets(data.tickets);
+        setTickets(Array.isArray(data.tickets) ? data.tickets : []);
       } catch (err) {
         console.error("Error fetching tickets:", err);
+        setTickets([]); // Ensure tickets is always an array
       }
     }
     loadTickets();
