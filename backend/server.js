@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import pool, { dbHealth } from "./db.js";
 import { dbViewerRoutes } from "./db-viewer.js";
+import { performStartupCleanup } from './utils/startupCleanup.js';
 
 // Routes
 import ticketsRoutes from "./routes/tickets.js";
@@ -288,6 +289,9 @@ app.get(/^\/(?!api|uploads).*/, (_req, res) => {
 });
 
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Backend running on http://localhost:${PORT}`);
+  
+  // Perform database cleanup on startup
+  await performStartupCleanup();
 });
