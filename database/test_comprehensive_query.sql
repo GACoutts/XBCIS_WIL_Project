@@ -1,41 +1,41 @@
-USE Rawson;
+﻿USE Rawson;
 
 -- Test the comprehensive query exactly as it appears in the code
-SELECT 
+SELECT
   t.TicketID,
   t.TicketRefNumber,
   t.Description,
   t.UrgencyLevel,
   t.CreatedAt,
   t.CurrentStatus,
-  
+
   client.FullName as ClientName,
   client.Email as ClientEmail,
   client.Phone as ClientPhone,
-  
+
   q.QuoteID,
   q.QuoteAmount,
   q.QuoteStatus,
   q.SubmittedAt as QuoteSubmittedAt,
   contractor.FullName as ContractorName,
   contractor.Email as ContractorEmail,
-  
+
   cs.ScheduleID,
   cs.ProposedDate as AppointmentDate,
   cs.ClientConfirmed as AppointmentConfirmed,
-  
+
   la.ApprovalStatus as LandlordApprovalStatus,
   la.ApprovedAt as LandlordApprovedAt
-  
+
 FROM tblTickets t
 
 LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
 
-LEFT JOIN tblQuotes q ON t.TicketID = q.TicketID 
+LEFT JOIN tblQuotes q ON t.TicketID = q.TicketID
   AND q.QuoteID = (
-    SELECT q2.QuoteID FROM tblQuotes q2 
-    WHERE q2.TicketID = t.TicketID 
-    ORDER BY 
+    SELECT q2.QuoteID FROM tblQuotes q2
+    WHERE q2.TicketID = t.TicketID
+    ORDER BY
       CASE WHEN q2.QuoteStatus = 'Approved' THEN 1 ELSE 2 END,
       q2.SubmittedAt DESC
     LIMIT 1
