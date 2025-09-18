@@ -3,22 +3,30 @@ import Login from './Login.jsx';
 import SignUpPage from './SignUpPage.jsx';
 import Ticket from './Ticket.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
-import UserDashboard from './UserDashboard.jsx';
-import ForgotPassword from './ForgotPassword.jsx';
-import ResetPassword from './ResetPassword.jsx';
 import RoleRoute from './components/RoleRoute.jsx';
+import UserDashboard from './UserDashboard.jsx';
 import StaffDashboard from './StaffDashboard.jsx';
 import LandlordDashboard from './LandlordDashboard.jsx';
 import ContractorDashboard from './ContractorDashboard.jsx';
+import ForgotPassword from './ForgotPassword.jsx';
+import ResetPassword from './ResetPassword.jsx';
 import DebugHUD from './components/DebugHUD.jsx';
+
+// Role management components
 import RequestRole from './RequestRole.jsx';
+import ManageRoles from './components/ManageRoles.jsx';
+import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
 
 export default function App() {
+  // Only show DebugHUD in development mode
+  const isDevelopment = import.meta.env.DEV || import.meta.env.VITE_DEBUG_HUD === 'true';
+  
   return (
     <>
-      <DebugHUD />
+      {/* Debug overlay - only in development */}
+      {isDevelopment && <DebugHUD />}
       <Routes>
-        {/* Public */}
+        {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -33,12 +41,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        
+        {/* Client-only ticket creation */}
         <Route
           path="/ticket"
           element={
-            <ProtectedRoute>
+            <RoleRoute roles={['Client']}>
               <Ticket />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
 
@@ -70,17 +80,34 @@ export default function App() {
           }
         />
 
-        {/* Request role */}
+        {/* Backward compatibility redirects */}
+        <Route path="/dashboard/staff" element={<Navigate to="/staff" replace />} />
+        <Route path="/dashboard/landlord" element={<Navigate to="/landlord" replace />} />
+        <Route path="/dashboard/client" element={<Navigate to="/" replace />} />
+
+        {/* Role management */}
+        <Route path="/request-role" element={<ProtectedRoute><RequestRole /></ProtectedRoute>} />
+        
+        {/* Staff role management routes */}
         <Route
-          path="/request-role"
+          path="/staff/manage-roles"
           element={
-            <ProtectedRoute>
-              <RequestRole />
-            </ProtectedRoute>
+            <RoleRoute roles={['Staff']}>
+              <ManageRoles />
+            </RoleRoute>
+          }
+        />
+        
+        <Route
+          path="/staff/role-requests"
+          element={
+            <RoleRoute roles={['Staff']}>
+              <ReviewRoleRequest />
+            </RoleRoute>
           }
         />
 
-        {/* Fallback */}
+        {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

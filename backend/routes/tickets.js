@@ -51,13 +51,14 @@ const upload = multer({
 // -------------------------------------------------------------------------------------
 // Create a ticket
 // -------------------------------------------------------------------------------------
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { userId, description, urgencyLevel } = req.body;
+    const { description, urgencyLevel } = req.body;
+    const userId = req.user.userId; // Get user ID from authenticated session
 
-    if (!userId || !description || !urgencyLevel) {
+    if (!description || !urgencyLevel) {
       return res.status(400).json({
-        message: 'Missing required fields: userId, description, urgencyLevel'
+        message: 'Missing required fields: description, urgencyLevel'
       });
     }
 
@@ -80,11 +81,33 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Authorization middleware to check ticket access
+async function authorizeTicketAccess(req, res, next) {
+  try {
+    const { ticketId } = req.params;
+    const [rows] = await pool.query('SELECT ClientUserID FROM tblTickets WHERE TicketID = ?', [ticketId]);
+    
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Ticket not found' });
+    }
+    
+    // Allow Staff and admins to access any ticket, but restrict Clients to their own tickets
+    if (req.user.role === 'Client' && rows[0].ClientUserID !== req.user.userId) {
+      return res.status(403).json({ message: 'Forbidden: You can only upload media to your own tickets' });
+    }
+    
+    next();
+  } catch (err) {
+    console.error('Authorize ticket access error:', err);
+    res.status(500).json({ message: 'Authorization error' });
+  }
+}
+
 // -------------------------------------------------------------------------------------
 // Upload media for a ticket
 // Field name must be "file"
 // -------------------------------------------------------------------------------------
-router.post('/:ticketId/media', upload.single('file'), async (req, res) => {
+router.post('/:ticketId/media', authMiddleware, authorizeTicketAccess, upload.single('file'), async (req, res) => {
   try {
     const { ticketId } = req.params;
     const file = req.file;
