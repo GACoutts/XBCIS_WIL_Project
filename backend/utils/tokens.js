@@ -9,10 +9,26 @@ import pool from '../db.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES || '20m';
 const JWT_REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || '14d';
-const COOKIE_SECURE = process.env.COOKIE_SECURE === 'true';
-const COOKIE_SAME_SITE_ACCESS = process.env.COOKIE_SAME_SITE_ACCESS || 'lax';
-const COOKIE_SAME_SITE_REFRESH = process.env.COOKIE_SAME_SITE_REFRESH || 'strict';
-const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
+
+// Robust env parsing (matches server.js)
+const envBool = (v, def=false) => {
+  if (v === undefined) return def;
+  const s = String(v).toLowerCase().trim();
+  return ['1','true','yes','on'].includes(s);
+};
+const COOKIE_SECURE = envBool(process.env.COOKIE_SECURE, process.env.NODE_ENV === 'production');
+const COOKIE_DOMAIN = (process.env.COOKIE_DOMAIN || '').trim() || undefined;
+
+// Normalize SameSite values (accept any casing)
+const normSameSite = (v, fallback) => {
+  const s = (v || '').toString().trim().toLowerCase();
+  if (s === 'lax') return 'Lax';
+  if (s === 'strict') return 'Strict';
+  if (s === 'none') return 'None';
+  return fallback;
+};
+const COOKIE_SAME_SITE_ACCESS  = normSameSite(process.env.COOKIE_SAME_SITE_ACCESS, 'Lax');
+const COOKIE_SAME_SITE_REFRESH = normSameSite(process.env.COOKIE_SAME_SITE_REFRESH, 'Strict');
 const MAX_SESSIONS_PER_USER = parseInt(process.env.MAX_SESSIONS_PER_USER || '5', 10);
 
 // Role hierarchy (higher index = higher privilege)
@@ -94,15 +110,15 @@ export function setRefreshCookie(res, rawRefresh) {
 
 // Clear auth cookies
 export function clearAuthCookies(res) {
-  const cookieOptions = {
+  const base = {
     httpOnly: true,
     secure: COOKIE_SECURE,
     domain: COOKIE_DOMAIN,
     path: '/'
   };
 
-  res.clearCookie('access_token', cookieOptions);
-  res.clearCookie('refresh_token', { ...cookieOptions, path: '/api' });
+   res.clearCookie('access_token', { ...base, sameSite: COOKIE_SAME_SITE_ACCESS });
+   res.clearCookie('refresh_token', { ...base, sameSite: COOKIE_SAME_SITE_REFRESH, path: '/api' });
 }
 
 // Issue new session (access + refresh tokens)
@@ -295,9 +311,18 @@ export async function cleanupExpiredJtis() {
 }
 
 // Log audit event
-export async function logAudit({ actorUserId, targetUserId, action, metadata, ip, userAgent }) {
-  await pool.execute(
-    'INSERT INTO tblAuditLogs (ActorUserID, TargetUserID, Action, Metadata, IP, UserAgent) VALUES (?, ?, ?, ?, ?, ?)',
-    [actorUserId || null, targetUserId || null, action, metadata ? JSON.stringify(metadata) : null, ip || null, userAgent || null]
-  );
+export async function logAudit({ actorUserId, targetUserId, action, metadata, ip, userAgent, connection }) {
+  const metaStr = metadata ? JSON.stringify(metadata) : null;
+
+  if (!connection) {
+    // fallback to pool
+    const sql = 'INSERT INTO tblAuditLogs (ActorUserID, TargetUserID, Action, Metadata, IP, UserAgent) VALUES (?, ?, ?, ?, ?, ?)';
+    await pool.execute(sql, [actorUserId, targetUserId, action, metaStr, ip, userAgent]);
+  } else {
+    await connection.execute(
+      'INSERT INTO tblAuditLogs (ActorUserID, TargetUserID, Action, Metadata, IP, UserAgent) VALUES (?, ?, ?, ?, ?, ?)',
+      [actorUserId, targetUserId, action, metaStr, ip, userAgent]
+    );
+  }
 }
+

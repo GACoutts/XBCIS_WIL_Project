@@ -4,7 +4,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { authMiddleware } from '../middleware/authMiddleware.js'; // fixed path
+import { authMiddleware } from '../middleware/authMiddleware.js';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
@@ -142,9 +143,26 @@ router.post('/:ticketId/media', authMiddleware, authorizeTicketAccess, upload.si
 });
 
 // -------------------------------------------------------------------------------------
+// Auth middleware
+// -------------------------------------------------------------------------------------
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+
+function legacyAuth(req, res, next) {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ message: 'Not authenticated' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = { userId: decoded.userId, role: decoded.role };
+    next();
+  } catch {
+    return res.status(401).json({ message: 'Invalid session' });
+  }
+}
+
+// -------------------------------------------------------------------------------------
 // Get all tickets (role-based)
 // -------------------------------------------------------------------------------------
-router.get('/', authMiddleware, async (req, res) => {
+router.get('/', legacyAuth, async (req, res) => {
   try {
     const { userId, role } = req.user;
 
@@ -169,7 +187,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------------------------------
 // Get single ticket with media (secured for clients)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId', authMiddleware, async (req, res) => {
+router.get('/:ticketId', legacyAuth, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;
@@ -199,7 +217,7 @@ router.get('/:ticketId', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------------------------------
 // Get ticket status history (timeline)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId/history', authMiddleware, async (req, res) => {
+router.get('/:ticketId/history', legacyAuth, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;
@@ -243,7 +261,7 @@ router.get('/:ticketId/history', authMiddleware, async (req, res) => {
 // -------------------------------------------------------------------------------------
 // Get ticket appointments (if you have tblAppointments)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId/appointments', authMiddleware, async (req, res) => {
+router.get('/:ticketId/appointments', legacyAuth, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;

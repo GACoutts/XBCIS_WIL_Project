@@ -1,4 +1,4 @@
--- Create tblQuotes table for contractor quotes
+﻿-- Create tblQuotes table for contractor quotes
 -- Run this script after creating tblTickets and tblUsers tables
 -- Stores quotes submitted by contractors for maintenance work
 
@@ -12,11 +12,11 @@ CREATE TABLE IF NOT EXISTS tblQuotes (
   QuoteDescription TEXT NULL COMMENT 'Additional quote details',
   SubmittedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When quote was submitted',
   QuoteStatus ENUM('Pending','Approved','Rejected') DEFAULT 'Pending' COMMENT 'Current quote status',
-  
+
   -- Foreign key constraints
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contractor quotes for maintenance tickets';
 

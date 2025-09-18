@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext.jsx";
 import "./styles/login.css";
+import { useAuth } from "./context/AuthContext"; // Add this import
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login } = useAuth(); // Use AuthContext
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
@@ -21,9 +21,28 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setSubmitting(true);
+
     try {
-      await login(form.email.trim(), form.password);
-      navigate(from, { replace: true });
+      // Use context login instead of direct fetch
+      const user = await login(form.email.trim(), form.password);
+
+      // Redirect based on role (exact capitalization)
+      switch (user.role) {
+        case "Landlord":
+          navigate("/landlord", { replace: true });
+          break;
+        case "Client":
+          navigate("/", { replace: true });
+          break;
+        case "Contractor":
+          navigate("/contractor", { replace: true });
+          break;
+        case "Staff":
+          navigate("/staff", { replace: true });
+          break;
+        default:
+          navigate("/", { replace: true });
+      }
     } catch (err) {
       setError(err?.message || "Login failed");
     } finally {
@@ -33,8 +52,7 @@ export default function Login() {
 
   return (
     <div className="login-page-container">
-
-      {error ? <div className="alert-error">{error}</div> : null}
+      {error && <div className="alert-error">{error}</div>}
 
       <form className="container" onSubmit={onSubmit} noValidate>
         <div className="header">
@@ -82,8 +100,8 @@ export default function Login() {
 
         <div className="no-account">
           <div>
-          <span>No account? </span>
-          <Link to="/signup">Create one</Link>
+            <span>No account? </span>
+            <Link to="/signup">Create one</Link>
           </div>
           <div>
             <Link to="/forgot-password">Forgot password?</Link>

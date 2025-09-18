@@ -16,6 +16,8 @@ import quoteRoutes from './routes/quotes.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import roleRequestRoutes from './routes/roleRequests.js';
+import landlordRoutes from './routes/landlord.js';
+import landlordMinimalRoutes from './routes/landlord-minimal.js';
 
 // Middleware
 import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
@@ -24,10 +26,16 @@ import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middl
 // Setup & constants
 // -------------------------------------------------------------------------------------
 const app = express();
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 app.use(cors({
-  origin: 'http://localhost:5173', // your frontend URL
+  origin: (process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173']).map(s => s.trim()), // frontend URL
   credentials: true
-}));
+})
+);
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -42,12 +50,14 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // -------------------------------------------------------------------------------------
 // Routes
 // -------------------------------------------------------------------------------------
-app.use('/api', passwordRoutes);
+app.use('/api/password', passwordRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/roles', roleRequestRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/tickets', ticketsRoutes);
+app.use('/api/landlord', landlordRoutes);
+app.use('/api/landlord', landlordMinimalRoutes);
 
 // DB viewer
 dbViewerRoutes(app);
@@ -103,6 +113,15 @@ app.get("/", (_req, res) => {
     <ul>
       <li><a href="/demo" target="_blank">🔐 Session Management Demo</a></li>
     </ul>
+    <h3>🏠 Landlord API</h3>
+    <ul>
+      <li>GET /api/landlord/tickets - Get comprehensive ticket history with quotes and appointments</li>
+      <li>GET /api/landlord/tickets/:ticketId/history</li>
+      <li>GET /api/landlord/tickets/:ticketId/quotes</li>
+      <li>GET /api/landlord/tickets/:ticketId/appointments</li>
+      <li>POST /api/landlord/quotes/:quoteId/approve</li>
+      <li>POST /api/landlord/quotes/:quoteId/reject</li>
+    </ul>
     <h3>📋 System</h3>
     <ul>
       <li>GET /api/health</li>
@@ -136,20 +155,21 @@ app.get("/api/health", async (_req, res) => {
 // -------------------------------------------------------------------------------------
 app.post("/api/register", authRateLimit, async (req, res) => {
   try {
-    const { fullName, email, password, phone } = req.body;
+    const { fullName, email, password, phone, role } = req.body;
     if (!fullName || !email || !password) return res.status(400).json({ message: "Missing required fields" });
 
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
     const hash = await bcrypt.hash(password, rounds);
-    const role = "Client";
+    const userRole = role || "Client"; // Use provided role or default to Client
 
+    // Set status to Inactive for all new users
     const [result] = await pool.execute(
-      "INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role) VALUES (?, ?, ?, ?, ?)",
-      [fullName, email, hash, phone || null, role]
+      "INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role, Status) VALUES (?, ?, ?, ?, ?, ?)",
+      [fullName, email, hash, phone || null, userRole, "Inactive"]
     );
 
-    setAuthCookie(res, { userId: result.insertId, role });
-    return res.status(201).json({ user: { userId: result.insertId, email, fullName, role }, message: "User registered successfully" });
+    setAuthCookie(res, { userId: result.insertId, role: userRole });
+    return res.status(201).json({ user: { userId: result.insertId, email, fullName, role: userRole }, message: "User registered successfully" });
   } catch (err) {
     if (err?.code === "ER_DUP_ENTRY") return res.status(409).json({ message: "Email already exists" });
     console.error(err);
@@ -239,8 +259,7 @@ app.post("/api/reset-password", passwordResetRateLimit, async (req, res) => {
       await connection.beginTransaction();
       await connection.execute('UPDATE tblusers SET PasswordHash = ? WHERE UserID = ?', [passwordHash, user.UserID]);
       await connection.execute('UPDATE tblPasswordResets SET UsedAt = NOW() WHERE TokenHash = ?', [tokenHash]);
-      await connection.execute('UPDATE tblRefreshTokens SET RevokedAt = NOW WHERE UserID = ? AND RevokedAt IS NULL', [user.UserID]);
-      await connection.commit();
+      await connection.execute('UPDATE tblRefreshTokens SET RevokedAt = NOW() WHERE UserID = ? AND RevokedAt IS NULL', [user.UserID]); await connection.commit();
       return res.json({ message: "Password has been reset successfully" });
     } catch (err) {
       await connection.rollback();
@@ -259,6 +278,16 @@ app.post("/api/reset-password", passwordResetRateLimit, async (req, res) => {
 // Start server
 // -------------------------------------------------------------------------------------
 const PORT = process.env.PORT || 5000;
+
+const clientDistPath = path.join(__dirname, "../frontend/dist");
+app.use(express.static(clientDistPath));
+
+// SPA fallback: anything not /api or /uploads goes to index.html
+app.get(/^\/(?!api|uploads).*/, (_req, res) => {
+  res.sendFile(path.join(clientDistPath, "index.html"));
+});
+
+
 app.listen(PORT, () => {
   console.log(`Backend running on http://localhost:${PORT}`);
 });

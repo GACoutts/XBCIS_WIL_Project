@@ -1,12 +1,13 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import Login from './Login.jsx'
-import SignUpPage from './SignUpPage.jsx'
-import Ticket from './Ticket.jsx'
+import { Routes, Route, Navigate } from 'react-router-dom';
+import Login from './Login.jsx';
+import SignUpPage from './SignUpPage.jsx';
+import Ticket from './Ticket.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import RoleRoute from './components/RoleRoute.jsx';
 import UserDashboard from './UserDashboard.jsx';
 import StaffDashboard from './StaffDashboard.jsx';
 import LandlordDashboard from './LandlordDashboard.jsx';
+import ContractorDashboard from './ContractorDashboard.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
 import ResetPassword from './ResetPassword.jsx';
 import DebugHUD from './components/DebugHUD.jsx';
@@ -15,7 +16,6 @@ import DebugHUD from './components/DebugHUD.jsx';
 import RequestRole from './RequestRole.jsx';
 import ManageRoles from './components/ManageRoles.jsx';
 import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
-// import ContractorDashboard from './ContractorDashboard.jsx'; // Optional for later
 
 export default function App() {
   // Only show DebugHUD in development mode
@@ -42,6 +42,7 @@ export default function App() {
           }
         />
         
+        {/* Client-only ticket creation */}
         <Route
           path="/ticket"
           element={
@@ -51,7 +52,7 @@ export default function App() {
           }
         />
 
-        {/* Role-gated areas - using clean paths */}
+        {/* Role-gated areas */}
         <Route
           path="/staff"
           element={
@@ -66,6 +67,15 @@ export default function App() {
           element={
             <RoleRoute roles={['Landlord']}>
               <LandlordDashboard />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="/contractor"
+          element={
+            <RoleRoute roles={['Contractor']}>
+              <ContractorDashboard />
             </RoleRoute>
           }
         />
@@ -96,17 +106,6 @@ export default function App() {
             </RoleRoute>
           }
         />
-
-        {/* Optional contractor route for future use
-        <Route
-          path="/contractor"
-          element={
-            <RoleRoute roles={['Contractor', 'Staff']}>
-              <ContractorDashboard />
-            </RoleRoute>
-          }
-        />
-        */}
 
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

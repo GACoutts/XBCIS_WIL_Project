@@ -1,20 +1,24 @@
+/* =========================
+   :root & Global Styles
+   ========================= */
 :root { 
   --navbar-height: 60px; 
 }
 
-body { 
-  background: white; 
-  font-family: Arial, sans-serif; 
-  display: flex; flex-direction: column; 
-  height: 100vh; 
-  overflow: hidden; 
-  height: 100vh; 
-  margin: 0; 
-  padding-top: var(--navbar-height); 
-  box-sizing: border-box; 
-  align-items: stretch; 
+body {
+  background: white;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  padding-top: var(--navbar-height); /* leave space for fixed navbar */
+  overflow-y: auto; /* allow vertical scroll */
+  height: auto; /* remove 100vh restriction */
 }
 
+/* =========================
+   Navbar Styles
+   ========================= */
 .navbar { 
   display: flex; 
   justify-content: space-between; 
@@ -28,7 +32,6 @@ body {
   width: 100%; 
   box-sizing: border-box; 
   z-index: 1000; 
-  font-family: Arial, sans-serif; 
   height: var(--navbar-height);
 }
 
@@ -72,29 +75,214 @@ body {
   cursor: pointer; 
 }
 
-.submit-container { 
-  width: 100%; 
-  display: flex; 
-  justify-content: flex-end; 
-  padding-right: 91px; 
-  margin-top: -77px; 
-  box-sizing: border-box; 
+.navbar .navbar-profile {
+  position: relative;
 }
 
-.submit { 
-  background-color: #FBD402; 
-  color: black; 
-  padding: 10px 25px; 
-  border-radius: 5px; 
-  cursor: pointer; 
-  user-select: none; 
-  font-size: 16px; 
-  display: inline-flex; 
-  align-items: center; 
-  justify-content: center; 
-  text-align: center; 
+.navbar .logout-popup button {
+  background-color: #FBD402;
+  color: black;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  left: 50%;
+  transform: translateX(-8%) translateY(15%);
 }
 
+/* =========================
+   Login Page Styles
+   ========================= */
+.login-page-container {
+  background: white;
+  min-height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.login-page-container .container {
+  background: #FBD402;
+  border: 1px solid black;
+  border-radius: 5px;
+  padding: 5px 10px;
+  margin: 5px auto;
+  text-align: center;
+  width: 225px;
+  height: 240px;
+  position: relative;
+  font-family: Arial, sans-serif;
+  transform: scale(1.25);
+  transform-origin: center center;
+}
+
+.login-page-container .text {
+  text-align: left;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+
+.login-page-container .inputs {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.login-page-container .input {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+.login-page-container .input-head {
+  text-align: left;
+  margin-bottom: 1px;
+  font-family: Arial, sans-serif;
+  font-size: 13px;
+}
+
+.login-page-container .input input {
+  padding: 3px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.login-page-container .header {
+  width: 205px;
+  margin: 0 auto;
+  padding: 0px 0;
+}
+
+.login-page-container .header h2 {
+  text-align: left;
+  margin: 10px 0 0 0;
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+
+.login-page-container .underline {
+  position: absolute;
+  top: 41px;
+  left: 0;
+  right: 0;
+  border: none;
+  border-top: 1px solid black;
+  margin: 0;
+  width: 100%;
+}
+
+.login-page-container .header,
+.login-page-container .inputs {
+  width: 205px;
+  margin: 0 auto;
+}
+
+.login-page-container .no-account {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: black;
+  font-size: 12px;
+  margin-top: 12px;
+  margin-bottom: 10px;
+}
+
+.login-page-container .no-account span,
+.login-page-container .no-account a {
+  cursor: pointer;
+  color: black;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.login-page-container .no-account a:hover {
+  text-decoration: underline;
+}
+
+.login-page-container .submit {
+  border-radius: 5px;
+  background: black;
+  cursor: pointer;
+  font-size: 13px;
+  color: white;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  display: inline-block;
+  width: 100px;
+  padding: 0;
+  line-height: 22px;
+  margin-top: 7px;
+  border: none;
+}
+
+.login-page-container .submit-container {
+  text-align: center;
+}
+
+.login-page-container .logo-placeholder {
+  background: #b0b0b0;
+  color: black;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 0px auto;
+  width: 150px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.login-page-container .role-selection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.login-page-container .role-selection span {
+  font-size: 11px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.login-page-container .role-circle {
+  width: 16px;
+  height: 16px;
+  border: 2px solid black;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.login-page-container .role-circle.active {
+  background: black;
+}
+
+.login-page-container .alert-error {
+  position: absolute;
+  top: 15%;
+  background: #ffe8e8;
+  border: 1px solid #f6caca;
+  color: #7a1f1f;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 18px;
+  margin: 0;
+  width: 205px;
+  text-align: center;
+}
+
+/* =========================
+   Tickets / Dashboard Styles
+   ========================= */
 .dashboard-title{ 
   padding-left: 90px; 
 }
@@ -112,19 +300,6 @@ body {
   gap: 15px; 
   padding: 20px 75px 20px 90px; 
   margin-top: -20px; 
-}
-
-.tickets-grid::-webkit-scrollbar { 
-  width: 8px; 
-}
-
-.tickets-grid::-webkit-scrollbar-thumb { 
-  background-color: #ccc; 
-  border-radius: 4px; 
-}
-
-.tickets-grid::-webkit-scrollbar-track { 
-  background-color: #f5f5f5; 
 }
 
 .ticket-card { 
@@ -147,18 +322,6 @@ body {
   font-size: 14px; 
 }
 
-.urgency-low { 
-  color: green; 
-}
-
-.urgency-medium { 
-  color: orange; 
-}
-
-.urgency-high { 
-  color: red; 
-}
-
 .ticket-actions { 
   display: flex; 
   align-items: center; 
@@ -173,7 +336,7 @@ body {
   border-radius: 5px; 
   cursor: pointer; 
 }
- 
+
 .status-badge { 
   padding: 5px 12px; 
   border-radius: 5px; 
@@ -182,131 +345,35 @@ body {
   font-weight: bold; 
 }
 
-.status-pending { 
-  border-color: black; 
-  color: #FBD402; 
+.status-pending { border-color: black; color: #FBD402; }
+.status-scheduled { border-color: black; color: green; }
+.status-rejected { border-color: black; color: red; }
+
+/* =========================
+   Contractor Dashboard Styles (Scoped)
+   ========================= */
+.contractor-dashboard {
+  font-family: Arial, sans-serif;
+  background: white;
+  padding-top: 60px;
+  box-sizing: border-box;
 }
 
-.status-scheduled { 
-  border-color: black; 
-  color: green; 
-}
-
-.status-rejected { 
-  border-color: black; 
-  color: red; 
-}
- 
-.settings-icon { 
-  font-size: 18px; 
-  cursor: pointer; 
-}
-
-.ticket-image { 
-  background: #FBD402; 
-  width: 100px; 
-  height: 100px; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  border-radius: 4px; 
-  margin-top: 5px; 
-  margin-right: 10px; 
-  cursor: pointer; 
-}
- 
-.settings-icon { 
-  width: 24px; 
-  height: 24px; 
-  cursor: pointer; 
-} 
-
-.tickets-container { 
-  flex: none; 
-  overflow-y: auto; 
-  padding-right: 8px; 
-  margin-top: 35px; 
-  height: 300px; 
-  overflow-y: auto; 
-  box-sizing: border-box; 
-} 
-
-.tickets-container::-webkit-scrollbar { 
-  width: 8px; 
-} 
-
-.tickets-container::-webkit-scrollbar-thumb { 
-  background-color: white; 
-  border-radius: 5px; 
-} 
-
-.tickets-container::-webkit-scrollbar-track { 
-  background-color: white; 
-} 
-
-.ticket-history-container { 
-  padding: 0 75px 20px 90px;
-  margin-right: 16px;
-} 
-
-.ticket-history-item { 
-  display: grid; 
-  grid-template-columns: 2fr 1fr 1fr 1fr auto; 
-  align-items: center; 
-  padding: 8px 10px; 
-  background: white; 
-  border-bottom: 1px solid #ddd;
-  font-size: 14px; 
-} 
-
-.ticket-history-title { 
-  font-weight: bold; 
-} 
-
-.ticket-history-list { 
-  max-height: 120px;  
-  overflow-y: auto; 
-  border: 1px solid #FBD402; 
-  border-radius: 5px; 
-} 
-
-.ticket-history-container h2{ 
-  font-size: 19px; 
-  margin-top: 10px; 
-  margin-bottom: 8px; 
-} 
-
-.ticket-history-list::-webkit-scrollbar { 
-  width: 8px; 
-}
-
-.ticket-history-list::-webkit-scrollbar-thumb { 
-  background-color: white; 
-  border-radius: 5px; 
-} 
-
-.ticket-history-list::-webkit-scrollbar-track { 
-  background-color: white; 
-} 
-
-.ticket-history-item:last-child { 
-  border-bottom: none; 
-} 
-
-.ticket-history-status { 
-  text-align: center; 
-  width: 50px; 
-  margin-left: 130px; 
-}
-/* Contractor Dashboard Styles */
-.contractor-tabs {
+.contractor-dashboard .contractor-tabs {
   display: flex;
   padding: 0 90px;
   margin-bottom: 20px;
   border-bottom: 1px solid #ddd;
 }
 
-.contractor-tabs button {
+.contractor-content {
+  flex: 1;           /* take remaining space below navbar */
+  overflow-y: auto;  /* enable vertical scrolling */
+  padding-top: 10px; /* optional spacing */
+  padding-bottom: 20px;
+}
+
+.contractor-dashboard .contractor-tabs button {
   background: none;
   border: none;
   padding: 12px 24px;
@@ -316,12 +383,12 @@ body {
   position: relative;
 }
 
-.contractor-tabs button.active {
+.contractor-dashboard .contractor-tabs button.active {
   color: #000;
   font-weight: bold;
 }
 
-.contractor-tabs button.active::after {
+.contractor-dashboard .contractor-tabs button.active::after {
   content: '';
   position: absolute;
   bottom: -1px;
@@ -331,30 +398,30 @@ body {
   background-color: #FBD402;
 }
 
-.jobs-section {
+.contractor-dashboard .jobs-section {
   padding: 0 90px;
   margin-bottom: 40px;
 }
 
-.jobs-section h2 {
+.contractor-dashboard .jobs-section h2 {
   font-size: 24px;
   margin-bottom: 20px;
   color: #333;
 }
 
-.jobs-table-container {
+.contractor-dashboard .jobs-table-container {
   border: 1px solid #ddd;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-.jobs-table {
+.contractor-dashboard .jobs-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.jobs-table th {
+.contractor-dashboard .jobs-table th {
   background-color: #f8f8f8;
   padding: 16px;
   text-align: left;
@@ -363,52 +430,37 @@ body {
   border-bottom: 2px solid #ddd;
 }
 
-.jobs-table td {
+.contractor-dashboard .jobs-table td {
   padding: 16px;
   border-bottom: 1px solid #eee;
 }
 
-.jobs-table tr:last-child td {
+.contractor-dashboard .jobs-table tr:last-child td {
   border-bottom: none;
 }
 
-.jobs-table tr:hover {
+.contractor-dashboard .jobs-table tr:hover {
   background-color: #f9f9f9;
 }
 
-.urgency-status {
+.contractor-dashboard .urgency-status {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.status-text {
-  font-size: 12px;
-  color: #666;
-}
+.contractor-dashboard .status-text { font-size: 12px; color: #666; }
+.contractor-dashboard .urgency-high { color: #e74c3c; font-weight: bold; }
+.contractor-dashboard .urgency-medium { color: #f39c12; font-weight: bold; }
+.contractor-dashboard .urgency-low { color: #27ae60; font-weight: bold; }
 
-.urgency-high {
-  color: #e74c3c;
-  font-weight: bold;
-}
-
-.urgency-medium {
-  color: #f39c12;
-  font-weight: bold;
-}
-
-.urgency-low {
-  color: #27ae60;
-  font-weight: bold;
-}
-
-.action-buttons {
+.contractor-dashboard .action-buttons {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.action-btn {
+.contractor-dashboard .action-btn {
   background-color: #FBD402;
   border: none;
   border-radius: 4px;
@@ -419,35 +471,18 @@ body {
   transition: background-color 0.2s;
 }
 
-.action-btn:hover {
+.contractor-dashboard .action-btn:hover {
   background-color: #e6bf00;
-}
-
-.navbar .navbar-profile {
-  position: relative;
-}
-
-.navbar .logout-popup button {
-  background-color: #FBD402;
-  color: black;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  width: 100%;
-  text-align: center;
-  left: 50%;
-  transform: translateX(-8%) translateY(15%);
 }
 
 /* Responsive adjustments */
 @media (max-width: 1024px) {
-  .contractor-tabs,
-  .jobs-section {
+  .contractor-dashboard .contractor-tabs,
+  .contractor-dashboard .jobs-section {
     padding: 0 20px;
   }
-  
-  .jobs-table {
+
+  .contractor-dashboard .jobs-table {
     display: block;
     overflow-x: auto;
   }
