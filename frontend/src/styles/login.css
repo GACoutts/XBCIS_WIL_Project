@@ -11,11 +11,12 @@ html, body, #root {
 
 /* Page background & centering */
 .login-page-container {
-  background: #D9D9D9;
+  background: white;
   min-height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
+   position: relative;
 }
 
 /* Card container (scoped to avoid collisions) */
@@ -27,7 +28,7 @@ html, body, #root {
   margin: 5px auto;
   text-align: center;
   width: 225px;
-  height: 225px;
+  height: 240px;
   position: relative;
   font-family: Arial, sans-serif;
   transform: scale(1.25);
@@ -188,13 +189,15 @@ html, body, #root {
 
 /* Error alert */
 .login-page-container .alert-error {
+  position: absolute;
+  top: 15%;
   background: #ffe8e8;
   border: 1px solid #f6caca;
   color: #7a1f1f;
   padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin: 6px auto 8px;
+  border-radius: 5px;
+  font-size: 18px;
+  margin: 0;
   width: 205px;
-  text-align: left;
+  text-align: center;
 }

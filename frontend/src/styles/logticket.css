@@ -1,18 +1,16 @@
 .logticket {
-
-  --navbar-height: 0px;
-
+  --navbar-height: 60px;
   background: white;
   font-family: Arial, sans-serif;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  min-height: 50vh;
+  height: 100vh;
   margin: 0;
-
-  /* Ensure content starts below the fixed navbar, with extra breathing room */
-  padding-top: calc(var(--navbar-height) + 250px);
+  padding-top: calc(var(--navbar-height) + 20px);
   box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
 }
 
 /* NAVBAR */
@@ -30,7 +28,7 @@
   box-sizing: border-box;
   z-index: 1000;
   font-family: Arial, sans-serif;
-  height: auto;
+  height: var(--navbar-height);
 }
 
 .logticket .navbar-logo { padding-left: 75px; }
@@ -61,22 +59,22 @@
   width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
 }
 
-/* MAIN CONTAINER (single column) */
+/* MAIN CONTAINER */
 .logticket .container {
   background-color: #FBD402;
   border: 1px solid black;
   border-radius: 5px;
-  padding: 16px 20px;               
+  padding: 24px 20px;
   width: 700px;
   text-align: center;
-
-  /* Let the box wrap content; prevents odd white strip & overlap */
-  height: auto;                      
-  max-height: none;                  
-  margin-top: 0;
-
-  /* keep internals from spilling out */
-  overflow: hidden;
+  height: auto;
+  max-height: none;
+  position: absolute;
+  transform: translateY(-90px) scale(0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 200px;
 }
 
 /* Inputs inside container */
@@ -130,21 +128,22 @@
 .logticket .underline {
   border: none;
   border-top: 1px solid black;
-
-  /* keep underline inside container so it doesn't peek out */
   margin-left: 0;
   margin-right: 0;
-
-  margin-top: 30px;
-  margin-bottom: 10px;
   width: auto;
 }
-.logticket .header { padding-top: 6px; padding-bottom: 6px; margin-bottom: 15px;} 
+
 .logticket .header .text h2 {
   margin-top: 0;                     
   text-align: center;
-  margin-bottom: 15px;
-  font-size: 25px;
+  font-size: 22px;
+}
+
+/* Confirmation text */
+.logticket .text {
+  font-size: 18px;
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* Upload button row */
@@ -154,7 +153,8 @@
   gap: 20px;
   align-items: center;
   padding-left: 20px;
-  margin-top: -5px;
+  margin-top: 10px;
+  margin-bottom: 15px;
   width: 100%;
   max-width: 500px;
 }
@@ -187,6 +187,10 @@
   align-items: center;
   width: fit-content;
   max-width: 100%;
+}
+.logticket .input-head.attach-label {
+  display: block;
+  margin-top: 15px;
 }
 .logticket .urgency-options label {
   display: flex;
@@ -227,4 +231,29 @@
   display: flex; align-items: center; justify-content: center;
   text-align: center;
   border: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.logticket .container-confirmation {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 300px;
+  min-height: 150px;
+  background-color: #FBD402;
+  border: 1px solid black;
+  border-radius: 5px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 1100;
 }

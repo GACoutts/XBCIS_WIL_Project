@@ -11,7 +11,7 @@ export default function ResetPassword() {
   const nav = useNavigate();
 
   useEffect(() => {
-    if (!token) setMsg('Invalid reset link.');
+    if (!token) setMsg('Invalid reset link');
   }, [token]);
 
   const submit = async (e) => {
@@ -43,10 +43,16 @@ export default function ResetPassword() {
 
   return (
     <div className="auth-page">
-      <form className="auth-card" onSubmit={submit}>
-        <div className="header"><h2>Set new password</h2></div>
+      
+        {msg && (
+        <div className="alert-error">
+      {msg}
+      </div>
+    )}
+    <div className="auth-wrapper">
+    <form className="auth-card" onSubmit={submit}>
+        <div className="header"><h2>Set New Password</h2></div>
         <hr className="underline" />
-        {msg && <div className="alert-error">{msg}</div>}
         <div className="inputs">
           <div className="input">
             <label className="input-head" htmlFor="pw">New password</label>
@@ -64,6 +70,7 @@ export default function ResetPassword() {
           <Link to="/login">Back to login</Link>
         </div>
       </form>
+    </div>
     </div>
   );
 }

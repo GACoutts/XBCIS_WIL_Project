@@ -1,13 +1,14 @@
 /*SIGN UP PAGE*/
 
 .signup-page-container {
-  background: #D9D9D9;
+  background: white;
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: 100vh;   
-  margin: 0;
+  align-items: flex-start;
+  height: 100vh;   
+  margin-top: 25px;
   font-family: Arial, sans-serif;
+  position: relative;
 }
 
 /* The yellow card */
@@ -103,6 +104,7 @@
   padding: 0;
   line-height: 22px;
   margin-top: 7px;
+  border: none;
 }
 
 /* Logo placeholder */
@@ -147,3 +149,47 @@
   display: inline-block;
 }
 .signup-page-container .role-circle.active { background: black; }
+
+.signup-page-container .link {
+  text-decoration: none;  
+  color: black;           
+}
+
+.signup-page-container .input-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.signup-page-container .error {
+  background: #ffe8e8;
+  border: 1px solid #f6caca;
+  color: #7a1f1f;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 4px 0 0 0;
+  text-align: center;
+}
+
+.signup-page-container .input-row input {
+  flex: 0 0 200px;   
+}
+
+.signup-page-container .input-row .error {
+  font-size: 11px;
+  margin-left: 93px;
+  white-space: nowrap; 
+}
+
+.signup-page-container .success {
+  background: #e8f5e8;
+  border: 1px solid #caf6ca;
+  color: #1f7a1f;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 4px auto 0 auto;
+  text-align: center;
+  width: 350px; /* same width as your signup box */
+}

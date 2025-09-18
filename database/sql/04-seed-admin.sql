@@ -1,4 +1,4 @@
--- Seed admin user for testing
+﻿-- Seed admin user for testing
 -- Run this script as MySQL root user after creating the table
 -- Demo password: "Password123!" (do not use in production)
 

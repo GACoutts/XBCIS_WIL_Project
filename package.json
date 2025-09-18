@@ -11,6 +11,11 @@
     "dev:both": "concurrently -k -n FE,BE -c green,blue \"npm:dev:frontend\" \"npm:dev:backend\""
   },
   "devDependencies": {
-        "concurrently": "^9.2.0"
+    "concurrently": "^9.2.0"
+  },
+  "dependencies": {
+    "nodemon": "^3.1.10",
+    "recharts": "^3.1.2",
+    "vite": "^7.1.5"
   }
 }

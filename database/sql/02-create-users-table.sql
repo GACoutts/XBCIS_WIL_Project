@@ -1,4 +1,4 @@
--- Create tblusers table with specified schema
+﻿-- Create tblusers table with specified schema
 -- Run this script as MySQL root user after creating the database
 
 USE Rawson;
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS tblusers (
   Phone VARCHAR(20) NULL,
   Role ENUM('Client','Landlord','Contractor','Staff') NOT NULL,
   DateRegistered DATETIME DEFAULT CURRENT_TIMESTAMP,
-  Status ENUM('Active','Inactive','Suspended') DEFAULT 'Active'
+  Status ENUM('Active','Inactive','Suspended', 'Rejected') DEFAULT 'Active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Add indexes for better performance

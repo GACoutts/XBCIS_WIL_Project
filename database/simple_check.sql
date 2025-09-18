@@ -1,0 +1,2 @@
+USE Rawson;
+DESCRIBE tblContractorSchedules;

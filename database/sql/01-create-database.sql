@@ -1,4 +1,4 @@
--- Create Rawson database with proper character set
+﻿-- Create Rawson database with proper character set
 -- Run this script as MySQL root user
 
 CREATE DATABASE IF NOT EXISTS Rawson

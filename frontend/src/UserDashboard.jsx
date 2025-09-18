@@ -1,19 +1,37 @@
-import gearIcon from './assets/settings.png';
+import { useEffect, useState } from "react";
+import { Link } from 'react-router-dom';
+import { useAuth } from "./context/AuthContext.jsx"; // import your auth context
+import gearIcon from "./assets/settings.png";
 import "./styles/userdash.css";
 
-function UserDashboard(){
-  const tickets = [
-    { id: 1, title: "Leaky Tap in Bathroom", ticketId: "00001", logged: "2025-07-30", urgency: "Low",    status: "Pending"  },
-    { id: 2, title: "Leaky Tap in Bathroom", ticketId: "00001", logged: "2025-07-30", urgency: "Low",    status: "Rejected" },
-    { id: 3, title: "Leaky Tap in Bathroom", ticketId: "00001", logged: "2025-07-30", urgency: "Medium", status: "Scheduled"},
-    { id: 4, title: "Leaky Tap in Bathroom", ticketId: "00001", logged: "2025-07-30", urgency: "High",   status: "Pending"  }
-  ];
+function UserDashboard() {
+  const { logout } = useAuth(); // get logout function
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showLogout, setShowLogout] = useState(false); // toggle logout button
 
-  const ticketHistory = [
-    { title: "Roof Damage",                    ticketId: "192345", logged: "2025-04-13", status: "Finished" },
-    { title: "Broken Railing (Outside Patio)", ticketId: "348940", logged: "2025-03-11", status: "Rejected" },
-    { title: "Geyser Not Heating",             ticketId: "194506", logged: "2024-08-14", status: "Finished" },
-  ];
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        const res = await fetch("/api/tickets", {
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (res.ok) setTickets(data.tickets || []);
+      } catch (err) {
+        console.error("Error fetching tickets:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.reload(); // redirect to login or refresh
+  };
 
   return (
     <div className="dashboard-page">
@@ -23,14 +41,24 @@ function UserDashboard(){
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
-            <li><a href="">Dashboard</a></li>
-            <li><a href="">Tickets</a></li>
-            <li><a href="">Reports</a></li>
-            <li><a href="">Settings</a></li>
+            <li><Link to="/">Dashboard</Link></li>
+            <li><Link to="/ticket">Tickets</Link></li>
+            <li><Link to="/reports">Reports</Link></li>
+            <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>
         <div className="navbar-profile">
-          <img src="https://placehold.co/40" alt="profile" />
+          <button
+            className="profile-btn"
+            onClick={() => setShowLogout(!showLogout)}
+          >
+            <img src="https://placehold.co/40" alt="profile" />
+          </button>
+          {showLogout && (
+            <div className="logout-popup">
+              <button onClick={handleLogout}>Log Out</button>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -39,53 +67,39 @@ function UserDashboard(){
         <div className="sub-title"><h2>My Tickets</h2></div>
 
         <div className="dash-submit-container">
-          <div className="dash-submit">Log a New Ticket</div>
+          <Link to="/ticket" className="dash-submit">Log a New Ticket</Link>
         </div>
 
-        <div className="tickets-container">
-          <div className="tickets-grid">
-            {tickets.map(ticket => (
-              <div key={ticket.id} className="ticket-card">
-                <div className="ticket-info">
-                  <h3>{ticket.title}</h3>
-                  <p>Ticket ID: {ticket.ticketId}</p>
-                  <p>Logged: {ticket.logged}</p>
-                  <p>
-                    Urgency:{" "}
-                    <span className={`urgency urgency-${ticket.urgency.toLowerCase()}`}>
-                      {ticket.urgency}
-                    </span>
-                  </p>
-                  <div className="ticket-actions">
-                    <button className="view-details">View Details</button>
-                    <span className={`status-badge status-${ticket.status.toLowerCase()}`}>
-                      {ticket.status}
-                    </span>
-                    <img src={gearIcon} alt="settings" className="settings-icon" />
+        {loading ? (
+          <p className="empty-tickets">Loading tickets...</p>
+        ) : tickets.length === 0 ? (
+          <div className="empty-tickets">No tickets logged yet.</div>
+        ) : (
+          <div className="tickets-container">
+            <div className="tickets-grid">
+              {tickets.map((ticket) => (
+                <div key={ticket.TicketID} className="ticket-card">
+                  <div className="ticket-info">
+                    <h3>{ticket.Description}</h3>
+                    <p>Ticket Ref: {ticket.TicketRefNumber}</p>
+                    <p>Logged: {new Date(ticket.CreatedAt).toLocaleDateString()}</p>
+                    <p>
+                      Urgency:{" "}
+                      <span className={`urgency urgency-${ticket.UrgencyLevel.toLowerCase()}`}>
+                        {ticket.UrgencyLevel}
+                      </span>
+                    </p>
+                    <div className="ticket-actions">
+                      <button className="view-details">View Details</button>
+                      <img src={gearIcon} alt="settings" className="settings-icon" />
+                    </div>
                   </div>
+                  <div className="ticket-image">View Image</div>
                 </div>
-                <div className="ticket-image">View Image</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div className="ticket-history-container">
-          <h2>Ticket History</h2>
-          <div className="ticket-history-list">
-            {ticketHistory.map((item, index) => (
-              <div key={index} className="ticket-history-item">
-                <span className="ticket-history-title">{item.title}</span>
-                <span>Ticket ID: {item.ticketId}</span>
-                <span>Logged: {item.logged}</span>
-                <span className={`ticket-history-status status-badge status-${item.status.toLowerCase()}`}>
-                  {item.status}
-                </span>
-                <img src={gearIcon} alt="settings" className="settings-icon" />
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
