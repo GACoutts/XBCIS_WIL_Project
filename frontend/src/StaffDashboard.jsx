@@ -16,7 +16,6 @@ function StaffDashboard() {
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [activeContractors, setActiveContractors] = useState([]);
   const [chosenContractorId, setChosenContractorId] = useState(null);
-  const [proposedDate, setProposedDate] = useState("");
 
   const loadActiveContractors = async () => {
     try {
@@ -39,7 +38,7 @@ function StaffDashboard() {
     if (!chosenContractorId || !proposedDate) return alert("Select contractor and date");
 
     try {
-      const res = await fetch("/api/admin/contractor-schedule", {
+      const res = await fetch("/api/admin/contractor-assign", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -301,9 +300,6 @@ function StaffDashboard() {
                   <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
                 ))}
               </select>
-
-              <label>Proposed Date:</label>
-              <input type="datetime-local" value={proposedDate} onChange={e => setProposedDate(e.target.value)} />
 
               <div className="modal-buttons">
                 <button onClick={handleConfirmSchedule}>Confirm</button>

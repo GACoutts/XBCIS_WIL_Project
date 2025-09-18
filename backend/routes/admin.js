@@ -113,24 +113,54 @@ router.get('/contractors/active', async (_req, res) => {
   }
 });
 
-// POST /contractor-schedule - Create a contractor schedule
-router.post('/contractor-schedule', async (req, res) => {
+// POST /contractor-assign - Assign a contractor to a ticket (no date yet)
+router.post('/contractor-assign', async (req, res) => {
   try {
-    const { TicketID, ContractorUserID, ProposedDate } = req.body;
-    if (!TicketID || !ContractorUserID || !ProposedDate) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    const { TicketID, ContractorUserID } = req.body;
+    if (!TicketID || !ContractorUserID) {
+      return res.status(400).json({ message: 'TicketID and ContractorUserID are required' });
     }
 
-    await pool.execute(
-      `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate)
-       VALUES (?, ?, ?)`,
-      [TicketID, ContractorUserID, ProposedDate]
-    );
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    return res.json({ message: 'Schedule created successfully' });
+      // Insert contractor assignment (no date/time yet)
+      await connection.execute(
+        `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID)
+         VALUES (?, ?)`,
+        [TicketID, ContractorUserID]
+      );
+
+      // Update ticket status to "In Review"
+      await connection.execute(
+        `UPDATE tblTickets
+            SET Status = 'In Review'
+          WHERE TicketID = ?`,
+        [TicketID]
+      );
+
+      // Audit log
+      await logAudit({
+        actorUserId: req.user.userId,
+        targetUserId: ContractorUserID,
+        action: 'contractor-assigned',
+        metadata: { ticketId: TicketID },
+        ...getClientInfo(req),
+        connection
+      });
+
+      await connection.commit();
+      return res.json({ message: 'Contractor assigned successfully and ticket moved to In Review' });
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
   } catch (err) {
-    console.error('Contractor schedule error:', err);
-    return res.status(500).json({ message: 'Server error creating schedule' });
+    console.error('Contractor assignment error:', err);
+    return res.status(500).json({ message: 'Server error assigning contractor' });
   }
 });
 
