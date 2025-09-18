@@ -17,6 +17,7 @@ import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import roleRequestRoutes from './routes/roleRequests.js';
 import landlordRoutes from './routes/landlord.js';
+import landlordMinimalRoutes from './routes/landlord-minimal.js';
 
 // Middleware
 import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
@@ -50,6 +51,7 @@ app.use('/api/roles', roleRequestRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/landlord', landlordRoutes);
+app.use('/api/landlord', landlordMinimalRoutes);
 
 // DB viewer
 dbViewerRoutes(app);
