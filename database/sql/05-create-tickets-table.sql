@@ -1,4 +1,4 @@
--- Create tblTickets table for maintenance ticket management
+﻿-- Create tblTickets table for maintenance ticket management
 -- Run this script after creating tblUsers table
 -- This is the core table for the ticket management system
 
@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS tblTickets (
   UrgencyLevel ENUM('Low','Medium','High','Critical') NOT NULL COMMENT 'Urgency/severity level',
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When ticket was created',
   CurrentStatus ENUM('New','In Review','Quoting','Awaiting Landlord Approval','Approved','Scheduled','Completed') DEFAULT 'New' COMMENT 'Current status of the ticket',
-  
+
   -- Foreign key constraints
-  FOREIGN KEY (ClientUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ClientUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Maintenance tickets submitted by clients';
 

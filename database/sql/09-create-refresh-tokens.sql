@@ -1,4 +1,4 @@
--- Create refresh tokens table for dual-token authentication
+﻿-- Create refresh tokens table for dual-token authentication
 -- Run this script as MySQL root user
 
 USE Rawson;

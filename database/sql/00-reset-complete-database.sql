@@ -1,13 +1,13 @@
--- ============================================================================
+﻿-- ============================================================================
 -- RAWSON BUILDING MANAGEMENT SYSTEM - COMPLETE DATABASE RESET & REBUILD
 -- ============================================================================
--- ⚠️  WARNING: This script DROPS ALL EXISTING TABLES and recreates them! ⚠️
+-- âš ï¸  WARNING: This script DROPS ALL EXISTING TABLES and recreates them! âš ï¸
 -- This is perfect for development, testing, and schema updates
 -- All data will be lost - use with caution!
--- 
+--
 -- What this script does:
 -- 1. Drops all existing tables (if they exist) in correct order
--- 2. Creates Rawson database with proper charset  
+-- 2. Creates Rawson database with proper charset
 -- 3. Creates tblusers table with indexes
 -- 4. Seeds admin user for testing
 -- 5. Creates all 10 ticket management tables
@@ -29,7 +29,7 @@ START TRANSACTION;
 -- First ensure we're using the Rawson database
 USE Rawson;
 
-SELECT '🗑️  STEP 1: Dropping existing tables (if they exist)' as Status;
+SELECT 'ðŸ—‘ï¸  STEP 1: Dropping existing tables (if they exist)' as Status;
 
 -- Drop communication tables first
 DROP TABLE IF EXISTS tblCommunications;
@@ -53,7 +53,7 @@ DROP TABLE IF EXISTS tblTickets;
 -- Uncomment the next line if you want to reset users too
 -- DROP TABLE IF EXISTS tblusers;
 
-SELECT '✅ Step 1: All existing tables dropped' as Status;
+SELECT 'âœ… Step 1: All existing tables dropped' as Status;
 
 -- ============================================================================
 -- STEP 2: ENSURE DATABASE EXISTS
@@ -66,7 +66,7 @@ CREATE DATABASE IF NOT EXISTS Rawson
 
 USE Rawson;
 
-SELECT '✅ Step 2: Database ensured' as Status;
+SELECT 'âœ… Step 2: Database ensured' as Status;
 
 -- ============================================================================
 -- STEP 3: CREATE/ENSURE USERS TABLE
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS tblusers (
 -- (This reset script assumes tblusers table is kept, so indexes should already exist)
 -- If you want to also reset tblusers, uncomment the DROP TABLE line above
 
-SELECT '✅ Step 3: Users table ensured' as Status;
+SELECT 'âœ… Step 3: Users table ensured' as Status;
 
 -- ============================================================================
 -- STEP 4: SEED ADMIN USER
@@ -105,7 +105,7 @@ ON DUPLICATE KEY UPDATE
   Role = VALUES(Role),
   Status = VALUES(Status);
 
-SELECT '✅ Step 4: Admin user seeded' as Status;
+SELECT 'âœ… Step 4: Admin user seeded' as Status;
 
 -- ============================================================================
 -- STEP 5: CREATE ALL TICKET MANAGEMENT TABLES (FRESH)
@@ -120,8 +120,8 @@ CREATE TABLE tblTickets (
   UrgencyLevel ENUM('Low','Medium','High','Critical') NOT NULL COMMENT 'Urgency/severity level',
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When ticket was created',
   CurrentStatus ENUM('New','In Review','Quoting','Awaiting Landlord Approval','Approved','Scheduled','Completed') DEFAULT 'New' COMMENT 'Current status of the ticket',
-  
-  FOREIGN KEY (ClientUserID) REFERENCES tblusers(UserID) 
+
+  FOREIGN KEY (ClientUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Maintenance tickets submitted by clients';
 
@@ -132,8 +132,8 @@ CREATE TABLE tblTicketMedia (
   MediaType ENUM('Image','Video') NOT NULL COMMENT 'Type of media',
   MediaURL VARCHAR(255) NOT NULL COMMENT 'URL or path to media file',
   UploadedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When media was uploaded',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Media attachments for maintenance tickets';
 
@@ -144,10 +144,10 @@ CREATE TABLE tblTicketStatusHistory (
   Status ENUM('New','In Review','Quoting','Awaiting Landlord Approval','Approved','Scheduled','Completed') NOT NULL COMMENT 'Status after update',
   UpdatedByUserID INT NOT NULL COMMENT 'User who updated status',
   UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When status was updated',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (UpdatedByUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (UpdatedByUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Audit trail of ticket status changes';
 
@@ -160,10 +160,10 @@ CREATE TABLE tblQuotes (
   QuoteDescription TEXT NULL COMMENT 'Additional quote details',
   SubmittedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When quote was submitted',
   QuoteStatus ENUM('Pending','Approved','Rejected') DEFAULT 'Pending' COMMENT 'Current quote status',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contractor quotes for maintenance tickets';
 
@@ -174,8 +174,8 @@ CREATE TABLE tblQuoteDocuments (
   DocumentType ENUM('PDF','Image') NOT NULL COMMENT 'Type of document',
   DocumentURL VARCHAR(255) NOT NULL COMMENT 'URL or path to document file',
   UploadedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When document was uploaded',
-  
-  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID) 
+
+  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Document attachments for contractor quotes';
 
@@ -187,10 +187,10 @@ CREATE TABLE tblLandlordApprovals (
   ApprovalStatus ENUM('Approved','Rejected') NOT NULL COMMENT 'Approval decision',
   ApprovedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When decision was made',
   DigitalSignature VARCHAR(255) NULL COMMENT 'Optional digital signature image/path',
-  
-  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID) 
+
+  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (LandlordUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (LandlordUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Landlord approval decisions for quotes';
 
@@ -202,10 +202,10 @@ CREATE TABLE tblContractorSchedules (
   ProposedDate DATETIME NOT NULL COMMENT 'Proposed appointment date/time',
   ClientConfirmed BOOLEAN DEFAULT FALSE COMMENT 'Has the client confirmed access?',
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When schedule was created',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contractor appointment scheduling';
 
@@ -218,10 +218,10 @@ CREATE TABLE tblContractorUpdates (
   UpdateContent TEXT NULL COMMENT 'Notes or description',
   UpdateURL VARCHAR(255) NULL COMMENT 'URL to photo/video if applicable',
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When update was submitted',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contractor job progress updates';
 
@@ -234,10 +234,10 @@ CREATE TABLE tblNotifications (
   NotificationContent TEXT NOT NULL COMMENT 'Content of the notification',
   SentAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When notification was sent',
   Status ENUM('Sent','Failed') DEFAULT 'Sent' COMMENT 'Status of notification delivery',
-  
-  FOREIGN KEY (UserID) REFERENCES tblusers(UserID) 
+
+  FOREIGN KEY (UserID) REFERENCES tblusers(UserID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='System notifications to users';
 
@@ -250,16 +250,16 @@ CREATE TABLE tblCommunications (
   MessageContent TEXT NOT NULL COMMENT 'Content of the message',
   MessageType ENUM('WhatsApp','Email') NOT NULL COMMENT 'Communication channel',
   SentAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When message was sent',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (SenderUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (SenderUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  FOREIGN KEY (ReceiverUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ReceiverUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Communication history between users';
 
-SELECT '✅ Step 5: All ticket management tables recreated' as Status;
+SELECT 'âœ… Step 5: All ticket management tables recreated' as Status;
 
 -- ============================================================================
 -- STEP 6: CREATE PERFORMANCE INDEXES (FRESH)
@@ -317,7 +317,7 @@ CREATE INDEX idx_communications_sender ON tblCommunications (SenderUserID);
 CREATE INDEX idx_communications_receiver ON tblCommunications (ReceiverUserID);
 CREATE INDEX idx_communications_type ON tblCommunications (MessageType);
 
-SELECT '✅ Step 6: All performance indexes recreated' as Status;
+SELECT 'âœ… Step 6: All performance indexes recreated' as Status;
 
 -- ============================================================================
 -- STEP 7: FINALIZE AND VERIFY
@@ -328,12 +328,12 @@ SET FOREIGN_KEY_CHECKS = 1;
 COMMIT;
 
 -- Show all created tables
-SELECT '🔍 VERIFICATION: All Tables Recreated' as Section;
+SELECT 'ðŸ” VERIFICATION: All Tables Recreated' as Section;
 SHOW TABLES;
 
 -- Display table record counts
-SELECT '📊 TABLE RECORD COUNTS (Should all be 0 except tblusers)' as Section;
-SELECT 
+SELECT 'ðŸ“Š TABLE RECORD COUNTS (Should all be 0 except tblusers)' as Section;
+SELECT
   'tblusers' as TableName, COUNT(*) as RecordCount FROM tblusers
 UNION ALL
 SELECT 'tblTickets', COUNT(*) FROM tblTickets
@@ -357,8 +357,8 @@ UNION ALL
 SELECT 'tblCommunications', COUNT(*) FROM tblCommunications;
 
 -- Show database information
-SELECT '📋 DATABASE INFO' as Section;
-SELECT 
+SELECT 'ðŸ“‹ DATABASE INFO' as Section;
+SELECT
   DATABASE() as CurrentDatabase,
   @@character_set_database as Charset,
   @@collation_database as Collation;
@@ -366,11 +366,11 @@ SELECT
 -- ============================================================================
 -- SUCCESS MESSAGE
 -- ============================================================================
-SELECT '🎉 RESET & REBUILD COMPLETE! 🎉' as Status;
+SELECT 'ðŸŽ‰ RESET & REBUILD COMPLETE! ðŸŽ‰' as Status;
 SELECT 'All tables have been dropped and recreated fresh!' as Message;
 SELECT 'Database schema is now up-to-date and ready for use!' as Info;
 SELECT 'Next steps:' as NextSteps;
 SELECT '1. Backend should reconnect automatically' as Step1;
-SELECT '2. Test with: http://localhost:5000/api/health' as Step2;  
+SELECT '2. Test with: http://localhost:5000/api/health' as Step2;
 SELECT '3. Check DB viewer: http://localhost:5000/db-viewer' as Step3;
 SELECT '4. Login with: admin@rawson.local / Password123!' as Step4;

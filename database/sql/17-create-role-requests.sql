@@ -1,4 +1,4 @@
-USE Rawson;
+﻿USE Rawson;
 
 CREATE TABLE IF NOT EXISTS tblRoleRequests (
   RequestID     INT AUTO_INCREMENT PRIMARY KEY,
@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS tblRoleRequests (
   CreatedAt     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   ReviewedBy    INT NULL,
   ReviewedAt    DATETIME NULL,
-  CONSTRAINT fk_rr_user     FOREIGN KEY (UserID)     REFERENCES tblusers(UserID) ON DELETE CASCADE,
-  CONSTRAINT fk_rr_reviewer FOREIGN KEY (ReviewedBy)  REFERENCES tblusers(UserID) ON DELETE SET NULL,
-  INDEX idx_status (Status),
-  INDEX idx_user (UserID)
+  CONSTRAINT FkRrUser     FOREIGN KEY (UserID)     REFERENCES tblusers(UserID) ON DELETE CASCADE,
+  CONSTRAINT FkRrReviewer FOREIGN KEY (ReviewedBy)  REFERENCES tblusers(UserID) ON DELETE SET NULL,
+  INDEX IdxStatus (Status),
+  INDEX IdxUser (UserID)
 );

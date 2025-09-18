@@ -1,4 +1,4 @@
--- Create application user with limited privileges for security
+﻿-- Create application user with limited privileges for security
 -- Run this script as MySQL root user
 -- IMPORTANT: Replace 'REPLACE_WITH_STRONG_PASSWORD' with a secure password before running
 
