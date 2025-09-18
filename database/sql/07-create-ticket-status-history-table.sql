@@ -1,4 +1,4 @@
--- Create tblTicketStatusHistory table for audit trail
+﻿-- Create tblTicketStatusHistory table for audit trail
 -- Run this script after creating tblTickets and tblUsers tables
 -- Tracks all status changes made to tickets over time
 
@@ -10,11 +10,11 @@ CREATE TABLE IF NOT EXISTS tblTicketStatusHistory (
   Status ENUM('New','In Review','Quoting','Awaiting Landlord Approval','Approved','Scheduled','Completed') NOT NULL COMMENT 'Status after update',
   UpdatedByUserID INT NOT NULL COMMENT 'User who updated status',
   UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When status was updated',
-  
+
   -- Foreign key constraints
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (UpdatedByUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (UpdatedByUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Audit trail of ticket status changes';
 

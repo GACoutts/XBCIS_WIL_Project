@@ -1,4 +1,4 @@
--- Master script to create all ticket management system tables
+﻿-- Master script to create all ticket management system tables
 -- Run this script as MySQL root user after creating database and tblusers table
 -- Creates all tables in the correct order to handle foreign key dependencies
 
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS tblTickets (
   UrgencyLevel ENUM('Low','Medium','High','Critical') NOT NULL COMMENT 'Urgency/severity level',
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When ticket was created',
   CurrentStatus ENUM('New','In Review','Quoting','Awaiting Landlord Approval','Approved','Scheduled','Completed') DEFAULT 'New' COMMENT 'Current status of the ticket',
-  
-  FOREIGN KEY (ClientUserID) REFERENCES tblusers(UserID) 
+
+  FOREIGN KEY (ClientUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Maintenance tickets submitted by clients';
 
@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS tblTicketMedia (
   MediaType ENUM('Image','Video') NOT NULL COMMENT 'Type of media',
   MediaURL VARCHAR(255) NOT NULL COMMENT 'URL or path to media file',
   UploadedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When media was uploaded',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Media attachments for maintenance tickets';
 
@@ -47,10 +47,10 @@ CREATE TABLE IF NOT EXISTS tblTicketStatusHistory (
   Status ENUM('New','In Review','Quoting','Awaiting Landlord Approval','Approved','Scheduled','Completed') NOT NULL COMMENT 'Status after update',
   UpdatedByUserID INT NOT NULL COMMENT 'User who updated status',
   UpdatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When status was updated',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (UpdatedByUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (UpdatedByUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Audit trail of ticket status changes';
 
@@ -67,10 +67,10 @@ CREATE TABLE IF NOT EXISTS tblQuotes (
   QuoteDescription TEXT NULL COMMENT 'Additional quote details',
   SubmittedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When quote was submitted',
   QuoteStatus ENUM('Pending','Approved','Rejected') DEFAULT 'Pending' COMMENT 'Current quote status',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contractor quotes for maintenance tickets';
 
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS tblQuoteDocuments (
   DocumentType ENUM('PDF','Image') NOT NULL COMMENT 'Type of document',
   DocumentURL VARCHAR(255) NOT NULL COMMENT 'URL or path to document file',
   UploadedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When document was uploaded',
-  
-  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID) 
+
+  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Document attachments for contractor quotes';
 
@@ -94,10 +94,10 @@ CREATE TABLE IF NOT EXISTS tblLandlordApprovals (
   ApprovalStatus ENUM('Approved','Rejected') NOT NULL COMMENT 'Approval decision',
   ApprovedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When decision was made',
   DigitalSignature VARCHAR(255) NULL COMMENT 'Optional digital signature image/path',
-  
-  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID) 
+
+  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (LandlordUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (LandlordUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Landlord approval decisions for quotes';
 
@@ -113,10 +113,10 @@ CREATE TABLE IF NOT EXISTS tblContractorSchedules (
   ProposedDate DATETIME NOT NULL COMMENT 'Proposed appointment date/time',
   ClientConfirmed BOOLEAN DEFAULT FALSE COMMENT 'Has the client confirmed access?',
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When schedule was created',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contractor appointment scheduling';
 
@@ -129,10 +129,10 @@ CREATE TABLE IF NOT EXISTS tblContractorUpdates (
   UpdateContent TEXT NULL COMMENT 'Notes or description',
   UpdateURL VARCHAR(255) NULL COMMENT 'URL to photo/video if applicable',
   CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When update was submitted',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ContractorUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Contractor job progress updates';
 
@@ -149,10 +149,10 @@ CREATE TABLE IF NOT EXISTS tblNotifications (
   NotificationContent TEXT NOT NULL COMMENT 'Content of the notification',
   SentAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When notification was sent',
   Status ENUM('Sent','Failed') DEFAULT 'Sent' COMMENT 'Status of notification delivery',
-  
-  FOREIGN KEY (UserID) REFERENCES tblusers(UserID) 
+
+  FOREIGN KEY (UserID) REFERENCES tblusers(UserID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='System notifications to users';
 
@@ -165,12 +165,12 @@ CREATE TABLE IF NOT EXISTS tblCommunications (
   MessageContent TEXT NOT NULL COMMENT 'Content of the message',
   MessageType ENUM('WhatsApp','Email') NOT NULL COMMENT 'Communication channel',
   SentAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When message was sent',
-  
-  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID) 
+
+  FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (SenderUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (SenderUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  FOREIGN KEY (ReceiverUserID) REFERENCES tblusers(UserID) 
+  FOREIGN KEY (ReceiverUserID) REFERENCES tblusers(UserID)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Communication history between users';
 
@@ -179,56 +179,56 @@ CREATE TABLE IF NOT EXISTS tblCommunications (
 -- ==================================================
 
 -- Tickets table indexes
-CREATE INDEX idx_tickets_client ON tblTickets (ClientUserID);
-CREATE INDEX idx_tickets_status ON tblTickets (CurrentStatus);
-CREATE INDEX idx_tickets_urgency ON tblTickets (UrgencyLevel);
-CREATE INDEX idx_tickets_created ON tblTickets (CreatedAt);
-CREATE INDEX idx_tickets_ref_number ON tblTickets (TicketRefNumber);
+CREATE INDEX IdxTicketsClient ON tblTickets (ClientUserID);
+CREATE INDEX IdxTicketsStatus ON tblTickets (CurrentStatus);
+CREATE INDEX IdxTicketsUrgency ON tblTickets (UrgencyLevel);
+CREATE INDEX IdxTicketsCreated ON tblTickets (CreatedAt);
+CREATE INDEX IdxTicketsRefNumber ON tblTickets (TicketRefNumber);
 
 -- Media table indexes
-CREATE INDEX idx_ticket_media_ticket ON tblTicketMedia (TicketID);
-CREATE INDEX idx_ticket_media_type ON tblTicketMedia (MediaType);
+CREATE INDEX IdxTicketMediaTicket ON tblTicketMedia (TicketID);
+CREATE INDEX IdxTicketMediaType ON tblTicketMedia (MediaType);
 
 -- Status history indexes
-CREATE INDEX idx_status_history_ticket ON tblTicketStatusHistory (TicketID);
-CREATE INDEX idx_status_history_user ON tblTicketStatusHistory (UpdatedByUserID);
-CREATE INDEX idx_status_history_status ON tblTicketStatusHistory (Status);
+CREATE INDEX IdxStatusHistoryTicket ON tblTicketStatusHistory (TicketID);
+CREATE INDEX IdxStatusHistoryUser ON tblTicketStatusHistory (UpdatedByUserID);
+CREATE INDEX IdxStatusHistoryStatus ON tblTicketStatusHistory (Status);
 
 -- Quotes table indexes
-CREATE INDEX idx_quotes_ticket ON tblQuotes (TicketID);
-CREATE INDEX idx_quotes_contractor ON tblQuotes (ContractorUserID);
-CREATE INDEX idx_quotes_status ON tblQuotes (QuoteStatus);
-CREATE INDEX idx_quotes_amount ON tblQuotes (QuoteAmount);
+CREATE INDEX IdxQuotesTicket ON tblQuotes (TicketID);
+CREATE INDEX IdxQuotesContractor ON tblQuotes (ContractorUserID);
+CREATE INDEX IdxQuotesStatus ON tblQuotes (QuoteStatus);
+CREATE INDEX IdxQuotesAmount ON tblQuotes (QuoteAmount);
 
 -- Quote documents indexes
-CREATE INDEX idx_quote_documents_quote ON tblQuoteDocuments (QuoteID);
-CREATE INDEX idx_quote_documents_type ON tblQuoteDocuments (DocumentType);
+CREATE INDEX IdxQuoteDocumentsQuote ON tblQuoteDocuments (QuoteID);
+CREATE INDEX IdxQuoteDocumentsType ON tblQuoteDocuments (DocumentType);
 
 -- Landlord approvals indexes
-CREATE INDEX idx_landlord_approvals_quote ON tblLandlordApprovals (QuoteID);
-CREATE INDEX idx_landlord_approvals_landlord ON tblLandlordApprovals (LandlordUserID);
-CREATE INDEX idx_landlord_approvals_status ON tblLandlordApprovals (ApprovalStatus);
+CREATE INDEX IdxLandlordApprovalsQuote ON tblLandlordApprovals (QuoteID);
+CREATE INDEX IdxLandlordApprovalsLandlord ON tblLandlordApprovals (LandlordUserID);
+CREATE INDEX IdxLandlordApprovalsStatus ON tblLandlordApprovals (ApprovalStatus);
 
 -- Contractor schedules indexes
-CREATE INDEX idx_contractor_schedules_ticket ON tblContractorSchedules (TicketID);
-CREATE INDEX idx_contractor_schedules_contractor ON tblContractorSchedules (ContractorUserID);
-CREATE INDEX idx_contractor_schedules_date ON tblContractorSchedules (ProposedDate);
+CREATE INDEX IdxContractorSchedulesTicket ON tblContractorSchedules (TicketID);
+CREATE INDEX IdxContractorSchedulesContractor ON tblContractorSchedules (ContractorUserID);
+CREATE INDEX IdxContractorSchedulesDate ON tblContractorSchedules (ProposedDate);
 
 -- Contractor updates indexes
-CREATE INDEX idx_contractor_updates_ticket ON tblContractorUpdates (TicketID);
-CREATE INDEX idx_contractor_updates_contractor ON tblContractorUpdates (ContractorUserID);
-CREATE INDEX idx_contractor_updates_type ON tblContractorUpdates (UpdateType);
+CREATE INDEX IdxContractorUpdatesTicket ON tblContractorUpdates (TicketID);
+CREATE INDEX IdxContractorUpdatesContractor ON tblContractorUpdates (ContractorUserID);
+CREATE INDEX IdxContractorUpdatesType ON tblContractorUpdates (UpdateType);
 
 -- Notifications indexes
-CREATE INDEX idx_notifications_user ON tblNotifications (UserID);
-CREATE INDEX idx_notifications_ticket ON tblNotifications (TicketID);
-CREATE INDEX idx_notifications_type ON tblNotifications (NotificationType);
+CREATE INDEX IdxNotificationsUser ON tblNotifications (UserID);
+CREATE INDEX IdxNotificationsTicket ON tblNotifications (TicketID);
+CREATE INDEX IdxNotificationsType ON tblNotifications (NotificationType);
 
 -- Communications indexes
-CREATE INDEX idx_communications_ticket ON tblCommunications (TicketID);
-CREATE INDEX idx_communications_sender ON tblCommunications (SenderUserID);
-CREATE INDEX idx_communications_receiver ON tblCommunications (ReceiverUserID);
-CREATE INDEX idx_communications_type ON tblCommunications (MessageType);
+CREATE INDEX IdxCommunicationsTicket ON tblCommunications (TicketID);
+CREATE INDEX IdxCommunicationsSender ON tblCommunications (SenderUserID);
+CREATE INDEX IdxCommunicationsReceiver ON tblCommunications (ReceiverUserID);
+CREATE INDEX IdxCommunicationsType ON tblCommunications (MessageType);
 
 -- Re-enable foreign key checks
 SET FOREIGN_KEY_CHECKS = 1;
@@ -244,7 +244,7 @@ COMMIT;
 SHOW TABLES LIKE 'tbl%';
 
 -- Display table counts
-SELECT 
+SELECT
   'tblTickets' as TableName, COUNT(*) as RecordCount FROM tblTickets
 UNION ALL
 SELECT 'tblTicketMedia', COUNT(*) FROM tblTicketMedia
@@ -265,4 +265,4 @@ SELECT 'tblNotifications', COUNT(*) FROM tblNotifications
 UNION ALL
 SELECT 'tblCommunications', COUNT(*) FROM tblCommunications;
 
-SELECT '✅ All ticket management system tables created successfully!' as Status;
+SELECT 'âœ… All ticket management system tables created successfully!' as Status;

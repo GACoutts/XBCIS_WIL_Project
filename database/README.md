@@ -153,7 +153,54 @@ Test your setup:
 2. **Admin Login**: admin@rawson.local / Password123!
 3. **Table Count**: Run verification queries in master script
 
-## 🎯 Usage Examples
+## 🎯 Master Migration Scripts (NEW - RECOMMENDED)
+
+### 🚨 **Modern Production-Ready Scripts**
+
+We've created comprehensive master scripts that replace the individual legacy scripts:
+
+#### **1. `migrations/fresh-install.sql` - Complete Fresh Installation**
+```bash
+# ⚠️ COMPLETE FRESH START (destroys existing database)
+mysql -u root -p < database/migrations/fresh-install.sql
+```
+**Features:**
+- Drops and recreates entire database
+- Creates all 16 tables in perfect dependency order
+- Sets up application user with proper permissions
+- Includes verification queries
+- **Best for**: New installations, development environment resets
+
+#### **2. `migrations/00-master-setup.sql` - Incremental Setup** 
+```bash
+# Safe incremental setup (preserves existing data)
+mysql -u root -p < database/migrations/00-master-setup.sql
+```
+**Features:**
+- Uses `IF NOT EXISTS` - safe to run multiple times
+- Creates missing tables without affecting existing ones
+- Proper foreign key constraints and indexes
+- **Best for**: Updates, production deployments
+
+#### **3. `migrations/99-reset-database.sql` - Clean Reset**
+```bash
+# ⚠️ CAREFUL: Drops all tables and data
+mysql -u root -p < database/migrations/99-reset-database.sql
+```
+**Features:**
+- Drops tables in reverse dependency order (safest)
+- Removes application user
+- **Best for**: Development cleanup, troubleshooting
+
+### **Adding Test Data**
+```bash
+# After any setup, add test users for all roles
+mysql -u root -p Rawson < database/seeds/test-users.sql
+```
+
+---
+
+## 🎯 Legacy Usage Examples
 
 ### Create a Test Ticket
 ```sql

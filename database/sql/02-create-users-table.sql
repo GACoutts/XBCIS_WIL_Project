@@ -1,4 +1,4 @@
--- Create tblusers table with specified schema
+﻿-- Create tblusers table with specified schema
 -- Run this script as MySQL root user after creating the database
 
 USE Rawson;

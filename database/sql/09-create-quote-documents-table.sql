@@ -1,4 +1,4 @@
--- Create tblQuoteDocuments table for quote document attachments
+﻿-- Create tblQuoteDocuments table for quote document attachments
 -- Run this script after creating tblQuotes table
 -- Stores PDFs and images attached to contractor quotes
 
@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS tblQuoteDocuments (
   DocumentType ENUM('PDF','Image') NOT NULL COMMENT 'Type of document',
   DocumentURL VARCHAR(255) NOT NULL COMMENT 'URL or path to document file',
   UploadedAt DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'When document was uploaded',
-  
+
   -- Foreign key constraints
-  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID) 
+  FOREIGN KEY (QuoteID) REFERENCES tblQuotes(QuoteID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Document attachments for contractor quotes';
 
