@@ -14,8 +14,10 @@
     "concurrently": "^9.2.0"
   },
   "dependencies": {
+    "nodemailer": "^7.0.6",
     "nodemon": "^3.1.10",
     "recharts": "^3.1.2",
+    "sib-api-v3-sdk": "^8.5.0",
     "vite": "^7.1.5"
   }
 }
