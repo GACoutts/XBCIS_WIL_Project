@@ -60,7 +60,7 @@ ORDER BY Role, FullName;
 -- =====================================================================================
 
 SELECT 'TEAM LOGIN CREDENTIALS (Password: Password123! for all users)' as info;
-SELECT '=================================================' as separator;
+SELECT '=================================================' as line;
 SELECT 'Staff Login: staff@demo.com' as staff_login;
 SELECT 'Landlord Login: landlord@demo.com OR landlord@test.com' as landlord_login;
 SELECT 'Contractor Login: contractor@demo.com OR contractor@test.com' as contractor_login;
