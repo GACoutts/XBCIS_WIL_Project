@@ -1,21 +1,40 @@
 // backend/routes/quotes.js
 import express from "express";
 import multer from "multer";
+import path from "path";
 import db from "../db.js";
 import { requireAuth, permitRoles } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ------------------ Multer setup ------------------
-const storage = multer.diskStorage({
+// ------------------ PDF-only Multer setup ------------------
+const pdfStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/"); // ensure this folder exists
+    cb(null, "uploads/quotes"); // PDF quotes directory
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + "_" + file.originalname);
+    const base = path.basename(file.originalname, path.extname(file.originalname)).replace(/\s+/g, '_');
+    const sanitizedBase = base.replace(/[^a-zA-Z0-9._-]/g, '');
+    cb(null, Date.now() + '_' + sanitizedBase + '.pdf');
   },
 });
-const upload = multer({ storage });
+
+const quotesUpload = multer({
+  storage: pdfStorage,
+  limits: { 
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 5 // Max 5 files per quote
+  },
+  fileFilter: (req, file, cb) => {
+    const isPdf = file.mimetype === 'application/pdf';
+    const hasPdfExt = path.extname(file.originalname).toLowerCase() === '.pdf';
+    
+    if (isPdf && hasPdfExt) {
+      return cb(null, true);
+    }
+    return cb(new Error('Only .pdf files up to 10MB are allowed.'));
+  },
+});
 
 // ------------------ Routes ------------------
 
@@ -24,55 +43,130 @@ router.post(
   "/:ticketId",
   requireAuth,
   permitRoles("Contractor"),
-  upload.array("files"),
+  quotesUpload.array("files"),
   async (req, res) => {
     try {
       const { ticketId } = req.params;
       const { quoteAmount, quoteDescription } = req.body;
       const contractorId = req.user.userId;
+      const uploadedFiles = req.files || [];
+
+      // Validate required fields
+      if (!quoteAmount || !quoteDescription) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Quote amount and description are required" 
+        });
+      }
 
       // Check ticket exists and status
       const [ticketRows] = await db.query(
         "SELECT CurrentStatus FROM tblTickets WHERE TicketID = ?",
         [ticketId]
       );
-      if (!ticketRows.length) return res.status(404).json({ message: "Ticket not found" });
-      if (ticketRows[0].CurrentStatus !== "In Review")
-        return res.status(400).json({ message: "Ticket not in review stage" });
-
-      // Insert quote
-      const [result] = await db.query(
-        "INSERT INTO tblQuotes (TicketID, ContractorUserID, QuoteAmount, QuoteDescription) VALUES (?, ?, ?, ?)",
-        [ticketId, contractorId, quoteAmount, quoteDescription]
-      );
-      const quoteId = result.insertId;
-
-      // Handle uploaded files
-      if (req.files.length > 0) {
-        const filesData = req.files.map((file) => [
-          quoteId,
-          file.mimetype.startsWith("image/") ? "Image" : "PDF",
-          file.path,
-        ]);
-        await db.query(
-          "INSERT INTO tblQuoteDocuments (QuoteID, DocumentType, DocumentURL) VALUES ?",
-          [filesData]
-        );
+      if (!ticketRows.length) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Ticket not found" 
+        });
+      }
+      if (ticketRows[0].CurrentStatus !== "In Review") {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Ticket not in review stage" 
+        });
       }
 
-      // Update ticket status to "Quoting"
-      await db.query("UPDATE tblTickets SET CurrentStatus = 'Quoting' WHERE TicketID = ?", [ticketId]);
+      const connection = await db.getConnection();
+      try {
+        await connection.beginTransaction();
 
-      // Add audit log
-      await db.query(
-        "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)",
-        [ticketId, "Quoting", contractorId]
-      );
+        // Insert quote
+        const [result] = await connection.query(
+          "INSERT INTO tblQuotes (TicketID, ContractorUserID, QuoteAmount, QuoteDescription) VALUES (?, ?, ?, ?)",
+          [ticketId, contractorId, quoteAmount, quoteDescription]
+        );
+        const quoteId = result.insertId;
 
-      res.json({ message: "Quote submitted successfully", quoteId });
+        // Handle uploaded PDF files
+        const documents = [];
+        if (uploadedFiles.length > 0) {
+          const filesData = uploadedFiles.map((file) => {
+            const webPath = `/uploads/quotes/${path.basename(file.path)}`;
+            documents.push({
+              filename: file.originalname,
+              url: webPath,
+              type: 'PDF'
+            });
+            return [
+              quoteId,
+              "PDF",
+              webPath, // Store web-accessible path
+            ];
+          });
+          
+          await connection.query(
+            "INSERT INTO tblQuoteDocuments (QuoteID, DocumentType, DocumentURL) VALUES ?",
+            [filesData]
+          );
+        }
+
+        // Update ticket status to "Quoting"
+        await connection.query(
+          "UPDATE tblTickets SET CurrentStatus = 'Quoting' WHERE TicketID = ?", 
+          [ticketId]
+        );
+
+        // Add audit log
+        await connection.query(
+          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)",
+          [ticketId, "Quoting", contractorId]
+        );
+
+        await connection.commit();
+
+        res.json({ 
+          success: true,
+          message: "Quote submitted successfully", 
+          data: {
+            quoteId: quoteId,
+            documents: documents
+          }
+        });
+        
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Server error" });
+      console.error('Quote submission error:', err);
+      
+      // Handle multer file upload errors
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({
+          success: false,
+          message: err.message,
+          code: 'FILE_UPLOAD_ERROR'
+        });
+      }
+      
+      // Handle file filter errors (PDF validation)
+      if (err.message.includes('Only .pdf files')) {
+        return res.status(400).json({
+          success: false,
+          message: err.message,
+          code: 'INVALID_FILE_TYPE'
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: "Server error",
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      });
     }
   }
 );

@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin.js';
 import roleRequestRoutes from './routes/roleRequests.js';
 import landlordRoutes from './routes/landlord.js';
 import landlordMinimalRoutes from './routes/landlord-minimal.js';
+import contractorRoutes from './routes/contractor.js';
 
 // Middleware
 import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
@@ -45,6 +46,27 @@ app.use('/api', generalRateLimit);
 // Serve uploads
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Serve quote PDFs with proper content type
+app.use('/uploads/quotes', express.static(path.resolve(__dirname, 'uploads/quotes'), {
+  dotfiles: 'deny',
+  index: false,
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    if (filePath.toLowerCase().endsWith('.pdf')) {
+      res.type('application/pdf');
+    }
+  },
+}));
+
+// Serve job update photos
+app.use('/uploads/job-updates', express.static(path.resolve(__dirname, 'uploads/job-updates'), {
+  dotfiles: 'deny',
+  index: false,
+  maxAge: '1h'
+}));
+
+// Legacy uploads (general)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // -------------------------------------------------------------------------------------
@@ -56,6 +78,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/roles', roleRequestRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/tickets', ticketsRoutes);
+app.use('/api/contractor', contractorRoutes);
 app.use('/api/landlord', landlordRoutes);
 app.use('/api/landlord', landlordMinimalRoutes);
 
