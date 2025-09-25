@@ -29,13 +29,13 @@ function CDashboard() {
     <div className="contractor-dashboard">
       <nav className="navbar">
         <div className="navbar-logo">
-          <img src="https://placehold.co/120x40" alt="logo" />
+          <div className="logo-placeholder">GoodLiving</div>
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li><a href="#" className={activeTab === 'dashboard' ? 'active' : ''}>Contractor Dashboard</a></li>
             <li><a href="#" className={activeTab === 'jobs' ? 'active' : ''}>Jobs</a></li>
-            <li><a href="#" className={activeTab === 'reports' ? 'active' : ''}>Reports</a></li>
+           {/* <li><a href="#" className={activeTab === 'reports' ? 'active' : ''}>Reports</a></li> */}
             <li><a href="#" className={activeTab === 'settings' ? 'active' : ''}>Settings</a></li>
           </ul>
         </div>

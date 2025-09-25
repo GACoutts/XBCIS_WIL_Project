@@ -284,7 +284,8 @@ body {
    Tickets / Dashboard Styles
    ========================= */
 .dashboard-title{ 
-  padding-left: 90px; 
+  padding-left: 90px;
+  margin-top: -30px;
 }
 
 .sub-title{ 
@@ -486,4 +487,26 @@ body {
     display: block;
     overflow-x: auto;
   }
+}
+
+.navbar .logo-placeholder {
+  color: #FBD402 !important;
+  padding: 0px !important;
+  margin: 0px auto;
+  width: 150px;
+  text-align: center !important;
+  font-size: 23px !important; 
+  font-weight: bold;
+  font-family: 'Arial Black', sans-serif;
+  letter-spacing: 1px;
+  background: none !important;
+  text-shadow: 
+    -1px -1px 0 black, 
+    1px -1px 0 black, 
+    -1px 1px 0 black, 
+    1px 1px 0 black,
+    -1px 0 0 black,
+    1px 0 0 black,
+    0 -1px 0 black,
+    0 1px 0 black;
 }
