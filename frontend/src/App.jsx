@@ -12,6 +12,7 @@ import LandlordDashboard from './LandlordDashboard.jsx';
 import ContractorDashboard from './ContractorDashboard.jsx';
 import DebugHUD from './components/DebugHUD.jsx';
 import RequestRole from './RequestRole.jsx';
+import Sessions from './Sessions';
 
 export default function App() {
   return (
@@ -23,6 +24,15 @@ export default function App() {
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        <Route
+          path="/sessions"
+          element={
+            <ProtectedRoute>
+              <Sessions />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Authenticated general area (any logged-in role) */}
         <Route

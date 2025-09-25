@@ -1,72 +1,43 @@
-<<<<<<< HEAD
-// backend/routes/landlord.js
-import express from "express";
-import db from "../db.js";
-import { permitRoles } from "../middleware/authMiddleware.js";
-
-const router = express.Router();
-
-/**
- * GET /api/landlord/tickets
- * List tickets for the logged-in landlord
- */
-router.get("/tickets", permitRoles("Landlord"), async (req, res) => {
-  try {
-    const [tickets] = await db.query(
-      "SELECT id AS TicketID, propertyAddress AS PropertyAddress, description AS Description, submittedAt AS SubmittedAt FROM tblTickets WHERE landlordId = ?",
-      [req.user.userId]
-    );
-=======
+// backend/routes/landlord.js  (ESM, fixed & consistent)
 import express from 'express';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// GET /api/landlord/tickets - Enhanced endpoint with comprehensive data
 router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
-    const { userId } = req.user;
-    const { limit = 50, offset = 0, status, dateFrom, dateTo } = req.query;
+    const landlordId = req.user.userId;
+    const { status, dateFrom, dateTo, limit = '50', offset = '0' } = req.query;
 
-    // Validate query parameters
-    const limitNum = Math.min(Math.max(parseInt(limit) || 50, 1), 100);
-    const offsetNum = Math.max(parseInt(offset) || 0, 0);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
+    const offsetNum = Math.max(parseInt(offset, 10) || 0, 0);
 
-    // Build WHERE clause for filtering
-    // NOTE: tblTickets does not have a direct LandlordUserID column in the schema.
-    // We infer landlord ownership via approvals made by this landlord on quotes
-    // associated with the ticket.
-    let whereConditions = [
+    // Build WHERE (mapping-based auth)
+    const where = [
       `EXISTS (
          SELECT 1
-         FROM tblQuotes qx
-         JOIN tblLandlordApprovals lax ON lax.QuoteID = qx.QuoteID
-         WHERE qx.TicketID = t.TicketID AND lax.LandlordUserID = ?
-       )`
+         FROM tblLandlordProperties lp
+         WHERE lp.PropertyID = t.PropertyID
+           AND lp.LandlordUserID = ?
+           AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+       )`,
     ];
-    let queryParams = [userId];
+    const whereParams = [landlordId];
 
-    if (status) {
-      whereConditions.push('t.CurrentStatus = ?');
-      queryParams.push(status);
-    }
+    if (status) { where.push('t.CurrentStatus = ?'); whereParams.push(status); }
+    if (dateFrom) { where.push('t.CreatedAt   >= ?'); whereParams.push(dateFrom); }
+    if (dateTo) { where.push('t.CreatedAt   <= ?'); whereParams.push(dateTo); }
 
-    if (dateFrom) {
-      whereConditions.push('t.CreatedAt >= ?');
-      queryParams.push(dateFrom);
-    }
->>>>>>> c2c70f0 (\feat(landlord): comprehensive landlord history API with quotes and appointments)
+    const whereClause = where.join(' AND ');
 
-    if (dateTo) {
-      whereConditions.push('t.CreatedAt <= ?');
-      queryParams.push(dateTo);
-    }
+    const countSql = `
+      SELECT COUNT(*) AS total
+      FROM tblTickets t
+      WHERE ${whereClause};
+    `;
 
-    const whereClause = whereConditions.join(' AND ');
-
-    // Main query with comprehensive data including quotes and appointments
-    const ticketsQuery = `
+    const ticketsSql = `
       SELECT 
         t.TicketID,
         t.TicketRefNumber,
@@ -74,121 +45,110 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
         t.UrgencyLevel,
         t.CreatedAt,
         t.CurrentStatus,
-        
+        t.PropertyID,
+
         -- Client information
-        client.FullName as ClientName,
-        client.Email as ClientEmail,
-        client.Phone as ClientPhone,
-        
-        -- Quote summary (latest approved quote)
+        client.FullName AS ClientName,
+        client.Email    AS ClientEmail,
+        client.Phone    AS ClientPhone,
+
+        -- Preferred "latest approved" quote (approved first, else latest)
         q.QuoteID,
         q.QuoteAmount,
         q.QuoteStatus,
         q.SubmittedAt as QuoteSubmittedAt,
+
         contractor.FullName as ContractorName,
-        contractor.Email as ContractorEmail,
-        
-        -- Appointment summary (next scheduled appointment)
+        contractor.Email    as ContractorEmail,
+
+        -- Next scheduled appointment 
         cs.ScheduleID,
         cs.ProposedDate as AppointmentDate,
         cs.ClientConfirmed as AppointmentConfirmed,
-        
-        -- Landlord approval status
+
+        -- Landlord approval on that quote 
         la.ApprovalStatus as LandlordApprovalStatus,
-        la.ApprovedAt as LandlordApprovedAt
-        
+        la.ApprovedAt     as LandlordApprovedAt
+
       FROM tblTickets t
-      
-      -- Join client information
-      LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
-      
-      -- Join latest approved quote (prioritize approved, then latest)
-      LEFT JOIN tblQuotes q ON t.TicketID = q.TicketID 
+      LEFT JOIN tblusers client on client.UserID = t.ClientUserID
+
+      LEFT JOIN tblQuotes q on q.TicketID = t.TicketID
         AND q.QuoteID = (
-          SELECT q2.QuoteID FROM tblQuotes q2 
-          WHERE q2.TicketID = t.TicketID 
-          ORDER BY 
+          SELECT q2.QuoteID
+          FROM tblQuotes q2
+          WHERE q2.TicketID = t.TicketID
+          ORDER BY
             CASE WHEN q2.QuoteStatus = 'Approved' THEN 1 ELSE 2 END,
             q2.SubmittedAt DESC
           LIMIT 1
         )
-      
-      -- Join contractor info for the quote
-      LEFT JOIN tblusers contractor ON q.ContractorUserID = contractor.UserID
-      
-      -- Join next appointment
-      LEFT JOIN tblContractorSchedules cs ON t.TicketID = cs.TicketID
+
+      LEFT JOIN tblusers contractor ON contractor.UserID = q.ContractorUserID
+
+      LEFT JOIN tblContractorSchedules cs ON cs.TicketID = t.TicketID
         AND cs.ScheduleID = (
-          SELECT cs2.ScheduleID FROM tblContractorSchedules cs2
+          SELECT cs2.ScheduleID
+          FROM tblContractorSchedules cs2
           WHERE cs2.TicketID = t.TicketID
-          AND cs2.ProposedDate >= NOW()
+            AND cs2.ProposedDate >= NOW()
           ORDER BY cs2.ProposedDate ASC
           LIMIT 1
         )
-      
-      -- Join landlord approval
-      LEFT JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
-      
+
+      LEFT JOIN tblLandlordApprovals la ON la.QuoteID = q.QuoteID
       WHERE ${whereClause}
       ORDER BY t.CreatedAt DESC
       LIMIT ? OFFSET ?
     `;
 
-    queryParams.push(limitNum, offsetNum);
+    const [[countRow]] = await pool.execute(countSql, whereParams);
+    const totalCount = countRow?.total || 0;
 
-    const [tickets] = await pool.execute(ticketsQuery, queryParams);
+    const dataParams = [...whereParams, limitNum, offsetNum];
+    const [rows] = await pool.execute(ticketsSql, dataParams);
 
-    // Get total count for pagination
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM tblTickets t
-      WHERE ${whereClause}
-    `;
-    
-    const [countResult] = await pool.execute(countQuery, queryParams.slice(0, -2));
-    const totalCount = countResult[0].total;
+    const tickets = rows.map(r => ({
+      ticketId: r.TicketID,
+      referenceNumber: r.TicketRefNumber,
+      description: r.Description,
+      urgencyLevel: r.UrgencyLevel,
+      status: r.CurrentStatus,
+      createdAt: r.CreatedAt,
+      propertyId: r.PropertyID,
 
-    // Transform the results to include nested objects
-    const formattedTickets = tickets.map(ticket => ({
-      ticketId: ticket.TicketID,
-      referenceNumber: ticket.TicketRefNumber,
-      description: ticket.Description,
-      urgencyLevel: ticket.UrgencyLevel,
-      status: ticket.CurrentStatus,
-      createdAt: ticket.CreatedAt,
-      
       client: {
-        name: ticket.ClientName,
-        email: ticket.ClientEmail,
-        phone: ticket.ClientPhone
+        name: r.ClientName,
+        email: r.ClientEmail,
+        phone: r.ClientPhone
       },
-      
-      quote: ticket.QuoteID ? {
-        id: ticket.QuoteID,
-        amount: parseFloat(ticket.QuoteAmount || 0),
-        status: ticket.QuoteStatus,
-        submittedAt: ticket.QuoteSubmittedAt,
+
+      quote: r.QuoteID ? {
+        id: r.QuoteID,
+        amount: Number.parseFloat(r.QuoteAmount || 0),
+        status: r.QuoteStatus,
+        submittedAt: r.QuoteSubmittedAt,
         contractor: {
-          name: ticket.ContractorName,
-          email: ticket.ContractorEmail
+          name: r.ContractorName,
+          email: r.ContractorEmail
         },
         landlordApproval: {
-          status: ticket.LandlordApprovalStatus,
-          approvedAt: ticket.LandlordApprovedAt
+          status: r.LandlordApprovalStatus,
+          approvedAt: r.LandlordApprovedAt
         }
       } : null,
-      
-      nextAppointment: ticket.ScheduleID ? {
-        id: ticket.ScheduleID,
-        scheduledDate: ticket.AppointmentDate,
-        clientConfirmed: ticket.AppointmentConfirmed
+
+      nextAppointment: r.ScheduleID ? {
+        id: r.ScheduleID,
+        scheduledDate: r.AppointmentDate,
+        clientConfirmed: r.AppointmentConfirmed
       } : null
     }));
 
     res.json({
       success: true,
       data: {
-        tickets: formattedTickets,
+        tickets,
         pagination: {
           total: totalCount,
           limit: limitNum,
@@ -197,186 +157,300 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
         }
       }
     });
-    
+
   } catch (err) {
-<<<<<<< HEAD
-    console.error("Fetch tickets error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-=======
-    console.error('Error fetching landlord tickets:', err);
-    res.status(500).json({ 
+    console.error('Landlord /tickets error:', err);
+    res.status(500).json({
       success: false,
-      message: 'Error fetching tickets', 
+      message: 'Error fetching tickets',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
->>>>>>> c2c70f0 (\feat(landlord): comprehensive landlord history API with quotes and appointments)
+  }
+});
+
+/** helper: landlord owns ticket via mapping */
+async function landlordOwnsTicket(landlordId, ticketId) {
+  const [rows] = await pool.execute(
+    `
+    SELECT 1
+    FROM tblTickets t
+    JOIN tblLandlordProperties lp
+      ON lp.PropertyID = t.PropertyID
+     AND lp.LandlordUserID = ?
+     AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+    WHERE t.TicketID = ?
+    LIMIT 1;
+    `,
+    [landlordId, ticketId]
+  );
+  return rows.length > 0;
+}
+
+/** helper: landlord owns quote (via the quote's ticket → property mapping) */
+async function landlordOwnsQuote(landlordId, quoteId) {
+  const [rows] = await pool.execute(
+    `
+    SELECT 1
+    FROM tblquotes q
+    JOIN tbltickets t ON t.TicketID = q.TicketID
+    JOIN tbllandlordproperties lp
+         ON lp.PropertyID = t.PropertyID
+        AND lp.LandlordUserID = ?
+        AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+    WHERE q.QuoteID = ?
+    LIMIT 1;
+    `,
+    [landlordId, quoteId]
+  );
+  return rows.length > 0;
+}
+
+
+/**
+ * GET /api/landlord/quotes/:ticketId
+ * Returns all quotes for a ticket after ownership check.
+ */
+router.get('/quotes/:ticketId', requireAuth, permitRoles('Landlord'), async (req, res) => {
+  try {
+    const landlordId = req.user.userId;
+    const ticketId = Number.parseInt(req.params.ticketId, 10);
+    if (Number.isNaN(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
+
+    const owns = await landlordOwnsTicket(landlordId, ticketId);
+    if (!owns) return res.status(403).json({ message: 'Not allowed to access this ticket' });
+
+    const [quotes] = await pool.execute(
+      `
+      SELECT
+        q.QuoteID,
+        q.TicketID,
+        q.ContractorUserID,
+        q.QuoteAmount,
+        q.QuoteStatus,
+        q.SubmittedAt,
+        q.FilePath
+      FROM tblQuotes q
+      WHERE q.TicketID = ?
+      ORDER BY q.SubmittedAt DESC;
+      `,
+      [ticketId]
+    );
+
+    res.json({ success: true, data: quotes });
+  } catch (err) {
+    console.error('Landlord /quotes error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * (Optional) appointments list
+ */
+router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord'), async (req, res) => {
+  try {
+    const landlordId = req.user.userId;
+    const ticketId = Number.parseInt(req.params.ticketId, 10);
+    if (Number.isNaN(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
+
+    const owns = await landlordOwnsTicket(landlordId, ticketId);
+    if (!owns) return res.status(403).json({ message: 'Not allowed to access this ticket' });
+
+    const [appointments] = await pool.execute(
+      `
+      SELECT
+        a.ScheduleID AS AppointmentID,
+      a.TicketID,
+      a.ProposedDate AS Date,
+      a.Notes,
+      a.ClientConfirmed AS Status
+      FROM tblContractorSchedules a
+      WHERE a.TicketID = ?
+      ORDER BY a.ProposedDate ASC;
+      `,
+      [ticketId]
+    );
+
+    res.json({ success: true, data: { ticketId, appointments } });
+  } catch (err) {
+    console.error('Landlord /appointments error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /**
  * GET /api/landlord/tickets/:ticketId/history
- * Timeline of status changes for a ticket
+ * Returns status timeline for a ticket (ownership enforced)
  */
-router.get("/tickets/:ticketId/history", permitRoles("Landlord"), async (req, res) => {
+router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
-    const { ticketId } = req.params;
+    const landlordId = req.user.userId;
+    const ticketId = Number.parseInt(req.params.ticketId, 10);
+    if (Number.isNaN(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
 
-    const [history] = await db.query(
-      "SELECT id AS HistoryID, status AS Status, changedAt AS ChangedAt, changedBy AS ChangedBy FROM tblTicketStatusHistory WHERE ticketId = ? ORDER BY changedAt ASC",
-      [ticketId]
-    );
+    const owns = await landlordOwnsTicket(landlordId, ticketId);
+    if (!owns) return res.status(403).json({ message: 'Not allowed to access this ticket' });
 
-    res.json({ ticketId, timeline: history });
+    // Try a flexible SELECT (works with common column names); returns [] if table missing
+    let rows = [];
+    try {
+      const [hist] = await pool.execute(
+        `
+        SELECT
+          COALESCE(h.HistoryID, h.ID)                            AS HistoryID,
+          h.Status                                               AS Status,
+          COALESCE(h.ChangedAt, h.UpdatedAt, h.CreatedAt, NOW()) AS ChangedAt,
+          COALESCE(h.ChangedBy, h.UpdatedByUserID)               AS ChangedBy
+        FROM tblticketstatushistory h
+        WHERE h.TicketID = ?
+        ORDER BY ChangedAt ASC;
+        `,
+        [ticketId]
+      );
+      rows = hist;
+    } catch (_ignore) {
+      rows = [];
+    }
+
+    return res.json({ success: true, data: { ticketId, timeline: rows } });
   } catch (err) {
-    console.error("Fetch ticket history error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-});
-
-/**
- * GET /api/landlord/tickets/:ticketId/quotes
- * List all quotes for a ticket
- */
-router.get("/tickets/:ticketId/quotes", permitRoles("Landlord"), async (req, res) => {
-  try {
-    const { ticketId } = req.params;
-
-    const [quotes] = await db.query(
-      `SELECT q.id AS QuoteID, q.contractorId AS ContractorID, q.amount AS QuoteAmount, q.status AS QuoteStatus, q.createdAt AS CreatedAt, q.filePath AS Documents
-       FROM tblQuotes q
-       JOIN tblTickets t ON q.ticketId = t.id
-       WHERE q.ticketId = ? AND t.landlordId = ?`,
-      [ticketId, req.user.userId]
-    );
-
-    res.json(quotes);
-  } catch (err) {
-    console.error("Fetch quotes error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error('Landlord /tickets/:ticketId/history error:', err);
+    return res.json({ success: true, data: { ticketId: Number(req.params.ticketId), timeline: [] } });
   }
 });
 
 /**
  * POST /api/landlord/quotes/:quoteId/approve
+ * Marks a quote as Approved and records landlord approval (ownership enforced)
  */
-router.post("/quotes/:quoteId/approve", permitRoles("Landlord"), async (req, res) => {
+router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const { quoteId } = req.params;
+    const landlordId = req.user.userId;
+    const quoteId = Number.parseInt(req.params.quoteId, 10);
+    if (Number.isNaN(quoteId)) return res.status(400).json({ message: 'Invalid quoteId' });
 
-    const [quoteRows] = await db.query("SELECT TicketID FROM tblQuotes WHERE QuoteID = ?", [quoteId]);
-    if (!quoteRows.length) return res.status(404).json({ message: "Quote not found" });
+    const owns = await landlordOwnsQuote(landlordId, quoteId);
+    if (!owns) return res.status(403).json({ message: 'Not allowed to approve this quote' });
 
-    const ticketId = quoteRows[0].TicketID;
+    await connection.beginTransaction();
 
-    await db.query("UPDATE tblQuotes SET QuoteStatus = 'Approved' WHERE QuoteID = ?", [quoteId]);
-    await db.query(
-      "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)",
-      [ticketId, "Quote Approved", req.user.userId]
+    const [[qrow]] = await connection.execute(
+      'SELECT TicketID FROM tblquotes WHERE QuoteID = ? LIMIT 1',
+      [quoteId]
+    );
+    if (!qrow) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Quote not found' });
+    }
+    const ticketId = qrow.TicketID;
+
+    await connection.execute(
+      'UPDATE tblquotes SET QuoteStatus = ? WHERE QuoteID = ?',
+      ['Approved', quoteId]
     );
 
-    res.json({ message: "Quote approved successfully" });
+    // Insert-or-update landlord approval
+    try {
+      await connection.execute(
+        `INSERT INTO tbllandlordapprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
+         VALUES (?, ?, 'Approved', NOW())`,
+        [quoteId, landlordId]
+      );
+    } catch {
+      await connection.execute(
+        `UPDATE tbllandlordapprovals
+           SET ApprovalStatus = 'Approved', ApprovedAt = NOW()
+         WHERE QuoteID = ? AND LandlordUserID = ?`,
+        [quoteId, landlordId]
+      );
+    }
+
+    // Best-effort: append ticket history
+    try {
+      await connection.execute(
+        `INSERT INTO tblticketstatushistory (TicketID, Status, UpdatedByUserID, ChangedAt)
+         VALUES (?, 'Approved', ?, NOW())`,
+        [ticketId, landlordId]
+      );
+    } catch { /* ignore */ }
+
+    await connection.commit();
+    return res.json({ success: true, message: 'Quote approved successfully' });
   } catch (err) {
-    console.error("Approve quote error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    try { await connection.rollback(); } catch { }
+    console.error('Landlord approve quote error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
 /**
  * POST /api/landlord/quotes/:quoteId/reject
+ * Marks a quote as Rejected and records landlord decision (ownership enforced)
  */
-router.post("/quotes/:quoteId/reject", permitRoles("Landlord"), async (req, res) => {
+router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const { quoteId } = req.params;
+    const landlordId = req.user.userId;
+    const quoteId = Number.parseInt(req.params.quoteId, 10);
+    if (Number.isNaN(quoteId)) return res.status(400).json({ message: 'Invalid quoteId' });
 
-    const [quoteRows] = await db.query("SELECT TicketID FROM tblQuotes WHERE QuoteID = ?", [quoteId]);
-    if (!quoteRows.length) return res.status(404).json({ message: "Quote not found" });
+    const owns = await landlordOwnsQuote(landlordId, quoteId);
+    if (!owns) return res.status(403).json({ message: 'Not allowed to reject this quote' });
 
-    const ticketId = quoteRows[0].TicketID;
+    await connection.beginTransaction();
 
-    await db.query("UPDATE tblQuotes SET QuoteStatus = 'Rejected' WHERE QuoteID = ?", [quoteId]);
-    await db.query(
-      "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)",
-      [ticketId, "Quote Rejected", req.user.userId]
+    const [[qrow]] = await connection.execute(
+      'SELECT TicketID FROM tblquotes WHERE QuoteID = ? LIMIT 1',
+      [quoteId]
+    );
+    if (!qrow) {
+      await connection.rollback();
+      return res.status(404).json({ message: 'Quote not found' });
+    }
+    const ticketId = qrow.TicketID;
+
+    await connection.execute(
+      'UPDATE tblquotes SET QuoteStatus = ? WHERE QuoteID = ?',
+      ['Rejected', quoteId]
     );
 
-    res.json({ message: "Quote rejected successfully" });
+    // Insert-or-update landlord decision
+    try {
+      await connection.execute(
+        `INSERT INTO tbllandlordapprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
+         VALUES (?, ?, 'Rejected', NOW())`,
+        [quoteId, landlordId]
+      );
+    } catch {
+      await connection.execute(
+        `UPDATE tbllandlordapprovals
+           SET ApprovalStatus = 'Rejected', ApprovedAt = NOW()
+         WHERE QuoteID = ? AND LandlordUserID = ?`,
+        [quoteId, landlordId]
+      );
+    }
+
+    // Best-effort: append ticket history
+    try {
+      await connection.execute(
+        `INSERT INTO tblticketstatushistory (TicketID, Status, UpdatedByUserID, ChangedAt)
+         VALUES (?, 'In Review', ?, NOW())`,
+        [ticketId, landlordId]
+      );
+    } catch { /* ignore */ }
+
+    await connection.commit();
+    return res.json({ success: true, message: 'Quote rejected successfully' });
   } catch (err) {
-    console.error("Reject quote error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    try { await connection.rollback(); } catch { }
+    console.error('Landlord reject quote error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    connection.release();
   }
 });
 
-/**
- * GET /api/landlord/tickets/:ticketId/appointments
- * List all appointments for a ticket
- */
-router.get("/tickets/:ticketId/appointments", permitRoles("Landlord"), async (req, res) => {
-  try {
-    const { ticketId } = req.params;
 
-    const [appointments] = await db.query(
-      "SELECT id AS AppointmentID, date AS Date, time AS Time, notes AS Notes, status AS Status FROM tblAppointments WHERE ticketId = ?",
-      [ticketId]
-    );
-
-    res.json({ ticketId, appointments });
-  } catch (err) {
-    console.error("Fetch appointments error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-});
-
-<<<<<<< HEAD
-/**
- * POST /api/landlord/appointments/:appointmentId/approve
- */
-router.post("/appointments/:appointmentId/approve", permitRoles("Landlord"), async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-
-    const [apptRows] = await db.query("SELECT TicketID FROM tblAppointments WHERE AppointmentID = ?", [appointmentId]);
-    if (!apptRows.length) return res.status(404).json({ message: "Appointment not found" });
-
-    const ticketId = apptRows[0].TicketID;
-
-    await db.query("UPDATE tblAppointments SET Status = 'Approved' WHERE AppointmentID = ?", [appointmentId]);
-    await db.query(
-      "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)",
-      [ticketId, "Appointment Approved", req.user.userId]
-    );
-
-    res.json({ message: "Appointment approved successfully" });
-  } catch (err) {
-    console.error("Approve appointment error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-});
-
-/**
- * POST /api/landlord/appointments/:appointmentId/reject
- */
-router.post("/appointments/:appointmentId/reject", permitRoles("Landlord"), async (req, res) => {
-  try {
-    const { appointmentId } = req.params;
-
-    const [apptRows] = await db.query("SELECT TicketID FROM tblAppointments WHERE AppointmentID = ?", [appointmentId]);
-    if (!apptRows.length) return res.status(404).json({ message: "Appointment not found" });
-
-    const ticketId = apptRows[0].TicketID;
-
-    await db.query("UPDATE tblAppointments SET Status = 'Rejected' WHERE AppointmentID = ?", [appointmentId]);
-    await db.query(
-      "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)",
-      [ticketId, "Appointment Rejected", req.user.userId]
-    );
-
-    res.json({ message: "Appointment rejected successfully" });
-  } catch (err) {
-    console.error("Reject appointment error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
-  }
-});
-
-=======
->>>>>>> c2c70f0 (\feat(landlord): comprehensive landlord history API with quotes and appointments)
 export default router;

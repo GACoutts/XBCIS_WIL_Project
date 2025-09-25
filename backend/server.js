@@ -2,12 +2,12 @@ import "dotenv/config"; // keep at top
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import path from "path";
 import { fileURLToPath } from "url";
 import pool, { dbHealth } from "./db.js";
 import { dbViewerRoutes } from "./db-viewer.js";
+import { cleanupExpiredJtis } from './utils/tokens.js';
 
 // Routes
 import ticketsRoutes from "./routes/tickets.js";
@@ -19,7 +19,16 @@ import roleRequestRoutes from './routes/roleRequests.js';
 import landlordRoutes from './routes/landlord.js';
 
 // Middleware
-import { generalRateLimit, authRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
+import { generalRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
+
+setInterval(async () => {
+  try {
+    const n = await cleanupExpiredJtis();
+    if (n) console.log(`Cleaned ${n} expired revoked JTIs`);
+  } catch (e) {
+    console.warn('cleanupExpiredJtis error:', e?.message || e);
+  }
+}, 60 * 60 * 1000);
 
 // -------------------------------------------------------------------------------------
 // Setup & constants
@@ -66,23 +75,6 @@ app.get('/demo', (req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
-// JWT Cookie Helpers
-// -------------------------------------------------------------------------------------
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
-const JWT_EXPIRES = process.env.JWT_EXPIRES || "7d";
-
-function setAuthCookie(res, payload) {
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-  res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/",
-  });
-}
-
-// -------------------------------------------------------------------------------------
 // Favicon (avoid noisy 404s)
 // -------------------------------------------------------------------------------------
 app.get("/favicon.ico", (_req, res) => res.status(204).end());
@@ -102,7 +94,7 @@ app.get("/", (_req, res) => {
       <li>GET /api/auth/me</li>
       <li>POST /api/auth/refresh</li>
       <li>POST /api/auth/logout</li>
-      <li>POST /api/auth/logout-all</li>
+      <li>DELETE /api/auth/sessions</li>
       <li>GET /api/auth/sessions</li>
       <li>DELETE /api/auth/sessions/:id</li>
       <li>DELETE /api/auth/sessions</li>
@@ -148,6 +140,7 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
+/*
 // -------------------------------------------------------------------------------------
 // Legacy auth (register/login/me/logout)
 // -------------------------------------------------------------------------------------
@@ -224,6 +217,7 @@ app.post("/api/logout", (_req, res) => {
   res.clearCookie("token", { path: "/", sameSite: "lax", secure: process.env.NODE_ENV === 'production' });
   return res.json({ ok: true });
 });
+*/
 
 // -------------------------------------------------------------------------------------
 // Password reset (legacy)
