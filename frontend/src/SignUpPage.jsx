@@ -226,7 +226,7 @@ export default function SignUpPage() {
           Got an account? <Link to="/login" className="link">Sign in</Link>
         </div>
         <div className="forgot-password">
-          Forgot password? <Link to="/login" className="link">Reset here</Link>
+          Forgot password? <Link to="/forgot-password" className="link">Reset here</Link>
         </div>
       </div>
     </div>
