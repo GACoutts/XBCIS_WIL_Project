@@ -1,0 +1,821 @@
+:root { 
+  --navbar-height: 60px;   
+
+}
+
+body { 
+  background: white; 
+  font-family: Arial, sans-serif; 
+  display: flex; flex-direction: column; 
+  overflow-y: auto;
+  overflow-x: hidden; 
+  min-height: 100vh !important;
+  margin: 0; 
+  padding-top: var(--navbar-height); 
+  box-sizing: border-box; 
+  align-items: stretch; 
+}
+
+.navbar { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  background-color: white; 
+  padding: 10px 15px; 
+  border-bottom: 1px solid black; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  box-sizing: border-box; 
+  z-index: 1000; 
+  font-family: Arial, sans-serif; 
+  height: var(--navbar-height);
+}
+
+.navbar-logo { 
+  padding-left: 75px; 
+}
+
+.navbar-right { 
+  display: flex; 
+  align-items: center; 
+  gap: 0px; 
+  margin-left: auto; 
+}
+
+.navbar-menu { 
+  list-style: none; 
+  display: flex; 
+  margin: 0; 
+  padding: 0; 
+}
+
+.navbar-menu li { 
+  margin: 0 25px; 
+}
+
+.navbar-menu a { 
+  text-decoration: none; 
+  color: black; 
+  font-size: 16px; 
+  transition: color 0.3s; 
+}
+
+.navbar-menu a:hover { 
+  color: #FBD402; 
+}
+
+.navbar-profile img { 
+  width: 40px; 
+  height: 40px; 
+  border-radius: 50%; 
+  cursor: pointer; 
+}
+
+.dashboard-title{ 
+  padding-left: 90px; 
+}
+
+.sub-titles-container {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.sub-title{ 
+  padding-left: 91px; 
+  margin-top: -35px; 
+  font-size: 13px; 
+}
+
+.contractor-sub-title {
+  padding-left: 483px; 
+  margin-top: -15px; 
+  font-size: 13px; 
+}
+
+.sub-title2{ 
+  padding-left: 91px; 
+  margin-top: 25px; 
+  font-size: 13px;
+  margin-bottom: -5px;
+}
+
+.cards-wrapper {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.awaiting-tickets-container {
+    margin: 20px 90px;
+    background: white;
+    border-radius: 5px;
+    overflow-y: auto;
+    border: 1px solid #FBD402;
+    margin-top: 1px;
+    width: 545px;
+    max-height: 250px;
+}
+
+.contractor-container {
+    background: white;
+    border-radius: 5px;
+    overflow-y: auto;
+    border: 1px solid #FBD402;
+    width: 425px;
+    max-height: 250px;
+    margin: 0px 20px 20px 0px;
+    display: inline-block;
+    vertical-align: top;
+
+}
+
+.property-stats-container {
+    margin: 20px 90px;
+    background: white;
+    border-radius: 5px;
+    overflow-y: auto;
+    border: 1px solid #FBD402;
+    margin-top: 20px;
+    width: 545px;
+    max-height: 150px;
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #FBD402;
+    background-color: white;
+}
+
+.header-content {
+    flex: 1;
+}
+
+.header-grid {
+    display: grid;
+    grid-template-columns: 85px 85px 85px 85px 85px;
+    gap: 17px;
+}
+
+.contractor-header-grid {
+    display: grid;
+    grid-template-columns: 85px 85px 85px 85px;
+    gap: 17px;
+    align-items: center;
+}
+
+.property-stats-header-grid {
+    display: grid;
+    grid-template-columns: 85px 85px 85px 85px 85px;
+    gap: 17px;
+    align-items: center;
+}
+
+.header-item {
+    font-size: 14px;
+    font-weight: 600;
+    color: black;
+}
+
+.header-status {
+    font-size: 14px;
+    font-weight: 600;
+    color: black;
+    margin-left: 0px;
+}
+
+.ticket-card {
+    border-bottom: 1px solid #FBD402;
+    padding: 15px;
+}
+
+.ticket-card:last-child {
+    border-bottom: none;
+}
+
+.contractor-card {
+    border-bottom: 1px solid #FBD402;
+    padding: 15px;
+}
+
+.contractor-card:last-child {
+    border-bottom: none;
+}
+
+.ticket-layout {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.contractor-layout {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.ticket-content {
+    flex: 1;
+}
+
+.contractor-content {
+    flex: 1;
+}
+
+.ticket-info-grid {
+    display: grid;
+    grid-template-columns: 85px 85px 85px 85px 85px;
+    gap: 15px;
+    align-items: center;
+}
+
+.contractor-info-grid {
+    display: grid;
+    grid-template-columns: 85px 85px 85px 85px;
+    gap: 15px;
+    align-items: center;
+}
+
+.property-stats-info-grid {
+    display: grid;
+    grid-template-columns: 85px 85px 85px 85px 85px;
+    gap: 15px;
+    align-items: center;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: black;
+
+}
+
+.info-value {
+    font-size: 14px;
+    color: black;
+}
+
+.info-value.ticket-id {
+    font-weight: 500;
+}
+
+.issue-cell {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.assigned-job-cell {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+
+.tickets-logged-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tickets-summary {
+    font-size: 12px;
+    line-height: 1.2;
+    border: 1px solid black;
+    border-radius: 5px;
+    text-align: center;
+    padding: 1px;
+}
+
+.total-tickets,
+.done-tickets,
+.progress-tickets {
+    font-size: 12px;
+    color: black;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+
+.gear-icon {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap; /* Ensure buttons stay in a row */
+}
+
+.action-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: #FBD402;
+}
+
+
+.urgency-status-column {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    margin-left: 0px;
+    align-items: center;
+}
+
+.contractor-status-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-left: 0px;
+    align-items: center;
+}
+
+.urgency-badge {
+    padding: 12px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid black;
+    background-color: white;
+}
+
+.high-urgency {
+    color: red;
+    border-color: black;
+}
+
+.medium-urgency {
+    color: orange;
+    border-color: black;
+}
+
+.low-urgency {
+    color: green;
+    border-color: black;
+}
+
+.status-badge {
+    padding: 12px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid black;
+    background-color: white;
+    color: black;
+    text-align: center;
+}
+
+.status-awaiting,
+.status-approved,
+.status-rejected {
+    border-color: black;
+}
+
+.awaiting-tickets-container::-webkit-scrollbar,
+.contractor-container::-webkit-scrollbar,
+.property-stats-container::-webkit-scrollbar {
+    width: 5px; 
+}
+
+.awaiting-tickets-container::-webkit-scrollbar-track,
+.contractor-container::-webkit-scrollbar-track,
+.property-stats-container::-webkit-scrollbar-track {
+    background: transparent; 
+}
+
+.awaiting-tickets-container::-webkit-scrollbar-thumb,
+.contractor-container::-webkit-scrollbar-thumb,
+.property-stats-container::-webkit-scrollbar-thumb {
+    background: transparent; 
+    border-radius: 5px;
+}
+
+.property-stats-card {
+    border-bottom: 1px solid #FBD402;
+    padding: 15px;
+}
+
+.property-stats-card:last-child {
+    border-bottom: none;
+}
+
+.property-stats-layout {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.property-stats-content {
+    flex: 1;
+}
+
+.staff-admin-panel {
+  margin: 16px auto 24px;
+  padding: 1px;
+  background: #fff;
+}
+
+.staff-admin-panel .section-title {
+  font-size: 1.25rem;
+  margin-bottom: -3px;
+  margin-left: 90px;
+  margin-top: -10px;
+}
+
+.admin-card {
+  margin: 20px 90px;
+  background: white;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  overflow-x: auto;
+  padding: 16px;
+}
+
+/* Card title */
+.admin-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: black;
+  align-items: center;
+}
+
+/* Error message */
+.admin-card .error-msg {
+  color: #7a1f1f;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #f6caca;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background-color: #fff5f5;
+  line-height: 1.5;
+}
+
+/* Success message */
+.admin-card .success-msg {
+  color: #1f7a1f;
+  margin-bottom: 8px;
+  border: 1px solid #caf6ca;
+}
+
+/* --- Table Styling --- */
+.admin-table,
+.review-roles-table {
+  width: 100%; 
+  max-width: 100%; 
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+  margin: 0;
+  box-sizing: border-box; 
+}
+
+.admin-table thead,
+.review-roles-table thead {
+  position: relative;
+  display: table; 
+  width: 100%; 
+}
+
+.admin-table thead::after,
+.review-roles-table thead::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background-color: #FBD402; 
+}
+
+.admin-table th,
+.review-roles-table th,
+.admin-table td,
+.review-roles-table td {
+  padding: 10px;
+  border-bottom: 1px solid #FBD402;
+  text-align: left;
+  vertical-align: middle; 
+  box-sizing: border-box; 
+}
+
+.admin-table th,
+.review-roles-table th {
+  font-weight: 600;
+  border-bottom: none; 
+}
+
+.admin-table tbody,
+.review-roles-table tbody {
+  display: block; 
+  max-height: 120px; 
+  overflow-y: auto;
+  width: 100%; 
+  max-width: 100%; 
+}
+
+.admin-table thead,
+.review-roles-table thead,
+.admin-table tbody tr,
+.review-roles-table tbody tr {
+  display: table; 
+  width: 100%; 
+  table-layout: fixed; 
+}
+
+/* Handle long content */
+.admin-table td,
+.review-roles-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0; 
+}
+
+/* Scrollbar styling for tbody */
+.admin-table tbody::-webkit-scrollbar,
+.review-roles-table tbody::-webkit-scrollbar {
+  width: 5px;
+}
+
+.admin-table tbody::-webkit-scrollbar-track,
+.review-roles-table tbody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-table tbody::-webkit-scrollbar-thumb,
+.review-roles-table tbody::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 5px;
+}
+
+.admin-card {
+  margin: 20px 90px; 
+  background: white;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  overflow-x: auto; 
+  padding: 16px 0;
+  width: auto; 
+  max-width: calc(100% - 180px); 
+  box-sizing: border-box; 
+}
+
+/* Error message */
+.admin-card .error-msg {
+  color: #7a1f1f;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #f6caca;
+  border-radius: 4px;
+  padding: 4px 8px;
+  background-color: #fff5f5;
+  line-height: 1.5;
+}
+
+/* Success message */
+.admin-card .success-msg {
+  color: #1f7a1f;
+  margin-bottom: 8px;
+  border: 1px solid #caf6ca;
+}
+
+/* Card title */
+.admin-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: black;
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+/* Buttons */
+.admin-btn,
+.admin-table td button,
+.review-roles-table td button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #FBD402;
+  margin-right: 8px;
+}
+
+.admin-btn:disabled,
+.admin-table td button:disabled,
+.review-roles-table td button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-table td button:last-child,
+.review-roles-table td button:last-child {
+  margin-right: 0; 
+}
+
+/* Specific styling for ManageRoles table */
+.admin-table th:nth-child(1),
+.admin-table td:nth-child(1) {
+  width: 30%; /* Name column */
+}
+.admin-table th:nth-child(2),
+.admin-table td:nth-child(2) {
+  width: 40%; 
+}
+.admin-table th:nth-child(3),
+.admin-table td:nth-child(3) {
+  width: 30%; 
+}
+
+.admin-table td select {
+  width: 80%; 
+  max-width: 150px; 
+  box-sizing: border-box;
+  font-size: 14px;
+  padding: 4px;
+  text-align: center;
+}
+
+/* Specific styling for ReviewRoleRequests table */
+.review-roles-table th:nth-child(1),
+.review-roles-table td:nth-child(1) {
+  width: 15%; /* User column */
+}
+.review-roles-table th:nth-child(2),
+.review-roles-table td:nth-child(2) {
+  width: 20%; /* Email column */
+}
+.review-roles-table th:nth-child(3),
+.review-roles-table td:nth-child(3) {
+  width: 15%; /* Current column */
+}
+.review-roles-table th:nth-child(4),
+.review-roles-table td:nth-child(4) {
+  width: 15%; /* Requested column */
+}
+.review-roles-table th:nth-child(5),
+.review-roles-table td:nth-child(5) {
+  width: 20%; /* Notes column */
+}
+.review-roles-table th:nth-child(6),
+.review-roles-table td:nth-child(6) {
+  width: 15%; /* Actions column */
+}
+
+.admin-table tr:last-child td,
+.review-roles-table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody,
+.review-roles-table tbody {
+  min-height: 120px; 
+  max-height: 120px; 
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+
+.navbar .navbar-profile {
+  position: relative;
+}
+
+.navbar .logout-popup button {
+  background-color: #FBD402;
+  color: black;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  left: 50%;
+  transform: translateX(-8%) translateY(15%);
+}
+
+/* Modal overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.35); /* semi-transparent backdrop */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* above navbar and content */
+}
+
+/* Modal box */
+.modal {
+    background: white;
+    border: 1px solid #FBD402;
+    border-radius: 8px;
+    padding: 20px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+    font-family: Arial, sans-serif;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Modal title */
+.modal h2 {
+    margin-top: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: black;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* Modal content */
+.modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Labels */
+.modal-content label {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: black;
+}
+
+/* Inputs and select */
+.modal-content input,
+.modal-content select {
+    padding: 8px 10px;
+    font-size: 14px;
+    border: 1px solid #FBD402;
+    border-radius: 5px;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Modal buttons container */
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* Modal buttons */
+.modal-buttons button {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    background-color: #FBD402;
+    color: black;
+    transition: background 0.2s;
+}
+
+.modal-buttons button:hover {
+    background-color: #e6c500;
+}
+
+/* Fade-in animation */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.page-bottom-spacer {
+    height: 15px;
+    width: 100%;
+}
