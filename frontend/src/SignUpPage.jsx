@@ -98,7 +98,7 @@ export default function SignUpPage() {
     <div className="signup-page-container">
       {successMsg ? <p className="success" style={{ position: 'absolute', top: '-85px', left: '50%', transform: 'translateX(-50%)', width: '350px', textAlign: 'center', zIndex: 10 }}>{successMsg}</p> : null}
       <div className="signup-container">
-        <div className="logo-placeholder">Logo will go here</div>
+        <div className="logo-placeholder">GoodLiving</div>
 
         <div className="header">
           <h2>Create An Account</h2>
