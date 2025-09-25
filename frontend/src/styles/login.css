@@ -147,14 +147,25 @@ html, body, #root {
 }
 
 .login-page-container .logo-placeholder {
-  background: #b0b0b0;
-  color: black;
-  padding: 10px;
-  border-radius: 5px;
+  color: white !important;
+  padding: 0px !important;
   margin: 0px auto;
   width: 150px;
-  text-align: center;
-  font-size: 12px;
+  text-align: center !important;
+  font-size: 23px !important; 
+  font-weight: bold;
+  font-family: 'Arial Black', sans-serif;
+  letter-spacing: 1px;
+  background: none !important;
+  text-shadow: 
+    -1px -1px 0 black, 
+    1px -1px 0 black, 
+    -1px 1px 0 black, 
+    1px 1px 0 black,
+    -1px 0 0 black,
+    1px 0 0 black,
+    0 -1px 0 black,
+    0 1px 0 black;
 }
 
 .login-page-container .role-selection {
