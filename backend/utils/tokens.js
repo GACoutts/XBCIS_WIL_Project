@@ -11,10 +11,10 @@ const JWT_ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES || '20m';
 const JWT_REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || '14d';
 
 // Robust env parsing (matches server.js)
-const envBool = (v, def=false) => {
+const envBool = (v, def = false) => {
   if (v === undefined) return def;
   const s = String(v).toLowerCase().trim();
-  return ['1','true','yes','on'].includes(s);
+  return ['1', 'true', 'yes', 'on'].includes(s);
 };
 const COOKIE_SECURE = envBool(process.env.COOKIE_SECURE, process.env.NODE_ENV === 'production');
 const COOKIE_DOMAIN = (process.env.COOKIE_DOMAIN || '').trim() || undefined;
@@ -27,8 +27,8 @@ const normSameSite = (v, fallback) => {
   if (s === 'none') return 'None';
   return fallback;
 };
-const COOKIE_SAME_SITE_ACCESS  = normSameSite(process.env.COOKIE_SAME_SITE_ACCESS, 'Lax');
-const COOKIE_SAME_SITE_REFRESH = normSameSite(process.env.COOKIE_SAME_SITE_REFRESH, 'Strict');
+const COOKIE_SAME_SITE_ACCESS = normSameSite(process.env.COOKIE_SAME_SITE_ACCESS, 'Lax');
+const COOKIE_SAME_SITE_REFRESH = normSameSite(process.env.COOKIE_SAME_SITE_REFRESH, 'Lax');
 const MAX_SESSIONS_PER_USER = parseInt(process.env.MAX_SESSIONS_PER_USER || '5', 10);
 
 // Role hierarchy (higher index = higher privilege)
@@ -71,7 +71,7 @@ export function makeRefreshToken() {
 function parseDuration(duration) {
   const unit = duration.slice(-1);
   const value = parseInt(duration.slice(0, -1), 10);
-  
+
   switch (unit) {
     case 'm': return value * 60 * 1000;
     case 'h': return value * 60 * 60 * 1000;
@@ -83,12 +83,12 @@ function parseDuration(duration) {
 // Set access token cookie
 export function setAccessCookie(res, token) {
   const maxAge = parseDuration(JWT_ACCESS_EXPIRES);
-  
-  res.cookie('access_token', token, {
+
+  res.cookie('access', token, {
     httpOnly: true,
     secure: COOKIE_SECURE,
     sameSite: COOKIE_SAME_SITE_ACCESS,
-    domain: COOKIE_DOMAIN,
+    domain: COOKIE_DOMAIN || undefined,
     path: '/',
     maxAge
   });
@@ -97,13 +97,13 @@ export function setAccessCookie(res, token) {
 // Set refresh token cookie
 export function setRefreshCookie(res, rawRefresh) {
   const maxAge = parseDuration(JWT_REFRESH_EXPIRES);
-  
-  res.cookie('refresh_token', rawRefresh, {
+
+  res.cookie('refresh', rawRefresh, {
     httpOnly: true,
     secure: COOKIE_SECURE,
     sameSite: COOKIE_SAME_SITE_REFRESH,
-    domain: COOKIE_DOMAIN,
-    path: '/api',
+    domain: COOKIE_DOMAIN || undefined,
+    path: '/api/auth',
     maxAge
   });
 }
@@ -113,18 +113,18 @@ export function clearAuthCookies(res) {
   const base = {
     httpOnly: true,
     secure: COOKIE_SECURE,
-    domain: COOKIE_DOMAIN,
+    domain: COOKIE_DOMAIN || undefined,
     path: '/'
   };
 
-   res.clearCookie('access_token', { ...base, sameSite: COOKIE_SAME_SITE_ACCESS });
-   res.clearCookie('refresh_token', { ...base, sameSite: COOKIE_SAME_SITE_REFRESH, path: '/api' });
+  res.clearCookie('access', { ...base, sameSite: COOKIE_SAME_SITE_ACCESS });
+  res.clearCookie('refresh', { ...base, sameSite: COOKIE_SAME_SITE_REFRESH, path: '/api/auth' });
 }
 
 // Issue new session (access + refresh tokens)
 export async function issueSession({ res, user, userAgent, ip }) {
   const connection = await pool.getConnection();
-  
+
   try {
     await connection.beginTransaction();
 
@@ -144,7 +144,7 @@ export async function issueSession({ res, user, userAgent, ip }) {
     if (existingSessions.length >= MAX_SESSIONS_PER_USER) {
       const tokensToRevoke = existingSessions.slice(0, existingSessions.length - MAX_SESSIONS_PER_USER + 1);
       const tokenIds = tokensToRevoke.map(t => t.TokenID);
-      
+
       if (tokenIds.length > 0) {
         await connection.execute(
           `UPDATE tblRefreshTokens SET RevokedAt = NOW() WHERE TokenID IN (${tokenIds.map(() => '?').join(',')})`,
@@ -175,6 +175,14 @@ export async function issueSession({ res, user, userAgent, ip }) {
     };
 
   } catch (error) {
+    console.error('issueSession error:', {
+    code: error?.code,
+    errno: error?.errno,
+    sqlState: error?.sqlState,
+    sqlMessage: error?.sqlMessage,
+    message: error?.message,
+    stack: error?.stack,
+  });
     await connection.rollback();
     throw error;
   } finally {
@@ -183,16 +191,28 @@ export async function issueSession({ res, user, userAgent, ip }) {
 }
 
 // Rotate refresh token
-export async function rotateRefreshToken({ res, oldTokenHash, user, userAgent, ip }) {
+export async function rotateRefreshToken({ req, res, oldTokenHash, userAgent, ip }) {
   const connection = await pool.getConnection();
-  
+
   try {
     await connection.beginTransaction();
+
+    // Allow caller to omit oldTokenHash: derive from cookie if present
+    const derivedHash = oldTokenHash || (
+      req?.cookies?.refresh
+        ? crypto.createHash('sha256').update(req.cookies.refresh).digest('hex')
+        : null
+    );
+    if (!derivedHash) {
+      await connection.rollback();
+      if (res) clearAuthCookies(res);
+      return { error: 'Invalid refresh token', status: 401 };
+    }
 
     // Find existing token
     const [rows] = await connection.execute(
       'SELECT TokenID, UserID, FamilyID, RevokedAt, ReplacedByTokenID FROM tblRefreshTokens WHERE TokenHash = ? AND ExpiresAt > NOW()',
-      [oldTokenHash]
+      [derivedHash]
     );
 
     if (!rows.length) {
@@ -212,7 +232,13 @@ export async function rotateRefreshToken({ res, oldTokenHash, user, userAgent, i
     }
 
     // Generate new tokens
-    const { token: accessToken, jti } = signAccessToken(user);
+    const [[roleRow]] = await connection.execute(
+      'SELECT Role FROM tblusers WHERE UserID = ? LIMIT 1',
+      [oldToken.UserID]
+    );
+    const role = roleRow?.Role || 'Client';
+
+    const { token: accessToken, jti } = signAccessToken({ userId: oldToken.UserID, role });
     const { raw: refreshRaw, hash: refreshHash } = makeRefreshToken();
     const expiresAt = new Date(Date.now() + parseDuration(JWT_REFRESH_EXPIRES));
 
@@ -244,6 +270,14 @@ export async function rotateRefreshToken({ res, oldTokenHash, user, userAgent, i
     };
 
   } catch (error) {
+    console.error('rotateRefreshToken error:', {
+    code: error?.code,
+    errno: error?.errno,
+    sqlState: error?.sqlState,
+    sqlMessage: error?.sqlMessage,
+    message: error?.message,
+    stack: error?.stack,
+  });
     await connection.rollback();
     throw error;
   } finally {
@@ -286,7 +320,7 @@ export async function revokeAllUserRefreshTokens({ userId, reason }) {
 // Add revoked access JTI
 export async function addRevokedAccessJti({ jti, userId, exp, reason }) {
   const expiresAt = new Date(exp * 1000); // JWT exp is in seconds
-  
+
   await pool.execute(
     'INSERT INTO tblRevokedAccessJti (Jti, UserID, ExpiresAt, Reason) VALUES (?, ?, ?, ?)',
     [jti, userId, expiresAt, reason]
@@ -308,6 +342,14 @@ export async function cleanupExpiredJtis() {
     'DELETE FROM tblRevokedAccessJti WHERE ExpiresAt <= NOW()'
   );
   return result.affectedRows;
+}
+
+// Verify access token and ensure its JTI isn't revoked
+export async function verifyAccessToken(raw) {
+  const decoded = jwt.verify(raw, JWT_SECRET); // throws if invalid/expired
+  if (decoded?.type !== 'access') throw new Error('Wrong token type');
+  if (await isAccessJtiRevoked(decoded.jti)) throw new Error('Access token revoked');
+  return decoded; // { jti, sub, role, type, iat, exp }
 }
 
 // Log audit event

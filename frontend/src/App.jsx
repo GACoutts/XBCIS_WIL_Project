@@ -14,8 +14,7 @@ import DebugHUD from './components/DebugHUD.jsx';
 
 // Role management components
 import RequestRole from './RequestRole.jsx';
-import ManageRoles from './components/ManageRoles.jsx';
-import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
+import Sessions from './Sessions';
 
 export default function App() {
   // Only show DebugHUD in development mode
@@ -31,6 +30,15 @@ export default function App() {
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        <Route
+          path="/sessions"
+          element={
+            <ProtectedRoute>
+              <Sessions />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Authenticated general area (any logged-in role) */}
         <Route
