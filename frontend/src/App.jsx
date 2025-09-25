@@ -11,6 +11,9 @@ import ContractorDashboard from './ContractorDashboard.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
 import ResetPassword from './ResetPassword.jsx';
 import DebugHUD from './components/DebugHUD.jsx';
+import ManageRoles from './components/ManageRoles.jsx';
+import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
+
 
 // Role management components
 import RequestRole from './RequestRole.jsx';
