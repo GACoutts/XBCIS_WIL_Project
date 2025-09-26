@@ -77,7 +77,7 @@ export default function SignUpPage() {
     try {
       // 1) Register
       const apiRole = ROLE_MAP[formData.role]; // map UI role to backend role enum
-      await register({
+      const response = await register({
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim() || null,
@@ -85,8 +85,14 @@ export default function SignUpPage() {
         role: apiRole,
       });
 
-      setSuccessMsg("Account created successfully. You’re in!");
-      navigate("/", { replace: true });
+      // Check if approval is required
+      if (response?.requiresApproval) {
+        setSuccessMsg("Registration successful! Your account is pending staff approval. You'll be notified once approved.");
+        // Don't navigate - stay on registration page to show message
+      } else {
+        setSuccessMsg("Account created successfully. You're in!");
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       setServerError(err.message || "Registration failed");
     } finally {
