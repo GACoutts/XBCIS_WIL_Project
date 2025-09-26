@@ -133,11 +133,27 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- 4. FIX EXISTING TEST USER PASSWORD HASHES
 -- =====================================================================================
 -- Replace fake password hashes with real bcrypt hashes for Password123!
+-- This hash was verified to work with the actual system
 
+-- First, try to update fake hashes if they exist
 UPDATE tblusers 
-SET PasswordHash = '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq'
+SET PasswordHash = '$2b$12$ATqUdV1KstR1UyxIB6cN9ubp2FpvPmkcVirjj.WmfZ6mGSul/pMze'
 WHERE PasswordHash LIKE '$2b$10$example.hash.for.Password123!' 
    OR PasswordHash = '$2b$10$example.hash.for.Password123!';
+
+-- Then, ensure all test users have the correct working hash for Password123!
+-- This hash is copied from a working test user and verified to work
+UPDATE tblusers 
+SET PasswordHash = '$2b$12$ATqUdV1KstR1UyxIB6cN9ubp2FpvPmkcVirjj.WmfZ6mGSul/pMze'
+WHERE Email IN (
+  'staff@demo.com', 
+  'landlord@demo.com', 
+  'contractor@demo.com', 
+  'client@demo.com',
+  'landlord@test.com', 
+  'contractor@test.com', 
+  'client@test.com'
+);
 
 -- =====================================================================================
 -- 5. VERIFICATION AND CLEANUP
@@ -151,9 +167,10 @@ DESCRIBE tblRefreshTokens;
 SELECT 'Updated users with real password hashes:' as info;
 SELECT UserID, FullName, Email, Role, Status,
        CASE 
-         WHEN PasswordHash LIKE '$2b$12$%' THEN 'REAL HASH (WORKING)'
-         WHEN PasswordHash LIKE '$2b$10$example%' THEN 'FAKE HASH (BROKEN)'
-         ELSE 'UNKNOWN HASH'
+         WHEN PasswordHash = '$2b$12$ATqUdV1KstR1UyxIB6cN9ubp2FpvPmkcVirjj.WmfZ6mGSul/pMze' THEN '✅ CORRECT Password123! HASH'
+         WHEN PasswordHash LIKE '$2b$12$%' THEN '⚠️  DIFFERENT bcrypt HASH'
+         WHEN PasswordHash LIKE '$2b$10$example%' THEN '❌ FAKE HASH (BROKEN)'
+         ELSE '❓ UNKNOWN HASH'
        END as PasswordStatus
 FROM tblusers 
 WHERE Email LIKE '%@demo.com' OR Email LIKE '%@test.com'
