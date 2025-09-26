@@ -46,8 +46,11 @@ export function AuthProvider({ children }) {
   // Register
   const register = useCallback(async ({ fullName, email, phone, password, role }) => {
     const data = await authApi.register({ fullName, email, phone, password, role });
-    setUser(data.user || null);
-    return data.user;
+    // Only set user if they don't require approval (for backward compatibility)
+    if (!data.requiresApproval) {
+      setUser(data.user || null);
+    }
+    return data; // Return full response data including requiresApproval flag
   }, []);
 
   // Logout
