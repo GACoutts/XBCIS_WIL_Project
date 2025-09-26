@@ -16,23 +16,27 @@ USE rawson;
 -- =====================================================================================
 
 -- Staff/Admin User (for system administration)
+-- Password: Password123! (real bcrypt hash with 12 rounds)
 INSERT IGNORE INTO tblusers (UserID, FullName, Email, PasswordHash, Role, Status, Phone) VALUES
-(21, 'Sarah Staff', 'staff@demo.com', '$2b$10$example.hash.for.Password123!', 'Staff', 'Active', '+27821234567');
+(21, 'Sarah Staff', 'staff@demo.com', '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq', 'Staff', 'Active', '+27821234567');
 
 -- Landlord Users (for property management)
+-- Password: Password123! (real bcrypt hash with 12 rounds)
 INSERT IGNORE INTO tblusers (UserID, FullName, Email, PasswordHash, Role, Status, Phone) VALUES
-(23, 'Lisa Landlord', 'landlord@demo.com', '$2b$10$example.hash.for.Password123!', 'Landlord', 'Active', '+27821234568'),
-(33, 'Test Landlord', 'landlord@test.com', '$2b$10$example.hash.for.Password123!', 'Landlord', 'Active', '+27821234569');
+(23, 'Lisa Landlord', 'landlord@demo.com', '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq', 'Landlord', 'Active', '+27821234568'),
+(33, 'Test Landlord', 'landlord@test.com', '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq', 'Landlord', 'Active', '+27821234569');
 
 -- Contractor Users (for service providers)
+-- Password: Password123! (real bcrypt hash with 12 rounds)
 INSERT IGNORE INTO tblusers (UserID, FullName, Email, PasswordHash, Role, Status, Phone) VALUES
-(22, 'Mike Contractor', 'contractor@demo.com', '$2b$10$example.hash.for.Password123!', 'Contractor', 'Active', '+27821234570'),
-(34, 'Test Contractor', 'contractor@test.com', '$2b$10$example.hash.for.Password123!', 'Contractor', 'Active', '+27821234571');
+(22, 'Mike Contractor', 'contractor@demo.com', '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq', 'Contractor', 'Active', '+27821234570'),
+(34, 'Test Contractor', 'contractor@test.com', '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq', 'Contractor', 'Active', '+27821234571');
 
 -- Client Users (for tenants/property clients)
+-- Password: Password123! (real bcrypt hash with 12 rounds)
 INSERT IGNORE INTO tblusers (UserID, FullName, Email, PasswordHash, Role, Status, Phone) VALUES
-(20, 'John Client', 'client@demo.com', '$2b$10$example.hash.for.Password123!', 'Client', 'Active', '+27821234572'),
-(35, 'Test Client', 'client@test.com', '$2b$10$example.hash.for.Password123!', 'Client', 'Active', '+27821234573');
+(20, 'John Client', 'client@demo.com', '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq', 'Client', 'Active', '+27821234572'),
+(35, 'Test Client', 'client@test.com', '$2b$12$LrQYOqJ3jZq3/XPKjxGBiup2mQyDl0sMUOODgKwfN2eGVZNQXV1yq', 'Client', 'Active', '+27821234573');
 
 -- =====================================================================================
 -- VERIFICATION QUERIES
