@@ -286,6 +286,8 @@ body {
 .dashboard-title{ 
   padding-left: 90px;
   margin-top: -30px;
+  z-index: 1;
+  margin-bottom: -10px;
 }
 
 .sub-title{ 
@@ -356,7 +358,7 @@ body {
 .contractor-dashboard {
   font-family: Arial, sans-serif;
   background: white;
-  padding-top: 60px;
+  padding-top: 30px;
   box-sizing: border-box;
 }
 
