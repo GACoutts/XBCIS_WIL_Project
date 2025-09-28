@@ -10,6 +10,7 @@ function StaffDashboard() {
   const [showLogout, setShowLogout] = useState(false);
   const [allTickets, setAllTickets] = useState([]);
   const [newTickets, setNewTickets] = useState([]);
+  
 
   // Modal state
   const [showContractorModal, setShowContractorModal] = useState(false);
@@ -153,12 +154,12 @@ function StaffDashboard() {
   return (
     <>
       <nav className="navbar">
-        <div className="navbar-logo"><img src="https://placehold.co/120x40" alt="logo" /></div>
+        <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li><Link to="/staff">Dashboard</Link></li>
             <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/reports">Reports</Link></li>
+           {/* <li><Link to="/reports">Reports</Link></li> */}
             <li><Link to="/quotes">Quotes</Link></li>
             <li><Link to="/contractors">Contractors</Link></li>
             <li><Link to="/settings">Settings</Link></li>
@@ -176,7 +177,7 @@ function StaffDashboard() {
         </div>
       </nav>
 
-      <div className="dashboard-title"><h1>Dashboard</h1></div>
+      <div className="staffdashboard-title"><h1>Dashboard</h1></div>
 
       <section className="staff-admin-panel">
         <h2 className="section-title">Role Requests</h2>
@@ -189,60 +190,61 @@ function StaffDashboard() {
       </div>
 
       <div className="cards-wrapper">
-        {allTickets.length > 0 && (
-          <div className="awaiting-tickets-container">
-            <div className="table-header">
-              <div className="header-content">
-                <div className="header-grid">
-                  <div className="header-item">Ticket ID</div>
-                  <div className="header-item">Property</div>
-                  <div className="header-item">Issue</div>
-                  <div className="header-item">Submitted</div>
-                  <div className="header-status">Urgency/Status</div>
-                  <div className="header-actions">Actions</div>
-                </div>
+        <div className="awaiting-tickets-container"> {/* Always render container */}
+  <div className="table-header"> {/* Always render header */}
+    <div className="header-content">
+      <div className="header-grid">
+        <div className="header-item">Ticket ID</div>
+        <div className="header-item">Property</div>
+        <div className="header-item">Issue</div>
+        <div className="header-item">Submitted</div>
+        <div className="header-status">Urgency/Status</div>
+      </div>
+    </div>
+  </div>
+
+  {allTickets.length > 0 ? (
+    allTickets
+      .slice()
+      .sort((a, b) => getEffectiveDate(b) - getEffectiveDate(a)) // sort by effective date
+      .map((ticket, index) => (
+        <div key={ticket.TicketID || index} className="ticket-card">
+          <div className="ticket-layout">
+            <div className="ticket-info-grid">
+              <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
+              <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
+              <div className="info-value issue-cell">
+                <span>{ticket.Description || ticket.issue}</span>
+                <img src={gearIcon} alt="Settings" className="gear-icon" />
+              </div>
+              <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+              <div className="urgency-status-column">
+                <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
+                  {ticket.UrgencyLevel || ticket.urgency}
+                </span>
+                <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
+                  {getDisplayStatus(ticket) || ticket.status}
+                </span>
+              </div>
+              <div className="action-buttons">
+                <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
+                  Assign Contractor
+                </button>
+                <button className="action-btn quote-btn" onClick={() => console.log("View quote", ticket.TicketID)}>
+                  View Quote
+                </button>
+                <button className="action-btn status-btn" onClick={() => console.log("Change status", ticket.TicketID)}>
+                  Change Status
+                </button>
               </div>
             </div>
-
-            {allTickets
-              .slice()
-              .sort((a, b) => getEffectiveDate(b) - getEffectiveDate(a)) // sort by effective date
-              .map((ticket, index) => (
-                <div key={ticket.TicketID || index} className="ticket-card">
-                  <div className="ticket-layout">
-                    <div className="ticket-info-grid">
-                      <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-                      <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
-                      <div className="info-value issue-cell">
-                        <span>{ticket.Description || ticket.issue}</span>
-                        <img src={gearIcon} alt="Settings" className="gear-icon" />
-                      </div>
-                      <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-                      <div className="urgency-status-column">
-                        <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
-                          {ticket.UrgencyLevel || ticket.urgency}
-                        </span>
-                        <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
-                          {getDisplayStatus(ticket) || ticket.status}
-                        </span>
-                      </div>
-                      <div className="action-buttons">
-                        <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                          Assign Contractor
-                        </button>
-                        <button className="action-btn quote-btn" onClick={() => console.log("View quote", ticket.TicketID)}>
-                          View Quote
-                        </button>
-                        <button className="action-btn status-btn" onClick={() => console.log("Change status", ticket.TicketID)}>
-                          Change Status
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
           </div>
-        )}
+        </div>
+      ))
+  ) : (
+    <p className="empty-state">No tickets available</p> // Fallback message
+  )}
+</div>
 
         {/* Contractors Table */}
         <div className="contractor-container">
@@ -360,6 +362,7 @@ function StaffDashboard() {
       </div>
       
       <div className="page-bottom-spacer"></div>
+
     </>
   );
 }

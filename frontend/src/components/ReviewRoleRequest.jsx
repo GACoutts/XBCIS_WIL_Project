@@ -115,7 +115,7 @@ export default function ReviewRoleRequests() {
             ))
           ) : (
             <tr>
-              <td colSpan={5} style={{ padding: 12 }}>No pending requests.</td>
+              <td colSpan={5} style={{ textAlign: 'center', padding: '50px', color: '#888', fontSize: '16px' }}>No pending requests</td>
             </tr>
           )}
         </tbody>

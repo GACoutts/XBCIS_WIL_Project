@@ -12,6 +12,8 @@ import {
 } from "recharts";
 import { useAuth } from "./context/AuthContext.jsx";
 
+import "./styles/landlorddash.css";
+
 import {
   getTickets,
   getQuotesForTicketLandlord,
@@ -176,13 +178,13 @@ function LandlordDashboard() {
       {/* Navbar */}
       <nav className="navbar">
         <div className="navbar-logo">
-          <img src="https://placehold.co/120x40" alt="logo" />
+          <div className="logo-placeholder">GoodLiving</div>
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li><Link to="/">Dashboard</Link></li>
             <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/reports">Reports</Link></li>
+           {/* <li><Link to="/reports">Reports</Link></li> */}
             <li><Link to="/properties">Properties</Link></li>
             <li><Link to="/settings">Settings</Link></li>
           </ul>

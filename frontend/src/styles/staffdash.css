@@ -7,7 +7,7 @@ body {
   background: white; 
   font-family: Arial, sans-serif; 
   display: flex; flex-direction: column; 
-  overflow-y: auto;
+  overflow-y: auto !important;
   overflow-x: hidden; 
   min-height: 100vh !important;
   margin: 0; 
@@ -73,7 +73,7 @@ body {
   cursor: pointer; 
 }
 
-.dashboard-title{ 
+.staffdashboard-title{ 
   padding-left: 90px; 
 }
 
@@ -97,7 +97,7 @@ body {
 
 .sub-title2{ 
   padding-left: 91px; 
-  margin-top: 25px; 
+  margin-top: -105px; 
   font-size: 13px;
   margin-bottom: -5px;
 }
@@ -124,12 +124,11 @@ body {
     border-radius: 5px;
     overflow-y: auto;
     border: 1px solid #FBD402;
-    width: 425px;
+    width: 430px;
     max-height: 250px;
     margin: 0px 20px 20px 0px;
     display: inline-block;
     vertical-align: top;
-
 }
 
 .property-stats-container {
@@ -818,4 +817,33 @@ body {
 .page-bottom-spacer {
     height: 15px;
     width: 100%;
+}
+
+.navbar .logo-placeholder {
+  color: #FBD402 !important;
+  padding: 0px !important;
+  margin: 0px auto;
+  width: 150px;
+  text-align: center !important;
+  font-size: 23px !important; 
+  font-weight: bold;
+  font-family: 'Arial Black', sans-serif;
+  letter-spacing: 1px;
+  background: none !important;
+  text-shadow: 
+    -1px -1px 0 black, 
+    1px -1px 0 black, 
+    -1px 1px 0 black, 
+    1px 1px 0 black,
+    -1px 0 0 black,
+    1px 0 0 black,
+    0 -1px 0 black,
+    0 1px 0 black;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  color: #888;
+  grid-column: 1 / -1; 
 }

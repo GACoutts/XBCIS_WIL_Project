@@ -95,7 +95,7 @@ function UserDashboard() {
 
       {/* Main content */}
       <div className="content">
-        <div className="dashboard-title"><h1>Dashboard</h1></div>
+        <div className="clientdashboard-title"><h1>Dashboard</h1></div>
         <div className="sub-title"><h2>My Tickets</h2></div>
 
         {/* Button to log a new ticket */}

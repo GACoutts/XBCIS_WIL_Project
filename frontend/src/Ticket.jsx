@@ -97,13 +97,13 @@ function Ticket() {
     <div className="logticket">
       <nav className="navbar">
         <div className="navbar-logo">
-          <img src="https://placehold.co/120x40" alt="logo" />
+          <div className="logo-placeholder">GoodLiving</div>
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li><Link to="/">Dashboard</Link></li>
             <li><Link to="/ticket">Tickets</Link></li>
-            <li><Link to="/reports">Reports</Link></li>
+          {/*  <li><Link to="/reports">Reports</Link></li> */}
             <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>
