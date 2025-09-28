@@ -47,7 +47,7 @@ router.get('/users', async (req, res) => {
       params.push(role);
     }
 
-    const validStatuses = ['Active', 'Inactive', 'Suspended'];
+    const validStatuses = ['Active', 'Inactive', 'Suspended', 'Rejected'];
     if (status && validStatuses.includes(status)) {
       where.push('Status = ?');
       params.push(status);
@@ -251,7 +251,7 @@ router.put('/users/:id/status', async (req, res) => {
       return res.status(400).json({ message: 'Status is required' });
     }
 
-    const validStatuses = ['Active', 'Inactive', 'Suspended'];
+    const validStatuses = ['Active', 'Inactive', 'Suspended', 'Rejected'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: 'Invalid status. Must be one of: ' + validStatuses.join(', '),

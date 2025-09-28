@@ -19,8 +19,6 @@ import RoleDashboardRedirect from './components/RoleDashboardRedirect.jsx';
 // Role management components
 import RequestRole from './RequestRole.jsx';
 import Sessions from './Sessions';
-import ManageRoles from './components/ManageRoles.jsx';
-import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
 
 export default function App() {
   // Only show DebugHUD in development mode

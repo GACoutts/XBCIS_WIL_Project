@@ -94,25 +94,25 @@ function StaffDashboard() {
   };
 
   const getEffectiveDate = (ticket) => {
-  if (!ticket.CreatedAt) return new Date();
+    if (!ticket.CreatedAt) return new Date();
 
-  const createdDate = new Date(ticket.CreatedAt);
-  const now = new Date();
+    const createdDate = new Date(ticket.CreatedAt);
+    const now = new Date();
 
-  // If ticket is older than 31 days, bump it monthly
-  const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
+    // If ticket is older than 31 days, bump it monthly
+    const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
 
-  if (diffDays > 31) {
-    // Compute how many months old it is
-    const monthsOld = Math.floor(diffDays / 30);
-    // Push it forward by monthsOld months
-    const bumpedDate = new Date(createdDate);
-    bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
-    return bumpedDate;
-  }
+    if (diffDays > 31) {
+      // Compute how many months old it is
+      const monthsOld = Math.floor(diffDays / 30);
+      // Push it forward by monthsOld months
+      const bumpedDate = new Date(createdDate);
+      bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
+      return bumpedDate;
+    }
 
-  return createdDate; // If <= 31 days, keep original date
-};
+    return createdDate; // If <= 31 days, keep original date
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -189,22 +189,11 @@ function StaffDashboard() {
       </div>
 
       <div className="cards-wrapper">
-        {allTickets.length > 0 && (
-          <div className="awaiting-tickets-container">
-            <div className="table-header">
-              <div className="header-content">
-                <div className="header-grid">
-                  <div className="header-item">Ticket ID</div>
-                  <div className="header-item">Property</div>
-                  <div className="header-item">Issue</div>
-                  <div className="header-item">Submitted</div>
-                  <div className="header-status">Urgency/Status</div>
-                  <div className="header-actions">Actions</div>
-                </div>
-              </div>
-            </div>
-
-            {allTickets
+        {/* Awaiting Tickets */}
+        <section className="awaiting-tickets-container">
+          <h2 className="section-title">Awaiting Tickets</h2>
+          {allTickets.length > 0 ? (
+            allTickets
               .slice()
               .sort((a, b) => getEffectiveDate(b) - getEffectiveDate(a)) // sort by effective date
               .map((ticket, index) => (
@@ -227,36 +216,22 @@ function StaffDashboard() {
                         </span>
                       </div>
                       <div className="action-buttons">
-                        <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                          Assign Contractor
-                        </button>
-                        <button className="action-btn quote-btn" onClick={() => console.log("View quote", ticket.TicketID)}>
-                          View Quote
-                        </button>
-                        <button className="action-btn status-btn" onClick={() => console.log("Change status", ticket.TicketID)}>
-                          Change Status
-                        </button>
+                        <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>Assign Contractor</button>
+                        <button className="action-btn quote-btn" onClick={() => console.log("View quote", ticket.TicketID)}>View Quote</button>
+                        <button className="action-btn status-btn" onClick={() => console.log("Change status", ticket.TicketID)}>Change Status</button>
                       </div>
                     </div>
                   </div>
                 </div>
-              ))}
-          </div>
-        )}
+              ))
+          ) : (
+            <p>No tickets to display</p>
+          )}
+        </section>
 
-        {/* Contractors Table */}
-        <div className="contractor-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="contractor-header-grid">
-                <div className="header-item">Name</div>
-                <div className="header-item">Current Jobs</div>
-                <div className="header-item">Assigned Job</div>
-                <div className="header-status">Status</div>
-              </div>
-            </div>
-          </div>
-
+        {/* Contractor Management */}
+        <section className="contractor-container">
+          <h2 className="section-title">Contractor Management</h2>
           {contractorsData.map((contractor, index) => (
             <div key={index} className="contractor-card">
               <div className="contractor-layout">
@@ -284,7 +259,7 @@ function StaffDashboard() {
               </div>
             </div>
           ))}
-        </div>
+        </section>
       </div>
 
       {/* Modal for Assign Contractor */}
@@ -358,7 +333,7 @@ function StaffDashboard() {
           </div>
         ))}
       </div>
-      
+
       <div className="page-bottom-spacer"></div>
     </>
   );
