@@ -95,25 +95,25 @@ function StaffDashboard() {
   };
 
   const getEffectiveDate = (ticket) => {
-  if (!ticket.CreatedAt) return new Date();
+    if (!ticket.CreatedAt) return new Date();
 
-  const createdDate = new Date(ticket.CreatedAt);
-  const now = new Date();
+    const createdDate = new Date(ticket.CreatedAt);
+    const now = new Date();
 
-  // If ticket is older than 31 days, bump it monthly
-  const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
+    // If ticket is older than 31 days, bump it monthly
+    const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
 
-  if (diffDays > 31) {
-    // Compute how many months old it is
-    const monthsOld = Math.floor(diffDays / 30);
-    // Push it forward by monthsOld months
-    const bumpedDate = new Date(createdDate);
-    bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
-    return bumpedDate;
-  }
+    if (diffDays > 31) {
+      // Compute how many months old it is
+      const monthsOld = Math.floor(diffDays / 30);
+      // Push it forward by monthsOld months
+      const bumpedDate = new Date(createdDate);
+      bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
+      return bumpedDate;
+    }
 
-  return createdDate; // If <= 31 days, keep original date
-};
+    return createdDate; // If <= 31 days, keep original date
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -360,7 +360,7 @@ function StaffDashboard() {
           </div>
         ))}
       </div>
-      
+
       <div className="page-bottom-spacer"></div>
 
     </>

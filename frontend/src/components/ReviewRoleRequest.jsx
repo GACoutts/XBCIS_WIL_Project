@@ -92,6 +92,7 @@ export default function ReviewRoleRequests() {
       <table className="review-roles-table">
         <thead>
           <tr>
+            <th>ID</th>
             <th>User</th>
             <th>Email</th>
             <th>Role</th>
@@ -103,6 +104,7 @@ export default function ReviewRoleRequests() {
           {items.length > 0 ? (
             items.map(u => (
               <tr key={u.UserID}>
+                <td>{u.UserID}</td>
                 <td>{u.FullName}</td>
                 <td>{u.Email}</td>
                 <td>{u.Role}</td>

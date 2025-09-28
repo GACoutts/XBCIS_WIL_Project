@@ -47,7 +47,7 @@ router.get('/users', async (req, res) => {
       params.push(role);
     }
 
-    const validStatuses = ['Active', 'Inactive', 'Suspended'];
+    const validStatuses = ['Active', 'Inactive', 'Suspended', 'Rejected'];
     if (status && validStatuses.includes(status)) {
       where.push('Status = ?');
       params.push(status);
@@ -251,14 +251,14 @@ router.put('/users/:id/status', async (req, res) => {
       return res.status(400).json({ message: 'Status is required' });
     }
 
-    const validStatuses = ['Active', 'Inactive', 'Suspended'];
+    const validStatuses = ['Active', 'Inactive', 'Suspended', 'Rejected'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: 'Invalid status. Must be one of: ' + validStatuses.join(', '),
       });
     }
 
-    // Current user info
+    // Get current user info
     const [rows] = await pool.execute(
       'SELECT UserID, FullName, Email, Role, Status FROM tblusers WHERE UserID = ? LIMIT 1',
       [id]
@@ -268,7 +268,7 @@ router.put('/users/:id/status', async (req, res) => {
     const targetUser = rows[0];
     const oldStatus = targetUser.Status;
 
-    // Prevent self-suspension/deactivation
+    // Prevent self-deactivation
     if (req.user.userId === parseInt(id, 10) && status !== 'Active') {
       return res.status(403).json({ message: 'Cannot deactivate or suspend yourself' });
     }
@@ -277,66 +277,65 @@ router.put('/users/:id/status', async (req, res) => {
     if (oldStatus === status) {
       return res.json({
         message: 'User status unchanged',
-        user: { userId: targetUser.UserID, status: targetUser.Status },
+        user: { userId: targetUser.UserID, status: oldStatus },
       });
     }
 
+    // Minimal transaction: only update status
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-
-      // Update user status
       await connection.execute(
         'UPDATE tblusers SET Status = ? WHERE UserID = ?',
         [status, id]
       );
-
-      // Revoke sessions if disabling account
-      if (status === 'Inactive' || status === 'Suspended') {
-        await revokeAllUserRefreshTokens({
-          userId: parseInt(id, 10),
-          reason: `status-change-${status.toLowerCase()}`,
-        });
-      }
-
-      // Audit
-      await logAudit({
-        actorUserId: req.user.userId,
-        targetUserId: parseInt(id, 10),
-        action: 'status-change',
-        metadata: {
-          fromStatus: oldStatus,
-          toStatus: status,
-          targetUserEmail: targetUser.Email,
-          targetUserName: targetUser.FullName,
-        },
-        ip,
-        userAgent,
-      });
-
       await connection.commit();
-
-      return res.json({
-        message: `User status changed from ${oldStatus} to ${status}`,
-        user: {
-          userId: targetUser.UserID,
-          fullName: targetUser.FullName,
-          email: targetUser.Email,
-          role: targetUser.Role,
-          status,
-        },
-      });
-    } catch (error) {
+    } catch (err) {
       await connection.rollback();
-      throw error;
+      throw err;
     } finally {
       connection.release();
     }
+
+    // Revoke sessions (outside transaction)
+    if (status === 'Inactive' || status === 'Suspended') {
+      await revokeAllUserRefreshTokens({
+        userId: parseInt(id, 10),
+        reason: `status-change-${status.toLowerCase()}`,
+      });
+    }
+
+    // Audit log (outside transaction)
+    await logAudit({
+      actorUserId: req.user.userId,
+      targetUserId: parseInt(id, 10),
+      action: 'status-change',
+      metadata: {
+        fromStatus: oldStatus,
+        toStatus: status,
+        targetUserEmail: targetUser.Email,
+        targetUserName: targetUser.FullName,
+      },
+      ip,
+      userAgent,
+    });
+
+    return res.json({
+      message: `User status changed from ${oldStatus} to ${status}`,
+      user: {
+        userId: targetUser.UserID,
+        fullName: targetUser.FullName,
+        email: targetUser.Email,
+        role: targetUser.Role,
+        status,
+      },
+    });
   } catch (err) {
     console.error('Change user status error:', err);
     return res.status(500).json({ message: 'Server error changing user status' });
   }
 });
+
 
 // GET /audit-logs - Get system audit logs (with filtering)
 router.get('/audit-logs', async (req, res) => {
