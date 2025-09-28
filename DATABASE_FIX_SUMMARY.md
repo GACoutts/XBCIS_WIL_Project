@@ -29,7 +29,13 @@ tblauditlogs:
 - Audit log created with proper `ActorUserID=21` (staff) and `TargetUserID=38` (accepted user)
 - Rich metadata tracking including from/to status and user details
 
-## Files to Commit
+## How to Apply (Team Members)
+**Run this command to apply the database fixes:**
+```bash
+mysql -u root -p < database/migrations/fix-audit-actor-and-rejected-status-v2.sql
+```
+
+## Files Committed
 - `database/migrations/fix-audit-actor-and-rejected-status-v2.sql` (main migration)
 - `DATABASE_FIX_SUMMARY.md` (this summary)
 
