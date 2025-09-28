@@ -36,7 +36,8 @@ mysql -u root -p < database/migrations/fix-audit-actor-and-rejected-status-v2.sq
 ```
 
 ## Files Committed
-- `database/migrations/fix-audit-actor-and-rejected-status-v2.sql` (main migration)
+- `database/migrations/fix-audit-actor-and-rejected-status-v2.sql` (migration for existing DB)
+- `database/migrations/00-master-setup.sql` (updated for fresh installs)
 - `DATABASE_FIX_SUMMARY.md` (this summary)
 
 ## Ready for Team
