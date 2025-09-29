@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import gearIcon from './assets/settings.png';
 import { useAuth } from "./context/AuthContext.jsx";
 import './styles/ContractorDashboard.css';
@@ -7,6 +7,14 @@ function CDashboard() {
   const [activeTab, setActiveTab] = useState('assigned');
   const { logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
+
+useEffect(() => {
+    document.body.style.setProperty("overflow", "hidden", "important");
+
+    return () => {
+      document.body.style.setProperty("overflow", "auto", "important");
+    };
+  }, []);
 
   const assignedJobs = [
     { id: 1, ticketId: "#0234493", property: "23 Apple Road", issue: "Leaky Tap", submitted: "04-03-2023", urgency: "High", status: "Awaiting Appointment", actions: ["Book Appointment", "Upload Quote"] },

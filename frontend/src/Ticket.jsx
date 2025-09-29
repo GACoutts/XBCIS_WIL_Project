@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "./context/AuthContext.jsx";
 import { Link } from 'react-router-dom';
 import "./styles/logticket.css";
@@ -10,7 +10,15 @@ function Ticket() {
   const [urgency, setUrgency] = useState("Low");
   const [file, setFile] = useState(null); // file state
   const [message, setMessage] = useState("");
-  const [done, setDone] = useState(false); 
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    document.body.style.setProperty("overflow", "hidden", "important");
+
+    return () => {
+      document.body.style.setProperty("overflow", "auto", "important");
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

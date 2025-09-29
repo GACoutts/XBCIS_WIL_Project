@@ -10,6 +10,14 @@ function UserDashboard() {
   const [loading, setLoading] = useState(true); // Loading state for ticket fetch
   const [showLogout, setShowLogout] = useState(false); // Toggle logout popup
 
+  useEffect(() => {
+    document.body.style.setProperty("overflow", "hidden", "important");
+
+    return () => {
+      document.body.style.setProperty("overflow", "auto", "important");
+    };
+  }, []);
+
   // Modal states
   const [selectedTicket, setSelectedTicket] = useState(null); // Currently selected ticket
   const [ticketHistory, setTicketHistory] = useState([]); // History for selected ticket
