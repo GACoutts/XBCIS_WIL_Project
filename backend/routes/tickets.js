@@ -162,7 +162,7 @@ function legacyAuth(req, res, next) {
 // -------------------------------------------------------------------------------------
 // Get all tickets (role-based)
 // -------------------------------------------------------------------------------------
-router.get('/', legacyAuth, async (req, res) => {
+router.get('/', authMiddleware, async (req, res) => {
   try {
     const { userId, role } = req.user;
 
@@ -187,7 +187,7 @@ router.get('/', legacyAuth, async (req, res) => {
 // -------------------------------------------------------------------------------------
 // Get single ticket with media (secured for clients)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId', legacyAuth, async (req, res) => {
+router.get('/:ticketId', authMiddleware, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;
@@ -217,7 +217,7 @@ router.get('/:ticketId', legacyAuth, async (req, res) => {
 // -------------------------------------------------------------------------------------
 // Get ticket status history (timeline)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId/history', legacyAuth, async (req, res) => {
+router.get('/:ticketId/history', authMiddleware, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;
@@ -261,7 +261,7 @@ router.get('/:ticketId/history', legacyAuth, async (req, res) => {
 // -------------------------------------------------------------------------------------
 // Get ticket appointments (if you have tblAppointments)
 // -------------------------------------------------------------------------------------
-router.get('/:ticketId/appointments', legacyAuth, async (req, res) => {
+router.get('/:ticketId/appointments', authMiddleware, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;
