@@ -19,7 +19,7 @@ function UserDashboard() {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const res = await fetch("/api/client/tickets", { credentials: "include" }); // Fetch tickets for logged-in client
+        const res = await fetch("/api/tickets", { credentials: "include" }); // Fetch tickets for logged-in client
         const data = await res.json();
         if (res.ok) setTickets(data.tickets || []); // Save tickets or empty array
         else console.error("Failed to fetch tickets:", data);
