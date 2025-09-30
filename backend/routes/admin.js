@@ -116,9 +116,13 @@ router.get('/contractors/active', async (_req, res) => {
 // POST /contractor-assign - Assign a contractor to a ticket (no date yet)
 router.post('/contractor-assign', async (req, res) => {
   try {
-    const { TicketID, ContractorUserID } = req.body;
+    let { TicketID, ContractorUserID, ProposedDate } = req.body;
     if (!TicketID || !ContractorUserID) {
       return res.status(400).json({ message: 'TicketID and ContractorUserID are required' });
+    }
+
+    if (!ProposedDate) {
+      ProposedDate = '2099-12-31'; // Placeholder far-future date
     }
 
     const connection = await pool.getConnection();
@@ -127,15 +131,15 @@ router.post('/contractor-assign', async (req, res) => {
 
       // Insert contractor assignment (no date/time yet)
       await connection.execute(
-        `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID)
-         VALUES (?, ?)`,
-        [TicketID, ContractorUserID]
+        `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate)
+         VALUES (?, ?, ?)`,
+        [TicketID, ContractorUserID, ProposedDate]
       );
 
       // Update ticket status to "In Review"
       await connection.execute(
         `UPDATE tblTickets
-            SET Status = 'In Review'
+            SET CurrentStatus = 'In Review'
           WHERE TicketID = ?`,
         [TicketID]
       );

@@ -36,7 +36,7 @@ function StaffDashboard() {
   };
 
   const handleConfirmSchedule = async () => {
-    if (!chosenContractorId || !proposedDate) return alert("Select contractor and date");
+    if (!chosenContractorId) return alert("Select contractor");
 
     try {
       const res = await fetch("/api/admin/contractor-assign", {
@@ -46,7 +46,6 @@ function StaffDashboard() {
         body: JSON.stringify({
           TicketID: selectedTicketId,
           ContractorUserID: chosenContractorId,
-          ProposedDate: proposedDate
         }),
       });
       const data = await res.json();
@@ -54,9 +53,8 @@ function StaffDashboard() {
 
       setShowContractorModal(false);
       setChosenContractorId(null);
-      setProposedDate("");
       setSelectedTicketId(null);
-      alert("Schedule created successfully!");
+      alert("Contractor Assigned successfully!");
     } catch (err) {
       console.error(err);
       alert(err.message);
