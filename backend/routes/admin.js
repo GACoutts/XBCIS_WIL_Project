@@ -3,13 +3,15 @@ import 'dotenv/config';
 import express from 'express';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
+import { adminRateLimit } from '../middleware/rateLimiter.js';
 import { revokeAllUserRefreshTokens, logAudit } from '../utils/tokens.js';
 
 const router = express.Router();
 
-// All routes require Staff role
+// All routes require Staff role and admin rate limiting
 router.use(requireAuth);
 router.use(permitRoles('Staff'));
+router.use(adminRateLimit);
 
 // Extract client info from request
 function getClientInfo(req) {

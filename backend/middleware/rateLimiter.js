@@ -37,3 +37,15 @@ export const passwordResetRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Admin actions rate limit (more restrictive than general API)
+export const adminRateLimit = rateLimit({
+  windowMs: parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
+  max: parseInt(process.env.ADMIN_RATE_LIMIT_MAX || '50', 10), // 50 admin actions per window
+  message: {
+    error: 'Too many admin actions from this IP, please try again later.',
+    retryAfter: Math.ceil(parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS || '900000', 10) / 60000)
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
