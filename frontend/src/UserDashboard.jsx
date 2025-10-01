@@ -1,74 +1,112 @@
 import { useEffect, useState } from "react";
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import gearIcon from "./assets/settings.png";
 import "./styles/userdash.css";
 
 function UserDashboard() {
-  const { logout } = useAuth(); // Auth context provides logout function
-  const [tickets, setTickets] = useState([]); // Store tickets
-  const [loading, setLoading] = useState(true); // Loading state for ticket fetch
-  const [showLogout, setShowLogout] = useState(false); // Toggle logout popup
+  const { logout } = useAuth();
 
-  useEffect(() => {
-    document.body.style.setProperty("overflow", "hidden", "important");
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showLogout, setShowLogout] = useState(false);
 
-    return () => {
-      document.body.style.setProperty("overflow", "auto", "important");
-    };
-  }, []);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketHistory, setTicketHistory] = useState([]);
+  const [ticketMedia, setTicketMedia] = useState([]);
+  const [contractorResponses, setContractorResponses] = useState([]);
+  const [landlordApprovals, setLandlordApprovals] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
-  // Modal states
-  const [selectedTicket, setSelectedTicket] = useState(null); // Currently selected ticket
-  const [ticketHistory, setTicketHistory] = useState([]); // History for selected ticket
-  const [modalLoading, setModalLoading] = useState(false); // Loading state for modal
+  // Filters
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterDate, setFilterDate] = useState("");
 
-  // Fetch tickets on component mount
+  // Fetch tickets
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const res = await fetch("/api/tickets", { credentials: "include" }); // Fetch tickets for logged-in client
+        const res = await fetch("/api/client/tickets", { credentials: "include" });
         const data = await res.json();
-        if (res.ok) setTickets(data.tickets || []); // Save tickets or empty array
+        if (res.ok) setTickets(data.tickets || []);
         else console.error("Failed to fetch tickets:", data);
       } catch (err) {
         console.error("Error fetching tickets:", err);
       } finally {
-        setLoading(false); // Stop loading spinner
+        setLoading(false);
       }
     };
-
     fetchTickets();
   }, []);
 
-  // Handle user logout
   const handleLogout = async () => {
     await logout();
-    window.location.reload(); // Refresh page or redirect to login
+    window.location.reload();
   };
 
-  // Open ticket modal and fetch history
+  // Open ticket modal & fetch details
   const openTicketModal = async (ticket) => {
-    setSelectedTicket(ticket); // Set selected ticket
-    setModalLoading(true); // Start loading history
+    setSelectedTicket(ticket);
+    setModalLoading(true);
+    setTicketHistory([]);
+    setTicketMedia([]);
+    setContractorResponses([]);
+    setLandlordApprovals([]);
 
     try {
-      const res = await fetch(`/api/tickets/${ticket.TicketID}/history`, { credentials: "include" });
-      const data = await res.json();
-      if (res.ok) setTicketHistory(data.history || []); // Save history or empty
-      else console.error("Failed to fetch ticket history:", data);
+      // Fetch ticket history
+      const historyRes = await fetch(`/api/tickets/${ticket.TicketID}/history`, { credentials: "include" });
+      const historyData = await historyRes.json();
+      if (historyRes.ok) setTicketHistory(historyData.timeline || []);
+
+      // Fetch ticket media
+      const mediaRes = await fetch(`/api/tickets/${ticket.TicketID}`, { credentials: "include" });
+      const mediaData = await mediaRes.json();
+      if (mediaRes.ok) setTicketMedia(mediaData.media || []);
+
+      // TODO: If your backend includes contractorResponses and landlordApprovals
+      // setContractorResponses(mediaData.contractorResponses || []);
+      // setLandlordApprovals(mediaData.landlordApprovals || []);
+
     } catch (err) {
-      console.error("Error fetching ticket history:", err);
+      console.error("Error fetching ticket details:", err);
     } finally {
-      setModalLoading(false); // Stop loading history
+      setModalLoading(false);
     }
   };
 
-  // Close ticket modal
   const closeModal = () => {
     setSelectedTicket(null);
     setTicketHistory([]);
+    setTicketMedia([]);
+    setContractorResponses([]);
+    setLandlordApprovals([]);
   };
+
+  const closeTicket = async () => {
+    if (!selectedTicket) return;
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicket.TicketID}/close`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTickets(prev => prev.map(t =>
+          t.TicketID === selectedTicket.TicketID ? { ...t, Status: "Closed" } : t
+        ));
+        setSelectedTicket(prev => ({ ...prev, Status: "Closed" }));
+      } else console.error("Failed to close ticket", data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const filteredTickets = tickets.filter(ticket => {
+    const matchesStatus = filterStatus ? ticket.Status === filterStatus : true;
+    const matchesDate = filterDate ? ticket.CreatedAt.split("T")[0] === filterDate : true;
+    return matchesStatus && matchesDate;
+  });
 
   return (
     <div className="dashboard-page">
@@ -77,8 +115,6 @@ function UserDashboard() {
         <div className="navbar-logo">
           <div className="logo-placeholder">GoodLiving</div>
         </div>
-
-        {/* Navigation links */}
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li><Link to="/">Dashboard</Link></li>
@@ -87,8 +123,6 @@ function UserDashboard() {
             <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>
-
-        {/* Profile button with logout popup */}
         <div className="navbar-profile">
           <button className="profile-btn" onClick={() => setShowLogout(!showLogout)}>
             <img src="https://placehold.co/40" alt="profile" />
@@ -101,40 +135,42 @@ function UserDashboard() {
         </div>
       </nav>
 
-      {/* Main content */}
       <div className="content">
         <div className="clientdashboard-title"><h1>Dashboard</h1></div>
         <div className="sub-title"><h2>My Tickets</h2></div>
 
-        {/* Button to log a new ticket */}
+        {/* Ticket Filters */}
+        <div className="ticket-filters" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="filter-select">
+            <option value="">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Closed">Closed</option>
+          </select>
+          <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="filter-date" />
+        </div>
+
         <div className="dash-submit-container">
           <Link to="/ticket" className="dash-submit">Log a New Ticket</Link>
         </div>
 
-        {/* Loading / empty / tickets view */}
         {loading ? (
           <p className="empty-tickets">Loading tickets...</p>
-        ) : tickets.length === 0 ? (
+        ) : filteredTickets.length === 0 ? (
           <div className="empty-tickets">No tickets logged yet.</div>
         ) : (
           <div className="tickets-container">
             <div className="tickets-grid">
-              {tickets.map((ticket) => (
+              {filteredTickets.map(ticket => (
                 <div key={ticket.TicketID} className="ticket-card">
                   <div className="ticket-info">
                     <h3>{ticket.Description}</h3>
                     <p>Ticket Ref: {ticket.TicketRefNumber}</p>
                     <p>Logged: {new Date(ticket.CreatedAt).toLocaleDateString()}</p>
-                    <p>
-                      Urgency:{" "}
-                      <span className={`urgency urgency-${ticket.UrgencyLevel.toLowerCase()}`}>
-                        {ticket.UrgencyLevel}
-                      </span>
-                    </p>
-
-                    {/* Actions for each ticket */}
+                    <p>Urgency: <span className={`urgency urgency-${ticket.UrgencyLevel.toLowerCase()}`}>{ticket.UrgencyLevel}</span></p>
+                    <p>Status: <span className={`status-badge status-${ticket.Status.toLowerCase()}`}>{ticket.Status}</span></p>
                     <div className="ticket-actions">
-                      {/* Open modal on click */}
                       <button className="view-details" onClick={() => openTicketModal(ticket)}>View Details</button>
                       <img src={gearIcon} alt="settings" className="settings-icon" />
                     </div>
@@ -147,26 +183,30 @@ function UserDashboard() {
         )}
       </div>
 
-      {/* Ticket Detail Modal */}
+      {/* Ticket Modal */}
       {selectedTicket && (
         <div className="modal-overlay">
           <div className="modal-content">
-            {/* Close modal button */}
             <button className="modal-close" onClick={closeModal}>X</button>
-
             <h2>Ticket Detail</h2>
-
-            {/* Ticket info */}
             <p><strong>Submitted:</strong> {new Date(selectedTicket.CreatedAt).toLocaleString()}</p>
             <p><strong>Description:</strong> {selectedTicket.Description}</p>
 
-            {/* Media section */}
             <div className="media">
               <h3>Media</h3>
-              <p>No media uploaded</p> {/* Replace with dynamic media */}
+              {ticketMedia.length === 0 ? (
+                <p>No media uploaded</p>
+              ) : (
+                <ul>
+                  {ticketMedia.map((m, idx) => (
+                    <li key={idx}>
+                      {m.MediaType}: <a href={m.MediaURL} target="_blank" rel="noopener noreferrer">{m.MediaURL}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
-            {/* Status history timeline */}
             <div className="timeline">
               <h3>Status History</h3>
               {modalLoading ? (
@@ -177,12 +217,30 @@ function UserDashboard() {
                 <ul>
                   {ticketHistory.map((entry, idx) => (
                     <li key={idx}>
-                      <strong>{entry.Status}</strong> - {new Date(entry.UpdatedAt).toLocaleString()} (by {entry.UpdatedBy || "System"})
+                      <strong>{entry.Status}</strong> - {new Date(entry.UpdatedAt).toLocaleString()} (by {entry.UpdatedByUserID || "System"})
                     </li>
                   ))}
                 </ul>
               )}
             </div>
+
+            <div className="contractor-responses">
+              <h3>Contractor Responses</h3>
+              {contractorResponses.length === 0 ? <p>No responses.</p> :
+                <ul>{contractorResponses.map((r, i) => <li key={i}>{r.message} - {new Date(r.date).toLocaleString()}</li>)}</ul>
+              }
+            </div>
+
+            <div className="landlord-approvals">
+              <h3>Landlord Approvals</h3>
+              {landlordApprovals.length === 0 ? <p>No approvals yet.</p> :
+                <ul>{landlordApprovals.map((a, i) => <li key={i}>{a.status} - {new Date(a.date).toLocaleString()}</li>)}</ul>
+              }
+            </div>
+
+            {selectedTicket.Status !== "Closed" && (
+              <button className="close-ticket-btn" onClick={closeTicket}>Close Ticket</button>
+            )}
           </div>
         </div>
       )}

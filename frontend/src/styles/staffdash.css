@@ -847,3 +847,46 @@ body {
   color: #888;
   grid-column: 1 / -1; 
 }
+
+/* Dashboard ticket filter style */
+.ticket-filters {
+  display: flex;
+  gap: 15px;
+  padding: 15px 90px 10px 90px; /* match dashboard padding */
+  margin-top: 10px;
+  background-color: #fff;
+  border: 1px solid #FBD402;
+  border-radius: 6px;
+  align-items: center;
+  font-family: Arial, sans-serif;
+}
+
+.ticket-filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: bold;
+  color: black;
+}
+
+.ticket-filters select,
+.ticket-filters input[type="date"] {
+  margin-top: 5px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ticket-filters select:hover,
+.ticket-filters input[type="date"]:hover {
+  border-color: #000;
+}
+
+.ticket-filters select:focus,
+.ticket-filters input[type="date"]:focus {
+  border-color: #FBD402;
+  box-shadow: 0 0 5px rgba(251, 212, 2, 0.5);
+}

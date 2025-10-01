@@ -9,14 +9,17 @@ function StaffDashboard() {
   const { logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
   const [allTickets, setAllTickets] = useState([]);
-  const [newTickets, setNewTickets] = useState([]);
-  
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterDate, setFilterDate] = useState("");
 
   // Modal state
   const [showContractorModal, setShowContractorModal] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [activeContractors, setActiveContractors] = useState([]);
   const [chosenContractorId, setChosenContractorId] = useState(null);
+
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [selectedTicketDetails, setSelectedTicketDetails] = useState(null);
 
   const loadActiveContractors = async () => {
     try {
@@ -28,7 +31,6 @@ function StaffDashboard() {
     }
   };
 
-  // Ticket Assign Contractor modal
   const handleAssignContractor = (ticketId) => {
     setSelectedTicketId(ticketId);
     setShowContractorModal(true);
@@ -61,23 +63,6 @@ function StaffDashboard() {
     }
   };
 
-  useEffect(() => {
-    async function fetchTickets() {
-      try {
-        const res = await fetch("/api/tickets", { credentials: "include" });
-        const data = await res.json();
-        if (res.ok && Array.isArray(data.tickets)) {
-          setAllTickets(data.tickets);
-          setNewTickets(data.tickets.filter(t => t.CurrentStatus === "New"));
-        }
-      } catch (err) {
-        setAllTickets([]);
-        setNewTickets([]);
-      }
-    }
-    fetchTickets();
-  }, []);
-
   const handleLogout = async () => {
     await logout();
     window.location.reload();
@@ -94,23 +79,16 @@ function StaffDashboard() {
 
   const getEffectiveDate = (ticket) => {
     if (!ticket.CreatedAt) return new Date();
-
     const createdDate = new Date(ticket.CreatedAt);
     const now = new Date();
-
-    // If ticket is older than 31 days, bump it monthly
     const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-
     if (diffDays > 31) {
-      // Compute how many months old it is
       const monthsOld = Math.floor(diffDays / 30);
-      // Push it forward by monthsOld months
       const bumpedDate = new Date(createdDate);
       bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
       return bumpedDate;
     }
-
-    return createdDate; // If <= 31 days, keep original date
+    return createdDate;
   };
 
   const getStatusColor = (status) => {
@@ -118,26 +96,83 @@ function StaffDashboard() {
       case 'Awaiting Appointment': return 'status-awaiting';
       case 'Approved': return 'status-approved';
       case 'Rejected': return 'status-rejected';
+      case 'Closed': return 'status-closed';
       default: return '';
     }
   };
 
-  // Inside StaffDashboard component, replace recentNewTickets with:
   const getDisplayStatus = (ticket) => {
     if (!ticket.CurrentStatus) return "";
-
     if (ticket.CurrentStatus === "New" && ticket.CreatedAt) {
       const createdDate = new Date(ticket.CreatedAt);
       const now = new Date();
       const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-      return diffDays <= 31 ? "New" : ""; // Hide "New" if older than 31 days
+      return diffDays <= 31 ? "New" : "";
     }
-
-    return ticket.CurrentStatus; // Show other statuses normally
+    return ticket.CurrentStatus;
   };
 
+  // Fetch tickets on mount
+  useEffect(() => {
+    async function fetchTickets() {
+      try {
+        const res = await fetch("/api/tickets", { credentials: "include" });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.tickets)) {
+          setAllTickets(data.tickets);
+        }
+      } catch (err) {
+        setAllTickets([]);
+      }
+    }
+    fetchTickets();
+  }, []);
 
-  // Dummy data for contractors table
+  // Ticket detail modal
+  const handleOpenTicketModal = async (ticketId) => {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}`, { credentials: "include" });
+      const data = await res.json();
+      if (res.ok) {
+        setSelectedTicketDetails(data.ticket);
+        setShowTicketModal(true);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Close ticket action
+  const handleCloseTicket = async (ticketId) => {
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/close`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: "Closed" } : t));
+        alert("Ticket closed!");
+        setShowTicketModal(false);
+      } else throw new Error("Failed to close ticket");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Filter & sort tickets
+  const filteredTickets = allTickets
+    .filter(ticket => !filterStatus || getDisplayStatus(ticket) === filterStatus)
+    .filter(ticket => !filterDate || new Date(ticket.CreatedAt) >= new Date(filterDate))
+    .slice()
+    .sort((a, b) => {
+      const aOld = (new Date() - new Date(a.CreatedAt)) / (1000*60*60*24) > 30;
+      const bOld = (new Date() - new Date(b.CreatedAt)) / (1000*60*60*24) > 30;
+      if (aOld && !bOld) return -1;
+      if (!aOld && bOld) return 1;
+      return getEffectiveDate(b) - getEffectiveDate(a);
+    });
+
+  // Dummy contractor & property stats data
   const contractorsData = [
     { name: "John Doe", currentJobs: 3, assignedJob: "Yes", hasGearIcon: true, status: "Awaiting Appointment" },
     { name: "Jane Smith", currentJobs: 0, assignedJob: "-", hasGearIcon: false, status: "None" },
@@ -157,7 +192,6 @@ function StaffDashboard() {
           <ul className="navbar-menu">
             <li><Link to="/staff">Dashboard</Link></li>
             <li><Link to="/tickets">Tickets</Link></li>
-           {/* <li><Link to="/reports">Reports</Link></li> */}
             <li><Link to="/quotes">Quotes</Link></li>
             <li><Link to="/contractors">Contractors</Link></li>
             <li><Link to="/settings">Settings</Link></li>
@@ -187,62 +221,75 @@ function StaffDashboard() {
         <div className="contractor-sub-title"><h2>Contractor Management</h2></div>
       </div>
 
-      <div className="cards-wrapper">
-        <div className="awaiting-tickets-container"> {/* Always render container */}
-  <div className="table-header"> {/* Always render header */}
-    <div className="header-content">
-      <div className="header-grid">
-        <div className="header-item">Ticket ID</div>
-        <div className="header-item">Property</div>
-        <div className="header-item">Issue</div>
-        <div className="header-item">Submitted</div>
-        <div className="header-status">Urgency/Status</div>
-      </div>
-    </div>
-  </div>
+      {/* Ticket filters */}
+   <div className="ticket-filters">
+  <label>
+    Status:
+    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+      <option value="">All</option>
+      <option value="New">New</option>
+      <option value="Awaiting Appointment">Awaiting Appointment</option>
+      <option value="Approved">Approved</option>
+      <option value="Rejected">Rejected</option>
+      <option value="Closed">Closed</option>
+    </select>
+  </label>
+  <label>
+    Submitted After:
+    <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+  </label>
+</div>
 
-  {allTickets.length > 0 ? (
-    allTickets
-      .slice()
-      .sort((a, b) => getEffectiveDate(b) - getEffectiveDate(a)) // sort by effective date
-      .map((ticket, index) => (
-        <div key={ticket.TicketID || index} className="ticket-card">
-          <div className="ticket-layout">
-            <div className="ticket-info-grid">
-              <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-              <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
-              <div className="info-value issue-cell">
-                <span>{ticket.Description || ticket.issue}</span>
-                <img src={gearIcon} alt="Settings" className="gear-icon" />
-              </div>
-              <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-              <div className="urgency-status-column">
-                <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
-                  {ticket.UrgencyLevel || ticket.urgency}
-                </span>
-                <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
-                  {getDisplayStatus(ticket) || ticket.status}
-                </span>
-              </div>
-              <div className="action-buttons">
-                <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                  Assign Contractor
-                </button>
-                <button className="action-btn quote-btn" onClick={() => console.log("View quote", ticket.TicketID)}>
-                  View Quote
-                </button>
-                <button className="action-btn status-btn" onClick={() => console.log("Change status", ticket.TicketID)}>
-                  Change Status
-                </button>
+      <div className="cards-wrapper">
+        <div className="awaiting-tickets-container">
+          <div className="table-header">
+            <div className="header-content">
+              <div className="header-grid">
+                <div className="header-item">Ticket ID</div>
+                <div className="header-item">Property</div>
+                <div className="header-item">Issue</div>
+                <div className="header-item">Submitted</div>
+                <div className="header-status">Urgency/Status</div>
               </div>
             </div>
           </div>
+
+          {filteredTickets.length > 0 ? (
+            filteredTickets.map((ticket, index) => (
+              <div key={ticket.TicketID || index} className="ticket-card">
+                <div className="ticket-layout">
+                  <div className="ticket-info-grid">
+                    <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
+                    <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
+                    <div className="info-value issue-cell">
+                      <span>{ticket.Description || ticket.issue}</span>
+                      <img src={gearIcon} alt="Settings" className="gear-icon" />
+                    </div>
+                    <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+                    <div className="urgency-status-column">
+                      <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
+                        {ticket.UrgencyLevel || ticket.urgency}
+                      </span>
+                      <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
+                        {getDisplayStatus(ticket) || ticket.status}
+                      </span>
+                    </div>
+                    <div className="action-buttons">
+                      <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
+                        Assign Contractor
+                      </button>
+                      <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="empty-state">No tickets available</p>
+          )}
         </div>
-      ))
-  ) : (
-    <p className="empty-state">No tickets available</p> // Fallback message
-  )}
-</div>
 
         {/* Contractors Table */}
         <div className="contractor-container">
@@ -287,7 +334,7 @@ function StaffDashboard() {
         </div>
       </div>
 
-      {/* Modal for Assign Contractor */}
+      {/* Assign Contractor Modal */}
       {showContractorModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -300,11 +347,46 @@ function StaffDashboard() {
                   <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
                 ))}
               </select>
-
               <div className="modal-buttons">
                 <button onClick={handleConfirmSchedule}>Confirm</button>
                 <button onClick={() => setShowContractorModal(false)}>Cancel</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ticket Detail Modal */}
+      {showTicketModal && selectedTicketDetails && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h2>Ticket Details</h2>
+            <p><strong>Issue:</strong> {selectedTicketDetails.Description}</p>
+            <p><strong>Status:</strong> {selectedTicketDetails.CurrentStatus}</p>
+
+            <h3>Contractor Responses</h3>
+            {selectedTicketDetails.ContractorResponses?.length ? (
+              <ul>
+                {selectedTicketDetails.ContractorResponses.map(r => (
+                  <li key={r.ResponseID}>{r.Message} - {new Date(r.Date).toLocaleDateString()}</li>
+                ))}
+              </ul>
+            ) : <p>No responses yet</p>}
+
+            <h3>Landlord Approvals</h3>
+            {selectedTicketDetails.LandlordApprovals?.length ? (
+              <ul>
+                {selectedTicketDetails.LandlordApprovals.map(a => (
+                  <li key={a.ApprovalID}>{a.Approved ? "Approved" : "Rejected"} - {new Date(a.Date).toLocaleDateString()}</li>
+                ))}
+              </ul>
+            ) : <p>No approvals yet</p>}
+
+            <div className="modal-buttons">
+              {selectedTicketDetails.CurrentStatus !== "Closed" && (
+                <button onClick={() => handleCloseTicket(selectedTicketDetails.TicketID)}>Close Ticket</button>
+              )}
+              <button onClick={() => setShowTicketModal(false)}>Close</button>
             </div>
           </div>
         </div>
@@ -331,15 +413,9 @@ function StaffDashboard() {
             <div className="property-stats-layout">
               <div className="property-stats-content">
                 <div className="property-stats-info-grid">
-                  <div className="info-item">
-                    <div className="info-value">{property.property}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-value">{property.landlord}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-value">{property.tenant}</div>
-                  </div>
+                  <div className="info-item"><div className="info-value">{property.property}</div></div>
+                  <div className="info-item"><div className="info-value">{property.landlord}</div></div>
+                  <div className="info-item"><div className="info-value">{property.tenant}</div></div>
                   <div className="info-item">
                     <div className="tickets-logged-cell">
                       <div className="tickets-summary">
@@ -349,9 +425,7 @@ function StaffDashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="info-item">
-                    <div className="info-value total-spend">{property.totalSpend}</div>
-                  </div>
+                  <div className="info-item"><div className="info-value total-spend">{property.totalSpend}</div></div>
                 </div>
               </div>
             </div>
@@ -360,7 +434,6 @@ function StaffDashboard() {
       </div>
 
       <div className="page-bottom-spacer"></div>
-
     </>
   );
 }
