@@ -113,7 +113,7 @@ router.get('/contractors/active', async (_req, res) => {
   }
 });
 
-// POST /contractor-assign - Assign a contractor to a ticket (no date yet)
+// POST /contractor-assign - Assign or reassign a contractor to a ticket
 router.post('/contractor-assign', async (req, res) => {
   try {
     let { TicketID, ContractorUserID, ProposedDate } = req.body;
@@ -129,18 +129,34 @@ router.post('/contractor-assign', async (req, res) => {
     try {
       await connection.beginTransaction();
 
-      // Insert contractor assignment (no date/time yet)
-      await connection.execute(
-        `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate)
-         VALUES (?, ?, ?)`,
-        [TicketID, ContractorUserID, ProposedDate]
+      // Check if ticket already has an assigned contractor
+      const [existingRows] = await connection.execute(
+        `SELECT * FROM tblContractorSchedules WHERE TicketID = ?`,
+        [TicketID]
       );
+
+      if (existingRows.length > 0) {
+        // Reassign contractor
+        await connection.execute(
+          `UPDATE tblContractorSchedules
+             SET ContractorUserID = ?, ProposedDate = ?
+           WHERE TicketID = ?`,
+          [ContractorUserID, ProposedDate, TicketID]
+        );
+      } else {
+        // Insert new assignment
+        await connection.execute(
+          `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate)
+           VALUES (?, ?, ?)`,
+          [TicketID, ContractorUserID, ProposedDate]
+        );
+      }
 
       // Update ticket status to "In Review"
       await connection.execute(
         `UPDATE tblTickets
-            SET CurrentStatus = 'In Review'
-          WHERE TicketID = ?`,
+           SET CurrentStatus = 'In Review'
+         WHERE TicketID = ?`,
         [TicketID]
       );
 
@@ -148,14 +164,18 @@ router.post('/contractor-assign', async (req, res) => {
       await logAudit({
         actorUserId: req.user.userId,
         targetUserId: ContractorUserID,
-        action: 'contractor-assigned',
+        action: existingRows.length > 0 ? 'contractor-reassigned' : 'contractor-assigned',
         metadata: { ticketId: TicketID },
         ...getClientInfo(req),
         connection
       });
 
       await connection.commit();
-      return res.json({ message: 'Contractor assigned successfully and ticket moved to In Review' });
+      return res.json({
+        message: existingRows.length > 0
+          ? 'Contractor reassigned successfully and ticket moved to In Review'
+          : 'Contractor assigned successfully and ticket moved to In Review'
+      });
     } catch (err) {
       await connection.rollback();
       throw err;

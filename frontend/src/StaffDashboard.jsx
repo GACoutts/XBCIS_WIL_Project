@@ -32,10 +32,26 @@ function StaffDashboard() {
     }
   };
 
-  const handleAssignContractor = (ticketId) => {
+  const handleAssignContractor = async (ticketId) => {
     setSelectedTicketId(ticketId);
     setShowContractorModal(true);
-    loadActiveContractors();
+
+    // Load active contractors
+    await loadActiveContractors();
+
+    // Load currently assigned contractor
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/contractor`, { credentials: "include" });
+      const data = await res.json();
+      if (res.ok && data.contractor) {
+        setChosenContractorId(data.contractor.UserID);
+      } else {
+        setChosenContractorId(null);
+      }
+    } catch (err) {
+      console.error("Failed to load assigned contractor", err);
+      setChosenContractorId(null);
+    }
   };
 
   const handleConfirmSchedule = async () => {
