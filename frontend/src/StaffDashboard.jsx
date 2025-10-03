@@ -113,6 +113,8 @@ function StaffDashboard() {
     return ticket.CurrentStatus;
   };
 
+  const totalOpenTickets = allTickets.filter(t => getDisplayStatus(t) !== "Closed").length;
+
   // Fetch tickets on mount
   useEffect(() => {
     async function fetchTickets() {
@@ -173,7 +175,7 @@ function StaffDashboard() {
       return getEffectiveDate(b) - getEffectiveDate(a);
     });
 
-    
+
   // Colors for pie chart statuses
   const statusColors = {
     New: "#8884d8",
@@ -191,6 +193,45 @@ function StaffDashboard() {
       return acc;
     }, {})
   ).map(([status, count]) => ({ name: status, value: count }));
+
+  // Group tickets by week (opened vs resolved)
+  const ticketsByWeekData = React.useMemo(() => {
+    const weekMap = {};
+
+    allTickets.forEach(ticket => {
+      const created = new Date(ticket.CreatedAt);
+      const resolved = ticket.ResolvedAt ? new Date(ticket.ResolvedAt) : null;
+
+      const getWeekKey = (date) => {
+        const firstDay = new Date(date.getFullYear(), 0, 1);
+        const weekNo = Math.ceil(((date - firstDay) / (1000 * 60 * 60 * 24) + firstDay.getDay() + 1) / 7);
+        return `${date.getFullYear()}-W${weekNo}`;
+      };
+
+      const createdWeek = getWeekKey(created);
+      if (!weekMap[createdWeek]) weekMap[createdWeek] = { week: createdWeek, opened: 0, resolved: 0 };
+      weekMap[createdWeek].opened += 1;
+
+      if (resolved) {
+        const resolvedWeek = getWeekKey(resolved);
+        if (!weekMap[resolvedWeek]) weekMap[resolvedWeek] = { week: resolvedWeek, opened: 0, resolved: 0 };
+        weekMap[resolvedWeek].resolved += 1;
+      }
+    });
+
+    return Object.values(weekMap).sort((a, b) => a.week.localeCompare(b.week));
+  }, [allTickets]);
+
+  const avgResolutionTime = React.useMemo(() => {
+    const resolvedTickets = allTickets.filter(t => t.ResolvedAt);
+    if (!resolvedTickets.length) return 0;
+    const totalDays = resolvedTickets.reduce((acc, t) => {
+      const created = new Date(t.CreatedAt);
+      const resolved = new Date(t.ResolvedAt);
+      return acc + ((resolved - created) / (1000 * 60 * 60 * 24));
+    }, 0);
+    return (totalDays / resolvedTickets.length).toFixed(1); // days
+  }, [allTickets]);
 
   // Prepare Bar Chart data (tickets by role)
   const ticketsByRoleData = [
@@ -495,6 +536,29 @@ function StaffDashboard() {
               <Bar dataKey="count" fill="#8884d8" />
             </BarChart>
           </div>
+        </div>
+        <div className="analytics-summary">
+          <div className="summary-card">
+            <h4>Total Open Tickets</h4>
+            <p>{totalOpenTickets}</p>
+          </div>
+          <div className="summary-card">
+            <h4>Average Resolution Time (days)</h4>
+            <p>{avgResolutionTime}</p>
+          </div>
+        </div>
+
+        <div className="chart-wrapper">
+          <h3>Tickets Opened vs Resolved (Weekly)</h3>
+          <BarChart width={600} height={300} data={ticketsByWeekData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="week" />
+            <YAxis allowDecimals={false} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="opened" name="Opened" fill="#82ca9d" />
+            <Bar dataKey="resolved" name="Resolved" fill="#8884d8" />
+          </BarChart>
         </div>
       </div>
 
