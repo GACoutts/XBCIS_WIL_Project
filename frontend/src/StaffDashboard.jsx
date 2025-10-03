@@ -4,6 +4,7 @@ import "./styles/staffdash.css";
 import ReviewRoleRequests from './components/ReviewRoleRequest.jsx';
 import { Link } from 'react-router-dom';
 import { useAuth } from "./context/AuthContext.jsx";
+import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 function StaffDashboard() {
   const { logout } = useAuth();
@@ -165,12 +166,38 @@ function StaffDashboard() {
     .filter(ticket => !filterDate || new Date(ticket.CreatedAt) >= new Date(filterDate))
     .slice()
     .sort((a, b) => {
-      const aOld = (new Date() - new Date(a.CreatedAt)) / (1000*60*60*24) > 30;
-      const bOld = (new Date() - new Date(b.CreatedAt)) / (1000*60*60*24) > 30;
+      const aOld = (new Date() - new Date(a.CreatedAt)) / (1000 * 60 * 60 * 24) > 30;
+      const bOld = (new Date() - new Date(b.CreatedAt)) / (1000 * 60 * 60 * 24) > 30;
       if (aOld && !bOld) return -1;
       if (!aOld && bOld) return 1;
       return getEffectiveDate(b) - getEffectiveDate(a);
     });
+
+    
+  // Colors for pie chart statuses
+  const statusColors = {
+    New: "#8884d8",
+    "Awaiting Appointment": "#82ca9d",
+    Approved: "#ffc658",
+    Rejected: "#ff8042",
+    Closed: "#8dd1e1"
+  };
+
+  // Prepare Pie Chart data (tickets by status)
+  const ticketsByStatus = Object.entries(
+    allTickets.reduce((acc, ticket) => {
+      const status = getDisplayStatus(ticket) || "Unknown";
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {})
+  ).map(([status, count]) => ({ name: status, value: count }));
+
+  // Prepare Bar Chart data (tickets by role)
+  const ticketsByRoleData = [
+    { role: "Client", count: allTickets.filter(t => t.Role === "Client").length },
+    { role: "Landlord", count: allTickets.filter(t => t.Role === "Landlord").length },
+    { role: "Contractor", count: allTickets.filter(t => t.Role === "Contractor").length }
+  ];
 
   // Dummy contractor & property stats data
   const contractorsData = [
@@ -222,23 +249,23 @@ function StaffDashboard() {
       </div>
 
       {/* Ticket filters */}
-   <div className="ticket-filters">
-  <label>
-    Status:
-    <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-      <option value="">All</option>
-      <option value="New">New</option>
-      <option value="Awaiting Appointment">Awaiting Appointment</option>
-      <option value="Approved">Approved</option>
-      <option value="Rejected">Rejected</option>
-      <option value="Closed">Closed</option>
-    </select>
-  </label>
-  <label>
-    Submitted After:
-    <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-  </label>
-</div>
+      <div className="ticket-filters">
+        <label>
+          Status:
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">All</option>
+            <option value="New">New</option>
+            <option value="Awaiting Appointment">Awaiting Appointment</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Closed">Closed</option>
+          </select>
+        </label>
+        <label>
+          Submitted After:
+          <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+        </label>
+      </div>
 
       <div className="cards-wrapper">
         <div className="awaiting-tickets-container">
@@ -431,6 +458,44 @@ function StaffDashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="analytics-panel">
+        <h2>Analytics</h2>
+        <div className="charts-container">
+          <div className="chart-wrapper">
+            <h3>Tickets by Status</h3>
+            <PieChart width={300} height={300}>
+              <Pie
+                data={ticketsByStatus}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label
+              >
+                {ticketsByStatus.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={statusColors[entry.name] || "#ccc"} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </div>
+
+          <div className="chart-wrapper">
+            <h3>Tickets by Role</h3>
+            <BarChart width={400} height={300} data={ticketsByRoleData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="role" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="count" fill="#8884d8" />
+            </BarChart>
+          </div>
+        </div>
       </div>
 
       <div className="page-bottom-spacer"></div>

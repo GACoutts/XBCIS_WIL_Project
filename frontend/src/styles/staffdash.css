@@ -890,3 +890,20 @@ body {
   border-color: #FBD402;
   box-shadow: 0 0 5px rgba(251, 212, 2, 0.5);
 }
+
+.analytics-panel {
+  margin: 2rem 0;
+  margin-left: 6rem;
+}
+.charts-container {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.chart-wrapper {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.1);
+  text-align: center;
+}
