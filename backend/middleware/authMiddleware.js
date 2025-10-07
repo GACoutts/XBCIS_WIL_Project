@@ -15,14 +15,20 @@ export async function requireAuth(req, res, next) {
     // decoded = { jti, sub, role, type, iat, exp }
     const decoded = await verifyAccessToken(raw);
 
-    // Optional: enforce DB "Active" status (leave commented for now please)
-    // const [rows] = await pool.execute(
-    //   'SELECT Status FROM tblusers WHERE UserID = ? LIMIT 1',
-    //   [decoded.sub]
-    // );
-    // if (!rows?.length || rows[0].Status !== 'Active') {
-    //   return res.status(403).json({ message: 'Account is not active' });
-    // }
+    // Enforce DB "Active" status - suspended users cannot make API calls
+    const [rows] = await pool.execute(
+      'SELECT Status FROM tblusers WHERE UserID = ? LIMIT 1',
+      [decoded.sub]
+    );
+    if (!rows?.length) {
+      return res.status(401).json({ message: 'User account not found' });
+    }
+    if (rows[0].Status === 'Suspended') {
+      return res.status(403).json({ message: 'Account has been suspended' });
+    }
+    if (rows[0].Status !== 'Active') {
+      return res.status(403).json({ message: 'Account is not active' });
+    }
 
     req.user = { userId: decoded.sub, role: decoded.role, jti: decoded.jti };
     req.auth = { exp: decoded.exp }; // seconds since epoch

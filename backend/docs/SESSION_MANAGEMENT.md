@@ -14,7 +14,10 @@ The system uses a modern **dual-token architecture** with:
 - **Token Rotation**: Refresh tokens are rotated on each use
 - **Token Revocation**: Granular session management with revocation
 - **Token Reuse Detection**: Automatic family revocation on token reuse
-- **Rate Limiting**: Configurable limits for authentication attempts
+- **Account Suspension Enforcement**: Suspended users cannot access any API endpoints
+- **Enhanced Cookie Security**: HttpOnly, Secure, SameSite=Strict for all auth cookies
+- **Admin Rate Limiting**: Dedicated rate limits for administrative actions
+- **General Rate Limiting**: Configurable limits for authentication attempts
 - **Audit Logging**: Complete audit trail of authentication events
 - **Session Limits**: Configurable maximum sessions per user
 - **Password Reset**: Secure token-based password reset flow
@@ -87,11 +90,11 @@ JWT_REFRESH_EXPIRES=14d
 # Security Configuration
 BCRYPT_ROUNDS=12
 
-# Cookie Security
-COOKIE_SECURE=false                    # Set to true in production with HTTPS
-COOKIE_SAME_SITE_ACCESS=lax
-COOKIE_SAME_SITE_REFRESH=strict
-COOKIE_DOMAIN=                         # Leave empty for localhost
+# Cookie Security (HARDENED)
+COOKIE_SECURE=true                    # Always true in production with HTTPS
+COOKIE_SAME_SITE_ACCESS=strict       # Changed from 'lax' to 'strict' for security
+COOKIE_SAME_SITE_REFRESH=strict      # Strict SameSite for both tokens
+COOKIE_DOMAIN=                        # Leave empty for localhost
 
 # Session Management
 MAX_SESSIONS_PER_USER=5
@@ -101,6 +104,10 @@ RATE_LIMIT_WINDOW_MS=900000           # 15 minutes
 RATE_LIMIT_MAX_REQUESTS=100           # General API limit
 AUTH_RATE_LIMIT_WINDOW_MS=900000      # 15 minutes
 AUTH_RATE_LIMIT_MAX=20                # Auth attempts limit
+
+# Admin Rate Limiting (NEW)
+ADMIN_RATE_LIMIT_WINDOW_MS=900000     # 15 minutes
+ADMIN_RATE_LIMIT_MAX=50               # 50 admin actions per window
 
 # Password Reset
 APP_URL=http://localhost:5173         # Frontend URL for reset links
@@ -184,7 +191,13 @@ app.get('/api/admin', requireAuth, hasRoleOrHigher('Staff'), (req, res) => {
 ## Security Considerations
 
 ### Production Checklist
-- [ ] Set `COOKIE_SECURE=true` for HTTPS
+
+#### Security Hardening (Updated)
+- [x] **Cookie Security**: HttpOnly, Secure, SameSite=Strict flags enabled
+- [x] **Account Suspension**: Enforcement active in auth middleware
+- [x] **Admin Rate Limiting**: Dedicated limits for staff actions
+- [x] **Token Rotation**: Automatic rotation with reuse detection
+- [ ] Set `COOKIE_SECURE=true` for HTTPS in production
 - [ ] Configure proper CORS origins
 - [ ] Use strong JWT secrets (32+ chars)
 - [ ] Set up proper SMTP for password resets
@@ -192,6 +205,12 @@ app.get('/api/admin', requireAuth, hasRoleOrHigher('Staff'), (req, res) => {
 - [ ] Monitor audit logs for suspicious activity
 - [ ] Regular cleanup of expired tokens
 - [ ] Database backups for token tables
+
+#### SameSite=Strict Considerations
+- **Cross-site requests**: SameSite=Strict prevents all cross-site cookie sending
+- **External links**: Users clicking links from external sites will appear "logged out" initially
+- **Embedded content**: May affect iframes or embedded components
+- **Development**: Use COOKIE_SAME_SITE_ACCESS=lax for local development if needed
 
 ### Token Security
 - Access tokens are stateless JWT tokens
