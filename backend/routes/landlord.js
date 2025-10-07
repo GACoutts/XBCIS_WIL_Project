@@ -2,10 +2,16 @@
 import express from 'express';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
+import { 
+  validateTicketId, 
+  validateQuoteId, 
+  validateLandlordQueries 
+} from '../middleware/validation.js';
+import { notifyQuoteApproved, notifyQuoteRejected } from '../utils/notifications.js';
 
 const router = express.Router();
 
-router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) => {
+router.get('/tickets', requireAuth, permitRoles('Landlord'), validateLandlordQueries, async (req, res) => {
   try {
     const landlordId = req.user.userId;
     const { status, dateFrom, dateTo, limit = '50', offset = '0' } = req.query;
@@ -210,7 +216,7 @@ async function landlordOwnsQuote(landlordId, quoteId) {
  * GET /api/landlord/quotes/:ticketId
  * Returns all quotes for a ticket after ownership check.
  */
-router.get('/quotes/:ticketId', requireAuth, permitRoles('Landlord'), async (req, res) => {
+router.get('/quotes/:ticketId', requireAuth, permitRoles('Landlord'), validateTicketId, async (req, res) => {
   try {
     const landlordId = req.user.userId;
     const ticketId = Number.parseInt(req.params.ticketId, 10);
@@ -246,7 +252,7 @@ router.get('/quotes/:ticketId', requireAuth, permitRoles('Landlord'), async (req
 /**
  * (Optional) appointments list
  */
-router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord'), async (req, res) => {
+router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord'), validateTicketId, async (req, res) => {
   try {
     const landlordId = req.user.userId;
     const ticketId = Number.parseInt(req.params.ticketId, 10);
@@ -281,7 +287,7 @@ router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord
  * GET /api/landlord/tickets/:ticketId/history
  * Returns status timeline for a ticket (ownership enforced)
  */
-router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), async (req, res) => {
+router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), validateTicketId, async (req, res) => {
   try {
     const landlordId = req.user.userId;
     const ticketId = Number.parseInt(req.params.ticketId, 10);
@@ -322,7 +328,7 @@ router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), a
  * POST /api/landlord/quotes/:quoteId/approve
  * Marks a quote as Approved and records landlord approval (ownership enforced)
  */
-router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), async (req, res) => {
+router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), validateQuoteId, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const landlordId = req.user.userId;
@@ -343,6 +349,13 @@ router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), as
       return res.status(404).json({ message: 'Quote not found' });
     }
     const ticketId = qrow.TicketID;
+
+    // Get contractor info for notification
+    const [[contractorInfo]] = await connection.execute(
+      'SELECT ContractorUserID FROM tblquotes WHERE QuoteID = ? LIMIT 1',
+      [quoteId]
+    );
+    const contractorUserId = contractorInfo?.ContractorUserID;
 
     await connection.execute(
       'UPDATE tblquotes SET QuoteStatus = ? WHERE QuoteID = ?',
@@ -375,6 +388,17 @@ router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), as
     } catch { /* ignore */ }
 
     await connection.commit();
+    
+    // Send notification to contractor (async, doesn't block response)
+    if (contractorUserId) {
+      notifyQuoteApproved({
+        quoteId,
+        ticketId,
+        landlordUserId: landlordId,
+        contractorUserId
+      }).catch(err => console.error('Notification error:', err));
+    }
+    
     return res.json({ success: true, message: 'Quote approved successfully' });
   } catch (err) {
     try { await connection.rollback(); } catch { }
@@ -389,7 +413,7 @@ router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), as
  * POST /api/landlord/quotes/:quoteId/reject
  * Marks a quote as Rejected and records landlord decision (ownership enforced)
  */
-router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), async (req, res) => {
+router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), validateQuoteId, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const landlordId = req.user.userId;
@@ -410,6 +434,13 @@ router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), asy
       return res.status(404).json({ message: 'Quote not found' });
     }
     const ticketId = qrow.TicketID;
+
+    // Get contractor info for notification
+    const [[contractorInfo]] = await connection.execute(
+      'SELECT ContractorUserID FROM tblquotes WHERE QuoteID = ? LIMIT 1',
+      [quoteId]
+    );
+    const contractorUserId = contractorInfo?.ContractorUserID;
 
     await connection.execute(
       'UPDATE tblquotes SET QuoteStatus = ? WHERE QuoteID = ?',
@@ -442,6 +473,17 @@ router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), asy
     } catch { /* ignore */ }
 
     await connection.commit();
+    
+    // Send notification to contractor (async, doesn't block response)
+    if (contractorUserId) {
+      notifyQuoteRejected({
+        quoteId,
+        ticketId,
+        landlordUserId: landlordId,
+        contractorUserId
+      }).catch(err => console.error('Notification error:', err));
+    }
+    
     return res.json({ success: true, message: 'Quote rejected successfully' });
   } catch (err) {
     try { await connection.rollback(); } catch { }

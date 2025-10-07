@@ -1,11 +1,12 @@
 import express from 'express';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
+import { validatePagination } from '../middleware/validation.js';
 
 const router = express.Router();
 
 // GET /api/landlord/tickets - PRODUCTION READY minimal version for Red Rabbit replacement
-router.get('/tickets-minimal', requireAuth, permitRoles('Landlord'), async (req, res) => {
+router.get('/tickets-minimal', requireAuth, permitRoles('Landlord'), validatePagination, async (req, res) => {
   try {
     const { userId } = req.user;
     const { limit = 50, offset = 0 } = req.query;
@@ -13,7 +14,7 @@ router.get('/tickets-minimal', requireAuth, permitRoles('Landlord'), async (req,
     const limitNum = Math.min(Math.max(parseInt(limit) || 50, 1), 100);
     const offsetNum = Math.max(parseInt(offset) || 0, 0);
 
-    // Simple, bulletproof query
+    // SECURE query using proper property mapping (fixed critical security vulnerability)
     const query = `
       SELECT 
         t.TicketID as ticketId,
@@ -28,9 +29,11 @@ router.get('/tickets-minimal', requireAuth, permitRoles('Landlord'), async (req,
       FROM tblTickets t
       LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
       WHERE EXISTS (
-         SELECT 1 FROM tblQuotes qx
-         JOIN tblLandlordApprovals lax ON lax.QuoteID = qx.QuoteID
-         WHERE qx.TicketID = t.TicketID AND lax.LandlordUserID = ?
+         SELECT 1
+         FROM tblLandlordProperties lp
+         WHERE lp.PropertyID = t.PropertyID
+           AND lp.LandlordUserID = ?
+           AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
        )
       ORDER BY t.CreatedAt DESC
       LIMIT ? OFFSET ?
@@ -38,14 +41,16 @@ router.get('/tickets-minimal', requireAuth, permitRoles('Landlord'), async (req,
 
     const [tickets] = await pool.execute(query, [userId, limitNum, offsetNum]);
 
-    // Count query
+    // Count query - also fixed
     const [countResult] = await pool.execute(`
       SELECT COUNT(*) as total
       FROM tblTickets t
       WHERE EXISTS (
-         SELECT 1 FROM tblQuotes qx
-         JOIN tblLandlordApprovals lax ON lax.QuoteID = qx.QuoteID
-         WHERE qx.TicketID = t.TicketID AND lax.LandlordUserID = ?
+         SELECT 1
+         FROM tblLandlordProperties lp
+         WHERE lp.PropertyID = t.PropertyID
+           AND lp.LandlordUserID = ?
+           AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
        )
     `, [userId]);
 
