@@ -29,73 +29,82 @@ function UserDashboard() {
   // Priority order
   const priorityOrder = { High: 1, Medium: 2, Low: 3 };
 
-  // Fetch tickets (or mock)
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        const res = await fetch("/api/client/tickets", { credentials: "include" });
-        if (!res.ok) throw new Error("Fallback");
-        const data = await res.json();
-        setTickets(data.tickets || []);
-      } catch {
-        console.warn("Using mock ticket data");
-        setTickets([
-          { TicketID: 1, TicketRefNumber: "GL-001", Description: "Leaking kitchen tap", CreatedAt: "2025-09-15T08:00:00Z", Status: "Pending", UrgencyLevel: "Medium" },
-          { TicketID: 2, TicketRefNumber: "GL-002", Description: "Broken window in bedroom", CreatedAt: "2025-09-18T09:30:00Z", Status: "Scheduled", UrgencyLevel: "High" },
-          { TicketID: 3, TicketRefNumber: "GL-003", Description: "Air conditioner not cooling", CreatedAt: "2025-09-20T10:00:00Z", Status: "Closed", UrgencyLevel: "Low" },
-          { TicketID: 4, TicketRefNumber: "GL-004", Description: "Power outlet sparking in living room", CreatedAt: "2025-09-22T15:00:00Z", Status: "Rejected", UrgencyLevel: "High" },
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTickets();
-  }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    window.location.reload();
-  };
-
-  const openTicketModal = (ticket) => {
-    setSelectedTicket(ticket);
-    setModalLoading(true);
-
-    // Mock detail data
-    setTimeout(() => {
-      setTicketHistory([
-        { Status: "Pending", UpdatedAt: "2025-09-15T08:00:00Z", UpdatedByUserID: "User" },
-        { Status: "Scheduled", UpdatedAt: "2025-09-17T12:00:00Z", UpdatedByUserID: "Admin" },
-        { Status: "Closed", UpdatedAt: "2025-09-18T15:00:00Z", UpdatedByUserID: "System" },
-      ]);
-      setTicketMedia([
-        { MediaURL: "https://placehold.co/200x120?text=Tap", MediaType: "image/jpeg" },
-        { MediaURL: "https://placehold.co/200x120?text=Window", MediaType: "image/jpeg" },
-      ]);
-      setContractorResponses([
-        { contractorName: "FixIt Co.", message: "Parts ordered, will arrive tomorrow.", date: "2025-09-16T10:30:00Z" },
-        { contractorName: "FixIt Co.", message: "Issue resolved successfully.", date: "2025-09-18T14:00:00Z" },
-      ]);
-      setLandlordApprovals([{ status: "Approved repair quote", date: "2025-09-17T11:00:00Z" }]);
-      setModalLoading(false);
-    }, 800);
-  };
-
-  const closeModal = () => {
-    setSelectedTicket(null);
-    setTicketHistory([]);
-    setTicketMedia([]);
-    setContractorResponses([]);
-    setLandlordApprovals([]);
-  };
-
-  const handleCloseTicket = () => {
-    if (!selectedTicket) return;
-    if (window.confirm("Are you sure you want to close this ticket?")) {
-      setTickets(prev => prev.map(t => t.TicketID === selectedTicket.TicketID ? { ...t, Status: "Closed" } : t));
-      setSelectedTicket(prev => ({ ...prev, Status: "Closed" }));
+// Fetch tickets
+useEffect(() => {
+  const fetchTickets = async () => {
+    try {
+      const res = await fetch("/api/client/tickets", { credentials: "include" });
+      const data = await res.json();
+      if (res.ok) setTickets(data.tickets || []);
+      else console.error("Failed to fetch tickets:", data);
+    } catch (err) {
+      console.error("Error fetching tickets:", err);
+    } finally {
+      setLoading(false);
     }
   };
+  fetchTickets();
+}, []);
+
+// Logout handler
+const handleLogout = async () => {
+  await logout();
+  window.location.reload();
+};
+
+// Open ticket modal & fetch details
+const openTicketModal = async (ticket) => {
+  setSelectedTicket(ticket);
+  setModalLoading(true);
+  setTicketHistory([]);
+  setTicketMedia([]);
+  setContractorResponses([]);
+  setLandlordApprovals([]);
+
+  try {
+    const historyRes = await fetch(`/api/tickets/${ticket.TicketID}/history`, { credentials: "include" });
+    const historyData = await historyRes.json();
+    if (historyRes.ok) setTicketHistory(historyData.timeline || []);
+
+    const mediaRes = await fetch(`/api/tickets/${ticket.TicketID}`, { credentials: "include" });
+    const mediaData = await mediaRes.json();
+    if (mediaRes.ok) setTicketMedia(mediaData.media || []);
+  } catch (err) {
+    console.error("Error fetching ticket details:", err);
+  } finally {
+    setModalLoading(false);
+  }
+};
+
+// Close modal
+const closeModal = () => {
+  setSelectedTicket(null);
+  setTicketHistory([]);
+  setTicketMedia([]);
+  setContractorResponses([]);
+  setLandlordApprovals([]);
+};
+
+// Close ticket
+const closeTicket = async () => {
+  if (!selectedTicket) return;
+  try {
+    const res = await fetch(`/api/tickets/${selectedTicket.TicketID}/close`, {
+      method: "POST",
+      credentials: "include",
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setTickets(prev =>
+        prev.map(t => t.TicketID === selectedTicket.TicketID ? { ...t, Status: "Closed" } : t)
+      );
+      setSelectedTicket(prev => ({ ...prev, Status: "Closed" }));
+    } else console.error("Failed to close ticket", data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   // Filter, search, paginate & sort tickets
   const filteredTickets = tickets.filter(ticket => {
