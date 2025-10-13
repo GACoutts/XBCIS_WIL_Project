@@ -125,6 +125,7 @@ router.post('/contractor-assign', async (req, res) => {
 
     if (!ProposedDate) {
       ProposedDate = '2099-12-31';
+
     }
 
     const connection = await pool.getConnection();

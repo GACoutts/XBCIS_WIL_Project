@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS tblusers (
   PasswordHash    VARCHAR(255) NOT NULL,
   Phone           VARCHAR(20) NULL,
   Role            ENUM('Client','Landlord','Contractor','Staff') NOT NULL DEFAULT 'Client',
-  Status          ENUM('Active','Inactive','Suspended','Pending') NOT NULL DEFAULT 'Active',
+  Status          ENUM('Active','Inactive','Suspended','Pending','Rejected') NOT NULL DEFAULT 'Active',
   DateRegistered  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   LastLogin       DATETIME NULL,
   INDEX idx_email (Email),
@@ -266,22 +266,21 @@ CREATE TABLE IF NOT EXISTS tblticketstatushistory (
 
 -- 16. Audit Logs (depends on users)
 CREATE TABLE IF NOT EXISTS tblauditlogs (
-  LogID       INT AUTO_INCREMENT PRIMARY KEY,
-  UserID      INT NULL,
-  Action      VARCHAR(100) NOT NULL,
-  TableName   VARCHAR(50) NOT NULL,
-  RecordID    INT NULL,
-  OldValues   JSON NULL,
-  NewValues   JSON NULL,
-  IPAddress   VARCHAR(45) NULL,
-  UserAgent   VARCHAR(500) NULL,
-  CreatedAt   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_audit_user FOREIGN KEY (UserID) REFERENCES tblusers(UserID) ON DELETE SET NULL,
-  INDEX idx_user (UserID),
-  INDEX idx_action (Action),
-  INDEX idx_table (TableName),
-  INDEX idx_created (CreatedAt)
-);
+  AuditID     BIGINT AUTO_INCREMENT PRIMARY KEY,
+  ActorUserID INT NULL COMMENT 'User who performed the action',
+  TargetUserID INT NULL COMMENT 'User who was the target of the action',
+  Action      VARCHAR(100) NOT NULL COMMENT 'Action that was performed',
+  Metadata    JSON NULL COMMENT 'Additional context about the action',
+  IP          VARCHAR(45) NULL COMMENT 'IP address of the actor',
+  UserAgent   VARCHAR(255) NULL COMMENT 'User agent of the actor',
+  CreatedAt   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the action occurred',
+  INDEX idx_audit_action (Action),
+  INDEX idx_audit_actor (ActorUserID),
+  INDEX idx_audit_target (TargetUserID),
+  INDEX idx_audit_created (CreatedAt),
+  CONSTRAINT fk_audit_actor FOREIGN KEY (ActorUserID) REFERENCES tblusers(UserID) ON DELETE SET NULL,
+  CONSTRAINT fk_audit_target FOREIGN KEY (TargetUserID) REFERENCES tblusers(UserID) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Audit log with proper ActorID structure for accept/reject functionality';
 
 -- =====================================================================================
 -- POST-CREATION OPTIMIZATIONS

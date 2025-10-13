@@ -77,7 +77,7 @@ export default function SignUpPage() {
     try {
       // 1) Register
       const apiRole = ROLE_MAP[formData.role]; // map UI role to backend role enum
-      await register({
+      const response = await register({
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim() || null,
@@ -85,8 +85,14 @@ export default function SignUpPage() {
         role: apiRole,
       });
 
-      setSuccessMsg("Account created successfully. You’re in!");
-      navigate("/", { replace: true });
+      // Check if approval is required
+      if (response?.requiresApproval) {
+        setSuccessMsg("Registration successful! Your account is pending staff approval. You'll be notified once approved.");
+        // Don't navigate - stay on registration page to show message
+      } else {
+        setSuccessMsg("Account created successfully. You're in!");
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       setServerError(err.message || "Registration failed");
     } finally {
@@ -98,7 +104,7 @@ export default function SignUpPage() {
     <div className="signup-page-container">
       {successMsg ? <p className="success" style={{ position: 'absolute', top: '-85px', left: '50%', transform: 'translateX(-50%)', width: '350px', textAlign: 'center', zIndex: 10 }}>{successMsg}</p> : null}
       <div className="signup-container">
-        <div className="logo-placeholder">Logo will go here</div>
+        <div className="logo-placeholder">GoodLiving</div>
 
         <div className="header">
           <h2>Create An Account</h2>
@@ -226,7 +232,7 @@ export default function SignUpPage() {
           Got an account? <Link to="/login" className="link">Sign in</Link>
         </div>
         <div className="forgot-password">
-          Forgot password? <Link to="/login" className="link">Reset here</Link>
+          Forgot password? <Link to="/forgot-password" className="link">Reset here</Link>
         </div>
       </div>
     </div>

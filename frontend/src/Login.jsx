@@ -56,7 +56,7 @@ export default function Login() {
 
       <form className="container" onSubmit={onSubmit} noValidate>
         <div className="header">
-          <div className="logo-placeholder">Logo will go here</div>
+          <div className="logo-placeholder">GoodLiving</div>
           <h2>Login</h2>
         </div>
 
