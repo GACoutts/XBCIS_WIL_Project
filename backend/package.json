@@ -12,10 +12,12 @@
     "test:security": "node test/security-validation.js",
     "seed:demo": "node scripts/seed-demo-data.js",
     "hash-password": "node scripts/hash-password.js",
-    "create-password-table": "node scripts/create-password-reset-table.js"
+    "create-password-table": "node scripts/create-password-reset-table.js",
+    "notify:retry": "node scripts/notification-worker.js"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",
+    "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -28,7 +30,7 @@
     "multer-s3": "^3.0.1",
     "mysql2": "^3.14.3",
     "node-fetch": "^3.3.2",
-    "nodemailer": "^7.0.5",
+    "nodemailer": "^7.0.6",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

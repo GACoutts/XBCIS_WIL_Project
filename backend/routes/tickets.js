@@ -6,6 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import jwt from 'jsonwebtoken';
+import { notifyUser } from '../utils/notify.js'; // <-- added
 
 const router = express.Router();
 
@@ -70,8 +71,51 @@ router.post('/', authMiddleware, async (req, res) => {
       [userId, ticketRefNumber, description, urgencyLevel]
     );
 
+    const ticketId = result.insertId;
+
+    // --- Notify all Staff (WhatsApp -> Email fallback) ----------------------------
+    // Fetch client name for template (fallback to "Client" if missing)
+    let clientName = 'Client';
+    try {
+      const [[clientRow]] = await pool.query(
+        'SELECT FullName FROM tblusers WHERE UserID = ? LIMIT 1',
+        [userId]
+      );
+      if (clientRow?.FullName) clientName = clientRow.FullName;
+    } catch (e) {
+      console.warn('[tickets/create] could not fetch client name:', e.message);
+    }
+
+    try {
+      const [staffRows] = await pool.query(
+        `SELECT UserID FROM tblusers WHERE Role='Staff'`
+      );
+
+      await Promise.allSettled(
+        staffRows.map(s =>
+          notifyUser({
+            userId: s.UserID,
+            ticketId,
+            template: 'ticket_created',
+            params: {
+              ticketRef: ticketRefNumber,
+              clientName,
+              urgency: urgencyLevel,
+              description
+            },
+            eventKey: `ticket_created:${ticketId}`,
+            fallbackToEmail: true
+          })
+        )
+      );
+    } catch (e) {
+      console.error('[tickets/create] notify staff error:', e);
+      // Do not fail the request if notifications fail
+    }
+    // ------------------------------------------------------------------------------
+
     res.status(201).json({
-      ticketId: result.insertId,
+      ticketId,
       ticketRefNumber,
       message: 'Ticket created successfully'
     });

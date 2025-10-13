@@ -4,6 +4,7 @@ import multer from "multer";
 import path from "path";
 import db from "../db.js";
 import { requireAuth, permitRoles } from "../middleware/authMiddleware.js";
+import { notifyUser } from "../utils/notify.js"; // <-- added
 
 const router = express.Router();
 
@@ -186,6 +187,44 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
       [quoteId, userId]
     );
 
+    // ---- Notify Contractor + Landlord -----------------------------------------
+    try {
+      const [[ctx]] = await db.query(`
+        SELECT q.QuoteID, q.ContractorUserID, t.TicketID, t.TicketRefNumber
+        FROM tblQuotes q
+        JOIN tblTickets t ON t.TicketID = q.TicketID
+        WHERE q.QuoteID = ? LIMIT 1
+      `, [quoteId]);
+
+      if (ctx) {
+        const status = 'Approved';
+        const eventKey = `quote_status:${ctx.QuoteID}:${status}`;
+
+        // Contractor
+        await notifyUser({
+          userId: ctx.ContractorUserID,
+          ticketId: ctx.TicketID,
+          template: 'quote_status',
+          params: { quoteId, ticketRef: ctx.TicketRefNumber, status },
+          eventKey,
+          fallbackToEmail: true
+        });
+
+        // Landlord (the approver)
+        await notifyUser({
+          userId,
+          ticketId: ctx.TicketID,
+          template: 'quote_status',
+          params: { quoteId, ticketRef: ctx.TicketRefNumber, status },
+          eventKey,
+          fallbackToEmail: true
+        });
+      }
+    } catch (e) {
+      console.error('[quotes/approve] notify error:', e);
+    }
+    // ---------------------------------------------------------------------------
+
     res.json({ message: "Quote approved" });
   } catch (err) {
     console.error(err);
@@ -205,6 +244,43 @@ router.post("/:quoteId/reject", requireAuth, permitRoles("Landlord"), async (req
       "INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus) VALUES (?, ?, 'Rejected')",
       [quoteId, userId]
     );
+
+    // ---- Notify Contractor + Landlord ----------------
+    try {
+      const [[ctx]] = await db.query(`
+        SELECT q.QuoteID, q.ContractorUserID, t.TicketID, t.TicketRefNumber
+        FROM tblQuotes q
+        JOIN tblTickets t ON t.TicketID = q.TicketID
+        WHERE q.QuoteID = ? LIMIT 1
+      `, [quoteId]);
+
+      if (ctx) {
+        const status = 'Rejected';
+        const eventKey = `quote_status:${ctx.QuoteID}:${status}`;
+
+        // Contractor
+        await notifyUser({
+          userId: ctx.ContractorUserID,
+          ticketId: ctx.TicketID,
+          template: 'quote_status',
+          params: { quoteId, ticketRef: ctx.TicketRefNumber, status },
+          eventKey,
+          fallbackToEmail: true
+        });
+
+        // Landlord (the rejector here)
+        await notifyUser({
+          userId,
+          ticketId: ctx.TicketID,
+          template: 'quote_status',
+          params: { quoteId, ticketRef: ctx.TicketRefNumber, status },
+          eventKey,
+          fallbackToEmail: true
+        });
+      }
+    } catch (e) {
+      console.error('[quotes/reject] notify error:', e);
+    }
 
     res.json({ message: "Quote rejected" });
   } catch (err) {
