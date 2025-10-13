@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "./context/AuthContext.jsx";
 import { Link } from 'react-router-dom';
 import "./styles/logticket.css";
@@ -10,7 +10,15 @@ function Ticket() {
   const [urgency, setUrgency] = useState("Low");
   const [file, setFile] = useState(null); // file state
   const [message, setMessage] = useState("");
-  const [done, setDone] = useState(false); 
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    document.body.style.setProperty("overflow", "hidden", "important");
+
+    return () => {
+      document.body.style.setProperty("overflow", "auto", "important");
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -97,13 +105,13 @@ function Ticket() {
     <div className="logticket">
       <nav className="navbar">
         <div className="navbar-logo">
-          <img src="https://placehold.co/120x40" alt="logo" />
+          <div className="logo-placeholder">GoodLiving</div>
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li><Link to="/">Dashboard</Link></li>
             <li><Link to="/ticket">Tickets</Link></li>
-            <li><Link to="/reports">Reports</Link></li>
+          {/*  <li><Link to="/reports">Reports</Link></li> */}
             <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>

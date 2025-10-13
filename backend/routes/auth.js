@@ -110,25 +110,25 @@ router.post('/register', authRateLimit, async (req, res) => {
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const hash = await bcrypt.hash(password, rounds);
 
+    // Create user with Inactive status - requires staff approval
     const [result] = await pool.execute(
-      'INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role) VALUES (?, ?, ?, ?, ?)',
-      [fullName, email, hash, phone || null, role]
+      'INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role, Status) VALUES (?, ?, ?, ?, ?, ?)',
+      [fullName, email, hash, phone || null, role, 'Inactive']
     );
 
     const { ip, userAgent } = getClientInfo(req);
-    const session = await issueSession({
-      res,
-      user: { userId: result.insertId, role },
-      userAgent,
-      ip
-    });
-
+    
     try {
       await logAudit({
         actorUserId: result.insertId,
         targetUserId: result.insertId,
         action: 'register',
-        metadata: { sessionId: session.tokenId },
+        metadata: { 
+          role,
+          email,
+          status: 'Inactive',
+          pendingApproval: true 
+        },
         ip,
         userAgent
       });
@@ -136,9 +136,11 @@ router.post('/register', authRateLimit, async (req, res) => {
       console.warn('Audit log failure (register):', e?.message || e);
     }
 
+    // Return success without session cookies - user needs staff approval
     return res.status(201).json({
-      user: { userId: result.insertId, email, fullName, role },
-      message: 'User registered successfully',
+      user: { userId: result.insertId, email, fullName, role, status: 'Inactive' },
+      message: 'Registration successful! Your account is pending approval by staff.',
+      requiresApproval: true
     });
   } catch (err) {
     console.error('Registration error:', err);

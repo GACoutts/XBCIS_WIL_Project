@@ -13,6 +13,7 @@ import ResetPassword from './ResetPassword.jsx';
 import DebugHUD from './components/DebugHUD.jsx';
 import ManageRoles from './components/ManageRoles.jsx';
 import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
+import RoleDashboardRedirect from './components/RoleDashboardRedirect.jsx';
 
 
 // Role management components
@@ -43,13 +44,19 @@ export default function App() {
           }
         />
 
-        {/* Authenticated general area (any logged-in role) */}
+        {/* Home route - redirects to appropriate role-based dashboard */}
         <Route
           path="/"
+          element={<RoleDashboardRedirect />}
+        />
+        
+        {/* Client dashboard route */}
+        <Route
+          path="/client"
           element={
-            <ProtectedRoute>
+            <RoleRoute roles={['Client']}>
               <UserDashboard />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
         
@@ -94,7 +101,7 @@ export default function App() {
         {/* Backward compatibility redirects */}
         <Route path="/dashboard/staff" element={<Navigate to="/staff" replace />} />
         <Route path="/dashboard/landlord" element={<Navigate to="/landlord" replace />} />
-        <Route path="/dashboard/client" element={<Navigate to="/" replace />} />
+        <Route path="/dashboard/client" element={<Navigate to="/client" replace />} />
 
         {/* Role management */}
         <Route path="/request-role" element={<ProtectedRoute><RequestRole /></ProtectedRoute>} />

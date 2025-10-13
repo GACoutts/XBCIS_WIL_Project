@@ -27,8 +27,8 @@ const normSameSite = (v, fallback) => {
   if (s === 'none') return 'None';
   return fallback;
 };
-const COOKIE_SAME_SITE_ACCESS = normSameSite(process.env.COOKIE_SAME_SITE_ACCESS, 'Lax');
-const COOKIE_SAME_SITE_REFRESH = normSameSite(process.env.COOKIE_SAME_SITE_REFRESH, 'Lax');
+const COOKIE_SAME_SITE_ACCESS = normSameSite(process.env.COOKIE_SAME_SITE_ACCESS, 'Strict');
+const COOKIE_SAME_SITE_REFRESH = normSameSite(process.env.COOKIE_SAME_SITE_REFRESH, 'Strict');
 const MAX_SESSIONS_PER_USER = parseInt(process.env.MAX_SESSIONS_PER_USER || '5', 10);
 
 // Role hierarchy (higher index = higher privilege)
