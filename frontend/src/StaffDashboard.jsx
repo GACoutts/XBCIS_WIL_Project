@@ -295,128 +295,84 @@ function StaffDashboard() {
 
       <div className="staffdashboard-title"><h1>Dashboard</h1></div>
 
+      <div className="sub-titles-container">
+        <div className="sub-title"><h2>Awaiting Tickets</h2></div>
+      </div>
+
+      <div className="awaiting-tickets-container">
+        <div className="table-header">
+          <div className="header-content">
+            <div className="header-grid">
+              <div className="header-item">Ticket ID</div>
+              <div className="header-item">Property</div>
+              <div className="header-item">Issue</div>
+              <div className="header-item">Submitted</div>
+              <div className="header-status">Urgency/Status</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ticket filters */}
+        <div className="ticket-filters">
+          <label>
+            Status:
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">All</option>
+              <option value="New">New</option>
+              <option value="In Review">In Review</option>
+              <option value="Awaiting Appointment">Awaiting Appointment</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </label>
+          <label>
+            Submitted After:
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+          </label>
+        </div>
+
+        {filteredTickets.length > 0 ? (
+          filteredTickets.map((ticket, index) => (
+            <div key={ticket.TicketID || index} className="ticket-card">
+              <div className="ticket-layout">
+                <div className="ticket-info-grid">
+                  <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
+                  <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
+                  <div className="info-value issue-cell">
+                    <span>{ticket.Description || ticket.issue}</span>
+                    <img src={gearIcon} alt="Settings" className="gear-icon" />
+                  </div>
+                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+                  <div className="urgency-status-column">
+                    <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
+                      {ticket.UrgencyLevel || ticket.urgency}
+                    </span>
+                    <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
+                      {getDisplayStatus(ticket) || ticket.status}
+                    </span>
+                  </div>
+                  <div className="action-buttons">
+                    <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
+                      Assign Contractor
+                    </button>
+                    <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="empty-state">No tickets available</p>
+        )}
+      </div>
+
       <section className="staff-admin-panel">
         <h2 className="section-title">Role Requests</h2>
         <ReviewRoleRequests />
       </section>
-
-      <div className="sub-titles-container">
-        <div className="sub-title"><h2>Awaiting Tickets</h2></div>
-        <div className="contractor-sub-title"><h2>Contractor Management</h2></div>
-      </div>
-
-      {/* Ticket filters */}
-      <div className="ticket-filters">
-        <label>
-          Status:
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="">All</option>
-            <option value="New">New</option>
-            <option value="Awaiting Appointment">Awaiting Appointment</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Closed">Closed</option>
-          </select>
-        </label>
-        <label>
-          Submitted After:
-          <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-        </label>
-      </div>
-
-      <div className="cards-wrapper">
-        <div className="awaiting-tickets-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="header-grid">
-                <div className="header-item">Ticket ID</div>
-                <div className="header-item">Property</div>
-                <div className="header-item">Issue</div>
-                <div className="header-item">Submitted</div>
-                <div className="header-status">Urgency/Status</div>
-              </div>
-            </div>
-          </div>
-
-          {filteredTickets.length > 0 ? (
-            filteredTickets.map((ticket, index) => (
-              <div key={ticket.TicketID || index} className="ticket-card">
-                <div className="ticket-layout">
-                  <div className="ticket-info-grid">
-                    <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-                    <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
-                    <div className="info-value issue-cell">
-                      <span>{ticket.Description || ticket.issue}</span>
-                      <img src={gearIcon} alt="Settings" className="gear-icon" />
-                    </div>
-                    <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-                    <div className="urgency-status-column">
-                      <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
-                        {ticket.UrgencyLevel || ticket.urgency}
-                      </span>
-                      <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
-                        {getDisplayStatus(ticket) || ticket.status}
-                      </span>
-                    </div>
-                    <div className="action-buttons">
-                      <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                        Assign Contractor
-                      </button>
-                      <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="empty-state">No tickets available</p>
-          )}
-        </div>
-
-        {/* Contractors Table */}
-        <div className="contractor-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="contractor-header-grid">
-                <div className="header-item">Name</div>
-                <div className="header-item">Current Jobs</div>
-                <div className="header-item">Assigned Job</div>
-                <div className="header-status">Status</div>
-              </div>
-            </div>
-          </div>
-
-          {contractorsData.map((contractor, index) => (
-            <div key={index} className="contractor-card">
-              <div className="contractor-layout">
-                <div className="contractor-content">
-                  <div className="contractor-info-grid">
-                    <div className="info-item"><div className="info-value">{contractor.name}</div></div>
-                    <div className="info-item"><div className="info-value">{contractor.currentJobs}</div></div>
-                    <div className="info-item">
-                      <div className="assigned-job-cell">
-                        <span className="info-value">{contractor.assignedJob}</span>
-                        {contractor.hasGearIcon && <img src={gearIcon} alt="Settings" className="gear-icon" />}
-                      </div>
-                    </div>
-                    <div className="info-item">
-                      <div className="contractor-status-column">
-                        <div className={`status-badge ${contractor.status.toLowerCase().replace(/\s+/g, '-')}`}>{contractor.status}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="action-buttons">
-                    <button className="action-btn" onClick={() => console.log("Assign job to contractor", contractor.name)}>Assign Contractor</button>
-                    <button className="action-btn" onClick={() => console.log("View contractor quote", contractor.name)}>View Quote</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Assign Contractor Modal */}
       {showContractorModal && (
@@ -515,6 +471,54 @@ function StaffDashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="sub-titles-container">
+        <div className="sub-title"><h2>Contractor Management</h2></div>
+      </div>
+
+      <div className="contractor-table">
+        {/* Contractors Table */}
+        <div className="contractor-container">
+          <div className="table-header">
+            <div className="header-content">
+              <div className="contractor-header-grid">
+                <div className="header-item">Name</div>
+                <div className="header-item">Current Jobs</div>
+                <div className="header-item">Assigned Job</div>
+                <div className="header-status">Status</div>
+              </div>
+            </div>
+          </div>
+
+          {contractorsData.map((contractor, index) => (
+            <div key={index} className="contractor-card">
+              <div className="contractor-layout">
+                <div className="contractor-content">
+                  <div className="contractor-info-grid">
+                    <div className="info-item"><div className="info-value">{contractor.name}</div></div>
+                    <div className="info-item"><div className="info-value">{contractor.currentJobs}</div></div>
+                    <div className="info-item">
+                      <div className="assigned-job-cell">
+                        <span className="info-value">{contractor.assignedJob}</span>
+                        {contractor.hasGearIcon && <img src={gearIcon} alt="Settings" className="gear-icon" />}
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <div className="contractor-status-column">
+                        <div className={`status-badge ${contractor.status.toLowerCase().replace(/\s+/g, '-')}`}>{contractor.status}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="action-buttons">
+                    <button className="action-btn" onClick={() => console.log("Assign job to contractor", contractor.name)}>Assign Contractor</button>
+                    <button className="action-btn" onClick={() => console.log("View contractor quote", contractor.name)}>View Quote</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="analytics-panel">

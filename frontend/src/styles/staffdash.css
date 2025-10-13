@@ -81,6 +81,7 @@ body {
   display: flex;
   gap: 20px;
   align-items: flex-start;
+  padding-bottom: 40px;
 }
 
 .sub-title{ 
@@ -110,29 +111,30 @@ body {
 
 .awaiting-tickets-container {
     margin: 20px 90px;
+    width: 100%;
     background: white;
     border-radius: 5px;
     overflow-y: auto;
     border: 1px solid #FBD402;
     margin-top: 1px;
-    width: 545px;
+    width: calc(100% - 180px);
     max-height: 250px;
+    box-sizing: border-box;
 }
 
-.contractor-container {
+.contractor-table {
+    margin: 20px 90px;
     background: white;
     border-radius: 5px;
     overflow-y: auto;
     border: 1px solid #FBD402;
-    width: 430px;
+    margin-top: 1px;
+    width:530px;
     max-height: 250px;
-    margin: 0px 20px 20px 0px;
-    display: inline-block;
-    vertical-align: top;
 }
 
 .property-stats-container {
-    margin: 20px 90px;
+    margin: 50px 90px;
     background: white;
     border-radius: 5px;
     overflow-y: auto;
@@ -140,6 +142,7 @@ body {
     margin-top: 20px;
     width: 545px;
     max-height: 200px;
+    padding-bottom: 20px;
 }
 
 .table-header {
@@ -157,7 +160,7 @@ body {
 
 .header-grid {
     display: grid;
-    grid-template-columns: 85px 85px 85px 85px 85px;
+    grid-template-columns: 1fr 2fr 3fr 2fr 2fr 1fr;
     gap: 17px;
 }
 
@@ -228,9 +231,9 @@ body {
 
 .ticket-info-grid {
     display: grid;
-    grid-template-columns: 85px 85px 85px 85px 85px;
-    gap: 15px;
+    grid-template-columns: 1fr 2fr 3fr 2fr 2fr 1fr; /* last 1fr for actions */
     align-items: center;
+    gap: 10px;
 }
 
 .contractor-info-grid {
@@ -409,6 +412,7 @@ body {
 .property-stats-card {
     border-bottom: 1px solid #FBD402;
     padding: 15px;
+    padding-bottom: 10px;
 }
 
 .property-stats-card:last-child {
