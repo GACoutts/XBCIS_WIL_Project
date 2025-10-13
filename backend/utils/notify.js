@@ -1,4 +1,76 @@
 import 'dotenv/config';
+
+/**
+ * Send a WhatsApp template message via the Meta Cloud API.  The
+ * template must already be approved in the WhatsApp Business Manager.
+ *
+ * @param {Object} opts
+ * @param {string} opts.to - E.164 formatted phone number
+ * @param {string} opts.name - Template name registered in Meta
+ * @param {Array} opts.components - Template component array
+ * @param {string} [opts.lang='en'] - Language code
+ */
+async function sendWhatsAppTemplate({ to, name, components, lang = 'en' }) {
+  const url = `https://graph.facebook.com/v20.0/${WA_PHONE_ID}/messages`;
+  const payload = {
+    messaging_product: 'whatsapp',
+    to: to.replace(/[^+\d]/g, ''),
+    type: 'template',
+    template: {
+      name,
+      language: { code: lang },
+      components,
+    },
+  };
+  const res = await axios.post(url, payload, {
+    headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' },
+  });
+  return res.data?.messages?.[0]?.id || null;
+}
+
+// Mapping of notification templates to WhatsApp template definitions.
+// Each entry provides the WhatsApp template name and a function that
+// builds the components array from our params object
+const TEMPLATE_MAP = {
+  ticket_created: {
+    name: 'ticket_created',
+    build: (p) => [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: p.ticketRef || '' },
+          { type: 'text', text: p.clientName || '' },
+          { type: 'text', text: p.urgency || '' },
+          { type: 'text', text: (p.description || '').substring(0, 120) },
+        ],
+      },
+    ],
+  },
+  contractor_assigned: {
+    name: 'contractor_assigned',
+    build: (p) => [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: p.ticketRef || '' },
+        ],
+      },
+    ],
+  },
+  quote_status: {
+    name: 'quote_status_changed',
+    build: (p) => [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: String(p.quoteId || '') },
+          { type: 'text', text: p.ticketRef || '' },
+          { type: 'text', text: p.status || '' },
+        ],
+      },
+    ],
+  },
+};
 import axios from 'axios';
 import nodemailer from 'nodemailer';
 import pool from '../db.js';
@@ -114,11 +186,31 @@ export async function notifyUser({ userId, ticketId=null, template, params={}, e
 
   // Try WhatsApp (only if enabled + opted-in + have number)
   if (WA_ENABLED && user.WhatsAppOptIn && msisdn) {
-    try {
-      providerId = await sendWhatsAppMeta({ to: msisdn, text });
-      sent = true; channel = 'WhatsApp';
-    } catch (e) {
-      errMsg = e?.response?.data?.error?.message || e.message || 'WhatsApp send failed';
+    // Attempt template-based message first if a mapping exists.
+    const tmpl = TEMPLATE_MAP[template];
+    if (tmpl) {
+      try {
+        providerId = await sendWhatsAppTemplate({
+          to: msisdn,
+          name: tmpl.name,
+          components: tmpl.build(params),
+        });
+        sent = true;
+        channel = 'WhatsApp';
+      } catch (e) {
+        // Capture error but allow fallback to free-form if template fails
+        errMsg = e?.response?.data?.error?.message || e.message || 'WhatsApp template send failed';
+      }
+    }
+    // If no template exists or template send failed, fall back to free-form text
+    if (!sent) {
+      try {
+        providerId = await sendWhatsAppMeta({ to: msisdn, text });
+        sent = true;
+        channel = 'WhatsApp';
+      } catch (e) {
+        errMsg = e?.response?.data?.error?.message || e.message || 'WhatsApp send failed';
+      }
     }
   } else {
     errMsg = 'WhatsApp disabled or no opt-in/phone';

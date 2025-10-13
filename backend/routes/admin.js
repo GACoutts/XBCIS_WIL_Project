@@ -1,10 +1,10 @@
-// backend/routes/admin.js - Staff-only user and role management
 import 'dotenv/config';
 import express from 'express';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
 import { adminRateLimit } from '../middleware/rateLimiter.js';
 import { revokeAllUserRefreshTokens, logAudit } from '../utils/tokens.js';
+import { notifyUser } from '../utils/notify.js';
 
 const router = express.Router();
 
@@ -124,7 +124,8 @@ router.post('/contractor-assign', async (req, res) => {
     }
 
     if (!ProposedDate) {
-      ProposedDate = '2099-12-31'; // Placeholder far-future date
+      ProposedDate = '2099-12-31';
+
     }
 
     const connection = await pool.getConnection();
@@ -173,6 +174,30 @@ router.post('/contractor-assign', async (req, res) => {
       });
 
       await connection.commit();
+
+      // -------------------------------------------------------------------------
+      // Notify the newly assigned contractor.  This sends a WhatsApp template
+      // message (with email fallback) using the "contractor_assigned" template.
+      // If the notification fails, we log the error but do not rollback the
+      // assignment.
+      try {
+        // Look up the ticket reference number for the message template
+        const [ticketInfo] = await pool.execute(
+          'SELECT TicketRefNumber FROM tblTickets WHERE TicketID = ? LIMIT 1',
+          [TicketID]
+        );
+        const ticketRef = ticketInfo?.[0]?.TicketRefNumber || null;
+        await notifyUser({
+          userId: ContractorUserID,
+          ticketId: TicketID,
+          template: 'contractor_assigned',
+          params: { ticketRef },
+          eventKey: `contractor_assigned:${TicketID}:${ContractorUserID}`,
+          fallbackToEmail: true,
+        });
+      } catch (notifyErr) {
+        console.error('[admin/contractor-assign] notify error:', notifyErr);
+      }
       return res.json({
         message: existingRows.length > 0
           ? 'Contractor reassigned successfully and ticket moved to In Review'

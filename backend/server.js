@@ -1,4 +1,4 @@
-import "dotenv/config"; // keep at top
+import "dotenv/config"; 
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -8,6 +8,31 @@ import { fileURLToPath } from "url";
 import pool, { dbHealth } from "./db.js";
 import { dbViewerRoutes } from "./db-viewer.js";
 import { cleanupExpiredJtis } from './utils/tokens.js';
+import fs from "fs";
+// Import WhatsApp webhook route
+import whatsappWebhook from './routes/whatsappWebhook.js';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+const envSuffix = process.env.NODE_ENV && process.env.NODE_ENV !== 'development'
+  ? `.env.${process.env.NODE_ENV}`
+  : null;
+
+if (envSuffix) {
+  const candidates = [
+    path.resolve(process.cwd(), envSuffix),
+    path.resolve(__dirname, envSuffix),       
+    path.resolve(__dirname, '..', envSuffix),
+  ];
+  const envPath = candidates.find(p => fs.existsSync(p));
+  if (envPath) {
+    dotenv.config({ path: envPath, override: true });
+    console.log(`[env] loaded ${envPath}`);
+  }
+}
+
 
 // Routes
 import ticketsRoutes from "./routes/tickets.js";
@@ -44,15 +69,17 @@ app.use(cors({
 })
 );
 
+app.use('/api/webhooks/whatsapp', express.raw({ type: '*/*' }), (req, res, next) => {
+  // save raw body for signature verification
+  req.rawBody = req.body;
+  next();
+}, whatsappWebhook);
+
 app.use(express.json());
 app.use(cookieParser());
 
 // Apply general rate limiting to all requests
 app.use('/api', generalRateLimit);
-
-// Serve uploads
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Serve quote PDFs with proper content type
 app.use('/uploads/quotes', express.static(path.resolve(__dirname, 'uploads/quotes'), {
@@ -108,7 +135,7 @@ app.get("/", (_req, res) => {
     <h1>🏢 Rawson Backend API</h1>
     <p>Building Management System Backend</p>
     <h2>Available Endpoints:</h2>
-    <h3>🔐 Authentication (New Dual-Token System)</h3>
+    <h3> Authentication (New Dual-Token System)</h3>
     <ul>
       <li>POST /api/auth/login</li>
       <li>POST /api/auth/register</li>
@@ -120,11 +147,11 @@ app.get("/", (_req, res) => {
       <li>DELETE /api/auth/sessions/:id</li>
       <li>DELETE /api/auth/sessions</li>
     </ul>
-    <h3>🎪 Demo & Testing</h3>
+    <h3> Demo & Testing</h3>
     <ul>
-      <li><a href="/demo" target="_blank">🔐 Session Management Demo</a></li>
+      <li><a href="/demo" target="_blank"> Session Management Demo</a></li>
     </ul>
-    <h3>🏠 Landlord API</h3>
+    <h3> Landlord API</h3>
     <ul>
       <li>GET /api/landlord/tickets - Get comprehensive ticket history with quotes and appointments</li>
       <li>GET /api/landlord/tickets/:ticketId/history</li>
@@ -133,12 +160,12 @@ app.get("/", (_req, res) => {
       <li>POST /api/landlord/quotes/:quoteId/approve</li>
       <li>POST /api/landlord/quotes/:quoteId/reject</li>
     </ul>
-    <h3>📋 System</h3>
+    <h3> System</h3>
     <ul>
       <li>GET /api/health</li>
       <li>GET /db-viewer</li>
     </ul>
-    <h3>⚠️ Legacy Auth (Deprecated)</h3>
+    <h3> Legacy Auth (Deprecated)</h3>
     <ul>
       <li>POST /api/login</li>
       <li>POST /api/register</li>
