@@ -1,15 +1,17 @@
-// backend/routes/admin.js - Staff-only user and role management
 import 'dotenv/config';
 import express from 'express';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
+import { adminRateLimit } from '../middleware/rateLimiter.js';
 import { revokeAllUserRefreshTokens, logAudit } from '../utils/tokens.js';
+import { notifyUser } from '../utils/notify.js';
 
 const router = express.Router();
 
-// All routes require Staff role
+// All routes require Staff role and admin rate limiting
 router.use(requireAuth);
 router.use(permitRoles('Staff'));
+router.use(adminRateLimit);
 
 // Extract client info from request
 function getClientInfo(req) {
@@ -47,7 +49,7 @@ router.get('/users', async (req, res) => {
       params.push(role);
     }
 
-    const validStatuses = ['Active', 'Inactive', 'Suspended'];
+    const validStatuses = ['Active', 'Inactive', 'Suspended', 'Rejected'];
     if (status && validStatuses.includes(status)) {
       where.push('Status = ?');
       params.push(status);
@@ -113,30 +115,50 @@ router.get('/contractors/active', async (_req, res) => {
   }
 });
 
-// POST /contractor-assign - Assign a contractor to a ticket (no date yet)
+// POST /contractor-assign - Assign or reassign a contractor to a ticket
 router.post('/contractor-assign', async (req, res) => {
   try {
-    const { TicketID, ContractorUserID } = req.body;
+    let { TicketID, ContractorUserID, ProposedDate } = req.body;
     if (!TicketID || !ContractorUserID) {
       return res.status(400).json({ message: 'TicketID and ContractorUserID are required' });
+    }
+
+    if (!ProposedDate) {
+      ProposedDate = '2099-12-31';
     }
 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      // Insert contractor assignment (no date/time yet)
-      await connection.execute(
-        `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID)
-         VALUES (?, ?)`,
-        [TicketID, ContractorUserID]
+      // Check if ticket already has an assigned contractor
+      const [existingRows] = await connection.execute(
+        `SELECT * FROM tblContractorSchedules WHERE TicketID = ?`,
+        [TicketID]
       );
+
+      if (existingRows.length > 0) {
+        // Reassign contractor
+        await connection.execute(
+          `UPDATE tblContractorSchedules
+             SET ContractorUserID = ?, ProposedDate = ?
+           WHERE TicketID = ?`,
+          [ContractorUserID, ProposedDate, TicketID]
+        );
+      } else {
+        // Insert new assignment
+        await connection.execute(
+          `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate)
+           VALUES (?, ?, ?)`,
+          [TicketID, ContractorUserID, ProposedDate]
+        );
+      }
 
       // Update ticket status to "In Review"
       await connection.execute(
         `UPDATE tblTickets
-            SET Status = 'In Review'
-          WHERE TicketID = ?`,
+           SET CurrentStatus = 'In Review'
+         WHERE TicketID = ?`,
         [TicketID]
       );
 
@@ -144,14 +166,42 @@ router.post('/contractor-assign', async (req, res) => {
       await logAudit({
         actorUserId: req.user.userId,
         targetUserId: ContractorUserID,
-        action: 'contractor-assigned',
+        action: existingRows.length > 0 ? 'contractor-reassigned' : 'contractor-assigned',
         metadata: { ticketId: TicketID },
         ...getClientInfo(req),
         connection
       });
 
       await connection.commit();
-      return res.json({ message: 'Contractor assigned successfully and ticket moved to In Review' });
+
+      // -------------------------------------------------------------------------
+      // Notify the newly assigned contractor.  This sends a WhatsApp template
+      // message (with email fallback) using the "contractor_assigned" template.
+      // If the notification fails, we log the error but do not rollback the
+      // assignment.
+      try {
+        // Look up the ticket reference number for the message template
+        const [ticketInfo] = await pool.execute(
+          'SELECT TicketRefNumber FROM tblTickets WHERE TicketID = ? LIMIT 1',
+          [TicketID]
+        );
+        const ticketRef = ticketInfo?.[0]?.TicketRefNumber || null;
+        await notifyUser({
+          userId: ContractorUserID,
+          ticketId: TicketID,
+          template: 'contractor_assigned',
+          params: { ticketRef },
+          eventKey: `contractor_assigned:${TicketID}:${ContractorUserID}`,
+          fallbackToEmail: true,
+        });
+      } catch (notifyErr) {
+        console.error('[admin/contractor-assign] notify error:', notifyErr);
+      }
+      return res.json({
+        message: existingRows.length > 0
+          ? 'Contractor reassigned successfully and ticket moved to In Review'
+          : 'Contractor assigned successfully and ticket moved to In Review'
+      });
     } catch (err) {
       await connection.rollback();
       throw err;
@@ -251,14 +301,14 @@ router.put('/users/:id/status', async (req, res) => {
       return res.status(400).json({ message: 'Status is required' });
     }
 
-    const validStatuses = ['Active', 'Inactive', 'Suspended'];
+    const validStatuses = ['Active', 'Inactive', 'Suspended', 'Rejected'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         message: 'Invalid status. Must be one of: ' + validStatuses.join(', '),
       });
     }
 
-    // Current user info
+    // Get current user info
     const [rows] = await pool.execute(
       'SELECT UserID, FullName, Email, Role, Status FROM tblusers WHERE UserID = ? LIMIT 1',
       [id]
@@ -268,7 +318,7 @@ router.put('/users/:id/status', async (req, res) => {
     const targetUser = rows[0];
     const oldStatus = targetUser.Status;
 
-    // Prevent self-suspension/deactivation
+    // Prevent self-deactivation
     if (req.user.userId === parseInt(id, 10) && status !== 'Active') {
       return res.status(403).json({ message: 'Cannot deactivate or suspend yourself' });
     }
@@ -277,66 +327,65 @@ router.put('/users/:id/status', async (req, res) => {
     if (oldStatus === status) {
       return res.json({
         message: 'User status unchanged',
-        user: { userId: targetUser.UserID, status: targetUser.Status },
+        user: { userId: targetUser.UserID, status: oldStatus },
       });
     }
 
+    // Minimal transaction: only update status
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-
-      // Update user status
       await connection.execute(
         'UPDATE tblusers SET Status = ? WHERE UserID = ?',
         [status, id]
       );
-
-      // Revoke sessions if disabling account
-      if (status === 'Inactive' || status === 'Suspended') {
-        await revokeAllUserRefreshTokens({
-          userId: parseInt(id, 10),
-          reason: `status-change-${status.toLowerCase()}`,
-        });
-      }
-
-      // Audit
-      await logAudit({
-        actorUserId: req.user.userId,
-        targetUserId: parseInt(id, 10),
-        action: 'status-change',
-        metadata: {
-          fromStatus: oldStatus,
-          toStatus: status,
-          targetUserEmail: targetUser.Email,
-          targetUserName: targetUser.FullName,
-        },
-        ip,
-        userAgent,
-      });
-
       await connection.commit();
-
-      return res.json({
-        message: `User status changed from ${oldStatus} to ${status}`,
-        user: {
-          userId: targetUser.UserID,
-          fullName: targetUser.FullName,
-          email: targetUser.Email,
-          role: targetUser.Role,
-          status,
-        },
-      });
-    } catch (error) {
+    } catch (err) {
       await connection.rollback();
-      throw error;
+      throw err;
     } finally {
       connection.release();
     }
+
+    // Revoke sessions (outside transaction)
+    if (status === 'Inactive' || status === 'Suspended') {
+      await revokeAllUserRefreshTokens({
+        userId: parseInt(id, 10),
+        reason: `status-change-${status.toLowerCase()}`,
+      });
+    }
+
+    // Audit log (outside transaction)
+    await logAudit({
+      actorUserId: req.user.userId,
+      targetUserId: parseInt(id, 10),
+      action: 'status-change',
+      metadata: {
+        fromStatus: oldStatus,
+        toStatus: status,
+        targetUserEmail: targetUser.Email,
+        targetUserName: targetUser.FullName,
+      },
+      ip,
+      userAgent,
+    });
+
+    return res.json({
+      message: `User status changed from ${oldStatus} to ${status}`,
+      user: {
+        userId: targetUser.UserID,
+        fullName: targetUser.FullName,
+        email: targetUser.Email,
+        role: targetUser.Role,
+        status,
+      },
+    });
   } catch (err) {
     console.error('Change user status error:', err);
     return res.status(500).json({ message: 'Server error changing user status' });
   }
 });
+
 
 // GET /audit-logs - Get system audit logs (with filtering)
 router.get('/audit-logs', async (req, res) => {
