@@ -1,4 +1,8 @@
-// Webhook for WhatsApp Cloud API callbacks\
+// Webhook for WhatsApp Cloud API callbacks
+// This route handles verification challenges and inbound message events
+// from the Meta WhatsApp platform.  It verifies the X‑Hub signature to
+// ensure authenticity and logs inbound messages for later processing.
+
 import express from 'express';
 import crypto from 'crypto';
 
@@ -24,7 +28,11 @@ function verifySignature(req) {
   hmac.update(req.rawBody || Buffer.from(''));
   const expected = hmac.digest('hex');
   try {
-    return crypto.timingSafeEqual(Buffer.from(sig.slice(7)), Buffer.from(expected));
+    // Compare raw bytes of the HMAC (hex to bytes) instead of ASCII hex strings
+    return crypto.timingSafeEqual(
+      Buffer.from(sig.slice(7), 'hex'),
+      Buffer.from(expected, 'hex')
+    );
   } catch {
     return false;
   }
