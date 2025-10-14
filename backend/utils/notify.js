@@ -1,4 +1,3 @@
-import 'dotenv/config';
 
 /**
  * Send a WhatsApp template message via the Meta Cloud API.  The
@@ -46,6 +45,48 @@ const TEMPLATE_MAP = {
       },
     ],
   },
+  // Notifies participants that an appointment has been scheduled
+  appointment_scheduled: {
+    name: 'appointment_scheduled',
+    build: (p) => [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: p.ticketRef || '' },
+          { type: 'text', text: p.date || '' },
+          { type: 'text', text: p.time || '' },
+        ],
+      },
+    ],
+  },
+  // Notifies participants that a job has been completed
+  job_completed: {
+    name: 'job_completed',
+    build: (p) => [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: p.ticketRef || '' },
+          { type: 'text', text: p.contractorName || '' },
+        ],
+      },
+    ],
+  },
+
+  // Notifies clients that a contractor has proposed an appointment time (awaiting confirmation)
+  appointment_proposed: {
+    name: 'appointment_proposed',
+    build: (p) => [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: p.ticketRef || '' },
+          { type: 'text', text: p.date || '' },
+          { type: 'text', text: p.time || '' },
+        ],
+      },
+    ],
+  },
   contractor_assigned: {
     name: 'contractor_assigned',
     build: (p) => [
@@ -71,23 +112,25 @@ const TEMPLATE_MAP = {
     ],
   },
 };
+/* alias so callers can use either key */
+TEMPLATE_MAP.quote_status_changed = TEMPLATE_MAP.quote_status;
 import axios from 'axios';
 import nodemailer from 'nodemailer';
 import pool from '../db.js';
 
-const bool = (v, d=false)=>['1','true','yes','on'].includes(String(v||'').toLowerCase());
+const bool = (v, d = false) => ['1', 'true', 'yes', 'on'].includes(String(v || '').toLowerCase());
 const WA_ENABLED = bool(process.env.WHATSAPP_ENABLE, false);
-const WA_PROVIDER= (process.env.WHATSAPP_PROVIDER || 'meta').toLowerCase();
-const WA_PHONE_ID= process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-const WA_TOKEN   = process.env.WHATSAPP_TOKEN || '';
-const WA_CC      = process.env.WHATSAPP_DEFAULT_COUNTRY || '+27';
-const BRAND      = process.env.WHATSAPP_FROM_DISPLAY || 'Rawson';
+const WA_PROVIDER = (process.env.WHATSAPP_PROVIDER || 'meta').toLowerCase();
+const WA_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+const WA_TOKEN = process.env.WHATSAPP_TOKEN || '';
+const WA_CC = process.env.WHATSAPP_DEFAULT_COUNTRY || '+27';
+const BRAND = process.env.WHATSAPP_FROM_DISPLAY || 'Rawson';
 
-const SMTP_HOST  = process.env.SMTP_HOST || '';
-const SMTP_PORT  = parseInt(process.env.SMTP_PORT || '587',10);
-const SMTP_USER  = process.env.SMTP_USER || '';
-const SMTP_PASS  = process.env.SMTP_PASS || '';
-const SMTP_FROM  = process.env.SMTP_FROM || '"Rawson" <no-reply@example.com>';
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || '"Rawson" <no-reply@example.com>';
 
 const MAX_ATTEMPTS = parseInt(process.env.NOTIFY_MAX_ATTEMPTS || '5', 10);
 
@@ -103,12 +146,12 @@ if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
 
 function normalizeMsisdn(phone) {
   if (!phone) return null;
-  const cleaned = String(phone).replace(/[^\d+]/g,'');
+  const cleaned = String(phone).replace(/[^\d+]/g, '');
   if (cleaned.startsWith('+')) return cleaned;
   return WA_CC + cleaned.replace(/^0+/, '');
 }
 
-function renderTemplate(key, params={}) {
+function renderTemplate(key, params = {}) {
   switch (key) {
     case 'ticket_created':
       return `New ticket ${params.ticketRef} from ${params.clientName}. Urgency: ${params.urgency}\n${params.description || ''}`.trim();
@@ -116,8 +159,19 @@ function renderTemplate(key, params={}) {
       return `You have been assigned to ticket ${params.ticketRef}. Please review and follow up.`;
     case 'quote_status':
       return `Quote #${params.quoteId} for ticket ${params.ticketRef} is ${params.status}.`;
+    case 'quote_status_changed':
+      return `Quote #${params.quoteId} for ticket ${params.ticketRef} is ${params.status}.`;
     case 'message_new':
       return `${params.senderName}: ${params.preview}`;
+    case 'appointment_scheduled':
+      // Fallback text for appointment scheduling
+      return `Appointment scheduled for ticket ${params.ticketRef || ''} on ${params.date || ''} at ${params.time || ''}.`;
+    case 'job_completed':
+      // Fallback text for job completion
+      return `Job for ticket ${params.ticketRef || ''} has been completed by ${params.contractorName || 'the contractor'}.`;
+    case 'appointment_proposed':
+      // Fallback text when a contractor proposes a tentative appointment
+      return `Proposed appointment for ticket ${params.ticketRef || ''} on ${params.date || ''} at ${params.time || ''}.`;
     default:
       return params.text || 'Notification';
   }
@@ -134,7 +188,7 @@ async function sendWhatsAppMeta({ to, text }) {
       type: 'text',
       text: { preview_url: false, body: text },
     },
-    { headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type':'application/json' } }
+    { headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' } }
   );
   return res.data?.messages?.[0]?.id || null;
 }
@@ -149,13 +203,14 @@ async function sendEmail({ to, subject, text }) {
  * Notify a single user (WhatsApp first, fallback to email) with dedupe by eventKey.
  * Returns { notificationId, sent, channel, error }
  */
-export async function notifyUser({ userId, ticketId=null, template, params={}, eventKey, fallbackToEmail=true }) {
+export async function notifyUser({ userId, ticketId = null, template, params = {}, eventKey, fallbackToEmail = true }) {
   // Dedupe check
   if (eventKey) {
     const [rows] = await pool.query(
       `SELECT MarkAsSent FROM tblNotifications
        WHERE UserID=? AND NotificationType IN ('WhatsApp','Email') AND EventKey=?
-       ORDER BY SentAt DESC LIMIT 1`,
+       ORDER BY COALESCE(SentAt, LastAttemptAt, CreatedAt) DESC
+        LIMIT 1`,
       [userId, eventKey]
     );
     if (rows.length && rows[0].MarkAsSent === 1) {
@@ -229,26 +284,40 @@ export async function notifyUser({ userId, ticketId=null, template, params={}, e
 
   await pool.query(
     `UPDATE tblNotifications
-     SET Status=?, MarkAsSent=?, ProviderMessageID=?, ErrorMessage=?, AttemptCount=AttemptCount+1, LastAttemptAt=NOW()
+     SET Status=?,
+         MarkAsSent=?,
+         ProviderMessageID=?,
+         ErrorMessage=?,
+         AttemptCount=AttemptCount+1,
+         LastAttemptAt=NOW(),
+         SentAt = CASE WHEN ? = 1 THEN NOW() ELSE SentAt END
      WHERE NotificationID=?`,
-    [sent ? 'Sent' : 'Failed', sent ? 1 : 0, providerId, sent ? null : errMsg, notificationId]
+    [
+      sent ? 'Sent' : 'Failed',
+      sent ? 1 : 0,
+      providerId,
+      sent ? null : errMsg,
+      sent ? 1 : 0,
+      notificationId
+    ]
   );
+
 
   return { notificationId, sent, channel, error: errMsg };
 }
 
 /** Retry helper: pick failed rows and try email fallback */
-export async function retryFailedNotifications(limit=50) {
+export async function retryFailedNotifications(limit = 50) {
   const [rows] = await pool.query(
     `SELECT NotificationID, UserID, NotificationContent, AttemptCount
      FROM tblNotifications
      WHERE MarkAsSent=0 AND AttemptCount < ?
-     ORDER BY SentAt DESC
+     ORDER BY COALESCE(SentAt, LastAttemptAt, CreatedAt) DESC
      LIMIT ?`,
     [MAX_ATTEMPTS, limit]
   );
 
-  let ok=0, fail=0;
+  let ok = 0, fail = 0;
   for (const n of rows) {
     try {
       const [[u]] = await pool.query(`SELECT Email FROM tblusers WHERE UserID=?`, [n.UserID]);
@@ -259,7 +328,7 @@ export async function retryFailedNotifications(limit=50) {
         [id || null, n.NotificationID]
       );
       ok++;
-    } catch(e) {
+    } catch (e) {
       fail++;
       await pool.query(
         `UPDATE tblNotifications SET ErrorMessage=?, AttemptCount=AttemptCount+1, LastAttemptAt=NOW() WHERE NotificationID=?`,

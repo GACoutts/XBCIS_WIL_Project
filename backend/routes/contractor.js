@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
+import { notifyUser } from '../utils/notify.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -362,6 +363,31 @@ router.post('/jobs/:id/schedule', async (req, res) => {
       `, [ticketId, contractorId]);
 
       await connection.commit();
+
+      // After committing the proposal, notify the client of the proposed appointment
+      try {
+        // Fetch the ticket reference and client ID for notifications
+        const [[ticket]] = await pool.query(
+          'SELECT TicketRefNumber, ClientUserID FROM tblTickets WHERE TicketID = ? LIMIT 1',
+          [ticketId]
+        );
+        if (ticket) {
+          // Extract date and time strings (keep date/time separate for template)
+          const dateStr = startTime.toISOString().split('T')[0];
+          const timeStr = startTime.toISOString().split('T')[1]?.substring(0, 5) || '';
+          const params = { ticketRef: ticket.TicketRefNumber, date: dateStr, time: timeStr };
+          await notifyUser({
+            userId: ticket.ClientUserID,
+            ticketId: ticketId,
+            template: 'appointment_proposed',
+            params,
+            eventKey: `appointment_proposed:${ticketId}:${scheduleId}`,
+            fallbackToEmail: true
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[contractor/schedule] notification error:', notifyErr);
+      }
 
       res.json({
         success: true,
