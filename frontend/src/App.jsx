@@ -8,6 +8,7 @@ import UserDashboard from './UserDashboard.jsx';
 import StaffDashboard from './StaffDashboard.jsx';
 import LandlordDashboard from './LandlordDashboard.jsx';
 import ContractorDashboard from './ContractorDashboard.jsx';
+import Notifications from './Notifications.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
 import ResetPassword from './ResetPassword.jsx';
 import DebugHUD from './components/DebugHUD.jsx';
@@ -95,6 +96,16 @@ export default function App() {
             <RoleRoute roles={['Contractor']}>
               <ContractorDashboard />
             </RoleRoute>
+          }
+        />
+
+        {/* Notifications center - accessible to any logged-in user */}
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
           }
         />
 

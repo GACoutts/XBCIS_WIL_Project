@@ -42,6 +42,7 @@ import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import roleRequestRoutes from './routes/roleRequests.js';
 import landlordRoutes from './routes/landlord.js';
+import notificationsRoutes from './routes/notifications.js';
 
 // Middleware
 import { generalRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
@@ -113,6 +114,9 @@ app.use('/api/roles', roleRequestRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/landlord', landlordRoutes);
+
+// Notifications API
+app.use('/api/notifications', notificationsRoutes);
 
 // DB viewer
 dbViewerRoutes(app);

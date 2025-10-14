@@ -30,10 +30,23 @@ function LandlordQuoteView() {
   ]);
 
   const handleAction = (quoteId, action) => {
-    setQuotes(prev =>
-      prev.map(q => q.QuoteID !== quoteId ? q : { ...q, QuoteStatus: action === "approve" ? "Approved" : "Rejected" })
-    );
+    // When approving a quote, mark it as approved and leave others unchanged. When rejecting, mark as rejected.
+    setQuotes(prev => {
+      // Find the ticket ID of the quote being acted on
+      const target = prev.find(q => q.QuoteID === quoteId);
+      if (!target) return prev;
+      const ticketId = target.TicketID;
+      return prev.map(q => {
+        if (q.QuoteID !== quoteId) return q;
+        // Update the status based on action
+        return { ...q, QuoteStatus: action === 'approve' ? 'Approved' : 'Rejected' };
+      });
+    });
   };
+
+  // Compute which tickets already have an approved quote. Used to disable approval on others.
+  const approvedTickets = new Set(quotes.filter(q => q.QuoteStatus === 'Approved').map(q => q.TicketID));
+
 
   return (
     <div style={{ padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
@@ -97,14 +110,14 @@ function LandlordQuoteView() {
             <div style={{ display: "flex", gap: "10px" }}>
               <button
                 className="btn btn-approve"
-                disabled={q.QuoteStatus !== "Pending"}
+                disabled={q.QuoteStatus !== "Pending" || approvedTickets.has(q.TicketID)}
                 onClick={() => handleAction(q.QuoteID, "approve")}
               >
                 Approve
               </button>
               <button
                 className="btn btn-reject"
-                disabled={q.QuoteStatus !== "Pending"}
+                disabled={q.QuoteStatus !== "Pending" || approvedTickets.has(q.TicketID)}
                 onClick={() => handleAction(q.QuoteID, "reject")}
               >
                 Reject
