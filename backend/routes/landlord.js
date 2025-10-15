@@ -226,9 +226,8 @@ router.get('/quotes/:ticketId', requireAuth, permitRoles('Landlord'), async (req
         q.TicketID,
         q.ContractorUserID,
         q.QuoteAmount,
-        q.QuoteStatus,
-        q.SubmittedAt,
-        q.FilePath
+        q.QuoteStatus AS QuoteStatus,
+        q.SubmittedAt
       FROM tblQuotes q
       WHERE q.TicketID = ?
       ORDER BY q.SubmittedAt DESC;
@@ -349,21 +348,47 @@ router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), as
       ['Approved', quoteId]
     );
 
-    // Insert-or-update landlord approval
+    // Optional: reject all other quotes for the same ticket
+    await connection.execute(
+      `UPDATE tblquotes
+          SET QuoteStatus = 'Rejected'
+        WHERE TicketID = ?
+          AND QuoteID <> ?`,
+      [ticketId, quoteId]
+    );
+
+    // Advance the ticket to Approved
+    await connection.execute(
+      `UPDATE tbltickets
+          SET CurrentStatus = 'Approved'
+        WHERE TicketID = ?`,
+      [ticketId]
+    );
+
+
+    // Insert-or-update landlord approval 
     try {
+      // Try INSERT first
       await connection.execute(
         `INSERT INTO tbllandlordapprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
-         VALUES (?, ?, 'Approved', NOW())`,
+     VALUES (?, ?, 'Approved', NOW())`,
         [quoteId, landlordId]
       );
-    } catch {
-      await connection.execute(
-        `UPDATE tbllandlordapprovals
-           SET ApprovalStatus = 'Approved', ApprovedAt = NOW()
-         WHERE QuoteID = ? AND LandlordUserID = ?`,
-        [quoteId, landlordId]
-      );
+    } catch (e1) {
+      try {
+        // If already exists or insert failed, try UPDATE
+        await connection.execute(
+          `UPDATE tbllandlordapprovals
+         SET ApprovalStatus = 'Approved', ApprovedAt = NOW()
+       WHERE QuoteID = ? AND LandlordUserID = ?`,
+          [quoteId, landlordId]
+        );
+      } catch (e2) {
+        // Table/columns might not exist yet — don't fail the whole transaction
+        console.warn('Skipping landlord approvals write:', e2?.message || e2);
+      }
     }
+
 
     // Best-effort: append ticket history
     try {

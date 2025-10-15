@@ -41,7 +41,13 @@ function LandlordDashboard() {
     async function loadTickets() {
       try {
         const data = await getTickets();
-        setTickets(Array.isArray(data.tickets) ? data.tickets : []);
+        // landlord API returns { success, data: { tickets, pagination } }
+        const list = Array.isArray(data?.tickets)
+          ? data.tickets
+          : Array.isArray(data?.data?.tickets)
+            ? data.data.tickets
+            : [];
+        setTickets(list);
       } catch (err) {
         console.error("Error fetching tickets:", err);
         setTickets([]); // Ensure tickets is always an array
@@ -86,12 +92,15 @@ function LandlordDashboard() {
     }
   }
 
-  // Filter tickets for chart
+  // Filter tickets for chart.  Use the createdAt timestamp returned from the
+  // landlord API instead of the non-existent SubmittedAt property.  Only
+  // include tickets created within the selected month range.
   const filteredTickets = useMemo(() => {
     const now = new Date();
     return tickets.filter((t) => {
-      if (!t.SubmittedAt) return false;
-      const d = new Date(t.SubmittedAt);
+      const created = t.createdAt || t.CreatedAt || t.SubmittedAt;
+      if (!created) return false;
+      const d = new Date(created);
       if (isNaN(d)) return false;
       const monthsDiff =
         (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
@@ -103,7 +112,8 @@ function LandlordDashboard() {
   const chartData = useMemo(() => {
     const map = new Map();
     filteredTickets.forEach((t) => {
-      const d = new Date(t.SubmittedAt);
+      const created = t.createdAt || t.CreatedAt || t.SubmittedAt;
+      const d = new Date(created);
       if (isNaN(d)) return;
       const label = d.toLocaleString("default", { month: "long" });
       const quoteSum = quotes[t.TicketID]
@@ -116,7 +126,8 @@ function LandlordDashboard() {
       new Set(
         filteredTickets
           .map((t) => {
-            const d = new Date(t.SubmittedAt);
+            const created = t.createdAt || t.CreatedAt || t.SubmittedAt;
+            const d = new Date(created);
             if (isNaN(d)) return null;
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
           })

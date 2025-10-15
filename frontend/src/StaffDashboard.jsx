@@ -109,24 +109,59 @@ function StaffDashboard() {
   };
 
   const getStatusColor = (status) => {
+    // Map various ticket states to CSS classes.  If you add new statuses
+    // on the backend, update this mapping accordingly.  Unrecognised
+    // statuses fall back to no additional styling.
     switch (status) {
-      case 'Awaiting Appointment': return 'status-awaiting';
-      case 'Approved': return 'status-approved';
-      case 'Rejected': return 'status-rejected';
-      case 'Closed': return 'status-closed';
-      default: return '';
+      case 'New':
+      case 'In Review':
+      case 'Quoting':
+      case 'Awaiting Landlord Approval':
+      case 'Awaiting Approval':
+      case 'Awaiting Appointment':
+      case 'Scheduled':
+        return 'status-awaiting';
+      case 'Approved':
+        return 'status-approved';
+      case 'Rejected':
+        return 'status-rejected';
+      case 'Completed':
+      case 'Closed':
+        return 'status-closed';
+      default:
+        return '';
     }
   };
 
   const getDisplayStatus = (ticket) => {
-    if (!ticket.CurrentStatus) return "";
-    if (ticket.CurrentStatus === "New" && ticket.CreatedAt) {
+    const status = ticket.CurrentStatus;
+    if (!status) return "";
+    // Show "New" only for the first 31 days
+    if (status === 'New' && ticket.CreatedAt) {
       const createdDate = new Date(ticket.CreatedAt);
       const now = new Date();
       const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-      return diffDays <= 31 ? "New" : "";
+      if (diffDays > 31) return '';
+      return 'New';
     }
-    return ticket.CurrentStatus;
+    switch (status) {
+      case 'In Review':
+        return 'In Review';
+      case 'Quoting':
+        return 'Quoting';
+      case 'Awaiting Landlord Approval':
+        return 'Awaiting Approval';
+      case 'Awaiting Appointment':
+        return 'Awaiting Appointment';
+      case 'Approved':
+        return 'Approved';
+      case 'Scheduled':
+        return 'Scheduled';
+      case 'Completed':
+        return 'Closed';
+      default:
+        return status;
+    }
   };
 
   const totalOpenTickets = allTickets.filter(t => getDisplayStatus(t) !== "Closed").length;
@@ -168,11 +203,15 @@ function StaffDashboard() {
         method: "POST",
         credentials: "include",
       });
+      const data = await res.json();
       if (res.ok) {
-        setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: "Closed" } : t));
+        // Backend sets CurrentStatus to 'Completed'; update local list accordingly
+        setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: 'Completed' } : t));
         alert("Ticket closed!");
         setShowTicketModal(false);
-      } else throw new Error("Failed to close ticket");
+      } else {
+        throw new Error(data?.message || "Failed to close ticket");
+      }
     } catch (err) {
       console.error(err);
     }
@@ -320,9 +359,12 @@ function StaffDashboard() {
               <option value="">All</option>
               <option value="New">New</option>
               <option value="In Review">In Review</option>
+              <option value="Quoting">Quoting</option>
               <option value="Awaiting Appointment">Awaiting Appointment</option>
+              <option value="Awaiting Approval">Awaiting Approval</option>
               <option value="Approved">Approved</option>
               <option value="Rejected">Rejected</option>
+              <option value="Scheduled">Scheduled</option>
               <option value="Closed">Closed</option>
             </select>
           </label>

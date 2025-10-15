@@ -1,52 +1,201 @@
 import { useState, useEffect } from 'react';
-import gearIcon from './assets/settings.png';
 import { useAuth } from "./context/AuthContext.jsx";
 import './styles/ContractorDashboard.css';
+import {
+  getJobs,
+  postJobSchedule,
+  formatJobStatus,
+  formatUrgency
+} from './api/contractorApi.js';
 
+/**
+ * Contractor dashboard to manage assigned jobs.  Jobs are fetched from the
+ * backend using the contractor API.  Contractors can view their assigned
+ * tickets, filter by status or date, propose appointment times and mark
+ * tickets as completed.  Completed jobs are shown in a separate tab.
+ */
 function CDashboard() {
-  const [activeTab, setActiveTab] = useState('assigned');
   const { logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('assigned');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDate, setFilterDate] = useState('');
-  const [modalTicket, setModalTicket] = useState(null);
-  const [assignedJobs, setAssignedJobs] = useState([
-    { id: 1, ticketId: "#0234493", property: "23 Apple Road", issue: "Leaky Tap", submitted: "2023-03-04", urgency: "High", status: "Awaiting Appointment", actions: ["Book Appointment", "Upload Quote"], contractorResponse: "Waiting on parts", landlordApproval: "Pending" },
-    { id: 2, ticketId: "#0234494", property: "45 Banana Street", issue: "Broken Window", submitted: "2023-03-05", urgency: "Medium", status: "Pending Approval", actions: ["Completion Proof", "Book Appointment"], contractorResponse: "Replaced glass", landlordApproval: "Approved" },
-    { id: 3, ticketId: "#0234495", property: "67 Cherry Lane", issue: "Faulty Wiring", submitted: "2023-03-06", urgency: "Low", status: "Pending Approval", actions: ["Upload Quote", "Book Appointment"], contractorResponse: "Estimated quote sent", landlordApproval: "Pending" }
-  ]);
-  const [completedJobs, setCompletedJobs] = useState([
-    { id: 1, ticketId: "#0234491", property: "23 Apple Road", issue: "Leaky Tap", completed: "2023-05-04", actions: ["Completion Proof"] },
-    { id: 2, ticketId: "#0234492", property: "89 Date Avenue", issue: "Paint Job", completed: "2023-10-04", actions: ["Completion Proof"] },
-    { id: 3, ticketId: "#0234496", property: "101 Elderberry Blvd", issue: "Roof Repair", completed: "2023-04-15", actions: ["Completion Proof"] }
-  ]);
+  const [modalJob, setModalJob] = useState(null);
+  const [appointmentDate, setAppointmentDate] = useState('');
+  const [uploadingQuote, setUploadingQuote] = useState(false);
+  const [markingComplete, setMarkingComplete] = useState(false);
 
+  // Load jobs on mount
   useEffect(() => {
-    document.body.style.setProperty("overflow", "hidden", "important");
-    return () => {
-      document.body.style.setProperty("overflow", "auto", "important");
-    };
+    async function loadJobs() {
+      setLoading(true);
+      try {
+        const response = await getJobs({ page: 1, pageSize: 100 });
+        const list = Array.isArray(response?.data?.jobs)
+          ? response.data.jobs
+          : [];
+        setJobs(list);
+      } catch (err) {
+        console.error('Error loading contractor jobs:', err);
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadJobs();
   }, []);
 
+  // Logout handler
   const handleLogout = async () => {
     await logout();
     window.location.reload();
   };
 
-  // Filtered assigned jobs
-  const filteredAssignedJobs = assignedJobs.filter(job => {
-    const matchesStatus = filterStatus ? job.status === filterStatus : true;
-    const matchesDate = filterDate ? job.submitted === filterDate : true;
-    return matchesStatus && matchesDate;
-  });
+  // Derived lists for assigned vs completed jobs
+  const assignedJobs = jobs.filter(j => j.status !== 'Completed');
+  const completedJobs = jobs.filter(j => j.status === 'Completed');
 
-  // Close ticket action
-  const closeTicket = (ticketId) => {
-    setAssignedJobs(prev =>
-      prev.map(job => job.id === ticketId ? { ...job, status: 'Closed' } : job)
-    );
-    setModalTicket(null);
-    // TODO: PATCH request to server API to update tblTickets.Status
+  // Filtering logic
+  const filterJobs = (list) => {
+    return list.filter(job => {
+      const statusDisp = formatJobStatus(job.status).display;
+      const matchesStatus = filterStatus ? statusDisp === filterStatus : true;
+      const dateStr = job.createdAt ? job.createdAt.split('T')[0] : null;
+      const matchesDate = filterDate ? (dateStr === filterDate) : true;
+      return matchesStatus && matchesDate;
+    });
+  };
+
+  const filteredAssignedJobs = filterJobs(assignedJobs);
+  const filteredCompletedJobs = filterJobs(completedJobs);
+
+  /**
+   * Trigger quote upload flow.  Currently this simply opens a file input and
+   * submits the selected PDF to the /api/quotes/:ticketId endpoint.  After
+   * successful upload, the job list is refreshed.  Only PDF files up to
+   * 10MB are accepted by the backend.
+   */
+  const handleUploadQuote = async (job) => {
+    // Create a temporary file input to select a PDF
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('files', file);
+      // Example fields; adjust if backend expects quoteAmount/description
+      const quoteAmount = prompt('Enter quote amount (numeric):');
+      const quoteDescription = prompt('Enter quote description:');
+      formData.append('quoteAmount', quoteAmount || '0');
+      formData.append('quoteDescription', quoteDescription || '');
+      try {
+        setUploadingQuote(true);
+        const res = await fetch(`/api/quotes/${job.ticketId}`, {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || 'Failed to upload quote');
+        alert('Quote submitted successfully');
+        // Refresh jobs
+        const refreshed = await getJobs({ page: 1, pageSize: 100 });
+        setJobs(Array.isArray(refreshed?.data?.jobs) ? refreshed.data.jobs : []);
+        setModalJob(null);
+      } catch (error) {
+        console.error(error);
+        alert(error.message);
+      } finally {
+        setUploadingQuote(false);
+      }
+    };
+    input.click();
+  };
+
+  /**
+   * Propose an appointment date/time for a job using the contractor API.
+   * If the proposed date/time is invalid or the API returns an error,
+   * a message is displayed.  Upon success the job list is refreshed.
+   */
+  const handleBookAppointment = async (job) => {
+    if (!appointmentDate) {
+      alert('Select a date/time');
+      return;
+    }
+    try {
+      const proposed = new Date(appointmentDate);
+      // Use start time as midday if only date selected (without time)
+      if (!appointmentDate.includes('T')) {
+        proposed.setHours(12, 0, 0, 0);
+      }
+      await postJobSchedule(job.ticketId, { proposedStart: proposed.toISOString() });
+      alert('Appointment proposed successfully');
+      // Refresh jobs
+      const refreshed = await getJobs({ page: 1, pageSize: 100 });
+      setJobs(Array.isArray(refreshed?.data?.jobs) ? refreshed.data.jobs : []);
+      setModalJob(null);
+      setAppointmentDate('');
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Failed to propose appointment');
+    }
+  };
+
+  /**
+   * Mark a job/ticket as completed.  Sends a POST request to the backend
+   * /api/tickets/:ticketId/complete endpoint.  Only contractors with an
+   * approved quote (assigned jobs) may complete tickets.  On success the
+   * job status is refreshed.
+   */
+  const handleMarkCompleted = async (job) => {
+    if (markingComplete) return;
+    try {
+      setMarkingComplete(true);
+      const res = await fetch(`/api/tickets/${job.ticketId}/complete`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Failed to mark completed');
+      alert('Ticket marked as completed');
+      // Refresh jobs
+      const refreshed = await getJobs({ page: 1, pageSize: 100 });
+      setJobs(Array.isArray(refreshed?.data?.jobs) ? refreshed.data.jobs : []);
+      setModalJob(null);
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    } finally {
+      setMarkingComplete(false);
+    }
+  };
+
+  /**
+   * Determine available actions for a job based on its current status.  The
+   * returned array of action objects contains a label and an onClick
+   * handler.  When new statuses are introduced, update this function
+   * accordingly.
+   */
+  const getJobActions = (job) => {
+    const actions = [];
+    // Contractors can upload a quote when the job is in review or quoting stage and no approved quote exists
+    if ((job.status === 'In Review' || job.status === 'Quoting') && (!job.quote || job.quote.status !== 'Approved')) {
+      actions.push({ label: 'Upload Quote', onClick: () => handleUploadQuote(job) });
+    }
+    // When a quote is approved, the contractor may propose an appointment even if ticket status still says Quoting
+    const quoteApproved = job.quote && job.quote.status === 'Approved';
+    if (quoteApproved || job.status === 'Approved' || job.status === 'Awaiting Appointment') {
+      actions.push({ label: 'Book Appointment', onClick: () => setModalJob(job) });
+    }
+    // If an appointment is scheduled or the job is in progress, allow completion
+    if (job.status === 'Scheduled' || job.status === 'In Progress') {
+      actions.push({ label: 'Mark Completed', onClick: () => handleMarkCompleted(job) });
+    }
+    return actions;
   };
 
   return (
@@ -57,8 +206,8 @@ function CDashboard() {
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
-            <li><a href="#" className={activeTab === 'dashboard' ? 'active' : ''}>Dashboard</a></li>
-            <li><a href="#" className={activeTab === 'settings' ? 'active' : ''}>Settings</a></li>
+            <li><button className={activeTab === 'assigned' ? 'active' : ''} onClick={() => setActiveTab('assigned')}>Assigned Jobs</button></li>
+            <li><button className={activeTab === 'completed' ? 'active' : ''} onClick={() => setActiveTab('completed')}>Completed Jobs</button></li>
           </ul>
         </div>
         <div className="navbar-profile">
@@ -78,133 +227,127 @@ function CDashboard() {
           <h1>Dashboard</h1>
         </div>
 
-        <div className="contractor-tabs">
-          <button className={activeTab === 'assigned' ? 'active' : ''} onClick={() => setActiveTab('assigned')}>Assigned Jobs</button>
-          <button className={activeTab === 'completed' ? 'active' : ''} onClick={() => setActiveTab('completed')}>Completed Jobs</button>
+        {/* Filters only apply to the active tab */}
+        <div className="jobs-filters">
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">All Status</option>
+            {/* The display values are derived from contractorApi.formatJobStatus */}
+            <option value="New">New</option>
+            <option value="In Review">In Review</option>
+            <option value="Quoting">Quoting</option>
+            <option value="Awaiting Approval">Awaiting Approval</option>
+            <option value="Approved">Approved</option>
+            <option value="Awaiting Appointment">Awaiting Appointment</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Completed">Completed</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={e => setFilterDate(e.target.value)}
+          />
         </div>
 
-        {activeTab === 'assigned' && (
+        {loading ? (
+          <p>Loading jobs...</p>
+        ) : activeTab === 'assigned' ? (
           <div className="jobs-section">
             <h2>Assigned Jobs</h2>
-
-            {/* Filters */}
-            <div className="jobs-filters">
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="">All Status</option>
-                <option value="Awaiting Appointment">Awaiting Appointment</option>
-                <option value="Pending Approval">Pending Approval</option>
-                <option value="Closed">Closed</option>
-              </select>
-              <input
-                type="date"
-                value={filterDate}
-                onChange={e => setFilterDate(e.target.value)}
-              />
-            </div>
-
-            <div className="jobs-table-container">
-              <table className="jobs-table">
-                <thead>
-                  <tr>
-                    <th>Ticket ID</th>
-                    <th>Property</th>
-                    <th>Issue</th>
-                    <th>Submitted</th>
-                    <th>Urgency/Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAssignedJobs.map(job => (
-                    <tr key={job.id}>
-                      <td>{job.ticketId}</td>
-                      <td>{job.property}</td>
-                      <td>{job.issue}</td>
-                      <td>{job.submitted}</td>
-                      <td>
-                        <div className="urgency-status">
-                          <span className={`urgency urgency-${job.urgency.toLowerCase()}`}>{job.urgency}</span>
-                          <span className="status-text">{job.status}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          {job.actions.map((action, index) => (
-                            <button key={index} className="action-btn" onClick={() => setModalTicket(job)}>{action}</button>
-                          ))}
-                        </div>
-                      </td>
+            {filteredAssignedJobs.length === 0 ? (
+              <p>No assigned jobs</p>
+            ) : (
+              <div className="jobs-table-container">
+                <table className="jobs-table">
+                  <thead>
+                    <tr>
+                      <th>Ref #</th>
+                      <th>Issue</th>
+                      <th>Submitted</th>
+                      <th>Urgency / Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredAssignedJobs.map(job => {
+                      const statusInfo = formatJobStatus(job.status);
+                      const urgencyInfo = formatUrgency(job.urgency);
+                      const actions = getJobActions(job);
+                      return (
+                        <tr key={job.ticketId}>
+                          <td>{job.ticketRefNumber || job.ticketId}</td>
+                          <td>{job.description || job.subject}</td>
+                          <td>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}</td>
+                          <td>
+                            <div className="urgency-status">
+                              <span className={`urgency ${urgencyInfo.class}`}>{urgencyInfo.display}</span>
+                              <span className={`status-text ${statusInfo.class}`}>{statusInfo.display}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              {actions.map((action, idx) => (
+                                <button key={idx} className="action-btn" onClick={action.onClick}>{action.label}</button>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-
-        {activeTab === 'completed' && (
+        ) : (
           <div className="jobs-section">
             <h2>Completed Jobs</h2>
-            <div className="jobs-table-container">
-              <table className="jobs-table">
-                <thead>
-                  <tr>
-                    <th>Ticket ID</th>
-                    <th>Property</th>
-                    <th>Issue</th>
-                    <th>Completed</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {completedJobs.map(job => (
-                    <tr key={job.id}>
-                      <td>{job.ticketId}</td>
-                      <td>{job.property}</td>
-                      <td>{job.issue}</td>
-                      <td>{job.completed}</td>
-                      <td>
-                        <div className="action-buttons">
-                          {job.actions.map((action, index) => (
-                            <button key={index} className="action-btn" onClick={() => setModalTicket(job)}>{action}</button>
-                          ))}
-                        </div>
-                      </td>
+            {filteredCompletedJobs.length === 0 ? (
+              <p>No completed jobs</p>
+            ) : (
+              <div className="jobs-table-container">
+                <table className="jobs-table">
+                  <thead>
+                    <tr>
+                      <th>Ref #</th>
+                      <th>Issue</th>
+                      <th>Completed</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredCompletedJobs.map(job => (
+                      <tr key={job.ticketId}>
+                        <td>{job.ticketRefNumber || job.ticketId}</td>
+                        <td>{job.description || job.subject}</td>
+                        <td>{job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Ticket Modal */}
-        {modalTicket && (
+        {/* Modal for proposing appointment */}
+        {modalJob && (
           <div className="ticket-modal-overlay">
             <div className="ticket-modal">
-              <h3>Ticket Details</h3>
-              <p><strong>Property:</strong> {modalTicket.property}</p>
-              <p><strong>Issue:</strong> {modalTicket.issue}</p>
-              {modalTicket.submitted && <p><strong>Submitted:</strong> {modalTicket.submitted}</p>}
-              {modalTicket.completed && <p><strong>Completed:</strong> {modalTicket.completed}</p>}
-              {modalTicket.contractorResponse && <p><strong>Contractor Response:</strong> {modalTicket.contractorResponse}</p>}
-              {modalTicket.landlordApproval && <p><strong>Landlord Approval:</strong> {modalTicket.landlordApproval}</p>}
-
-              {/* Close Ticket Button (for clients) */}
-              {modalTicket.status !== 'Closed' && (
-                <button className="close-ticket-btn" onClick={() => closeTicket(modalTicket.id)}>Close Ticket</button>
-              )}
-
-              {/* Appointment Date Picker (for contractors) */}
-              {modalTicket.actions.includes("Book Appointment") && (
-                <input
-                  type="date"
-                  min={new Date().toISOString().split("T")[0]}
-                  onChange={e => console.log("Selected appointment date:", e.target.value)}
-                />
-              )}
-
-              <button className="modal-close-btn" onClick={() => setModalTicket(null)}>Close</button>
+              <h3>Book Appointment</h3>
+              <p>Propose a date/time for ticket {modalJob.ticketRefNumber || modalJob.ticketId}.</p>
+              <input
+                type="datetime-local"
+                value={appointmentDate}
+                onChange={e => setAppointmentDate(e.target.value)}
+                min={new Date().toISOString().slice(0,16)}
+              />
+              <div className="modal-buttons">
+                <button onClick={() => handleBookAppointment(modalJob)}>Submit</button>
+                <button onClick={() => {
+                  setModalJob(null);
+                  setAppointmentDate('');
+                }}>Cancel</button>
+              </div>
             </div>
           </div>
         )}
