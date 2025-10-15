@@ -30,21 +30,24 @@ function UserDashboard() {
   const priorityOrder = { High: 1, Medium: 2, Low: 3 };
 
 // Fetch tickets
-useEffect(() => {
-  const fetchTickets = async () => {
-    try {
-      const res = await fetch("/api/client/tickets", { credentials: "include" });
-      const data = await res.json();
-      if (res.ok) setTickets(data.tickets || []);
-      else console.error("Failed to fetch tickets:", data);
-    } catch (err) {
-      console.error("Error fetching tickets:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchTickets();
-}, []);
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        // Fetch the currently authenticated client's tickets.  The backend
+        // returns an array of ticket objects with `CurrentStatus` and other
+        // properties.  If you modify the API endpoint, update this path.
+        const res = await fetch("/api/client/tickets", { credentials: "include" });
+        const data = await res.json();
+        if (res.ok) setTickets(Array.isArray(data.tickets) ? data.tickets : []);
+        else console.error("Failed to fetch tickets:", data);
+      } catch (err) {
+        console.error("Error fetching tickets:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTickets();
+  }, []);
 
 // Logout handler
 const handleLogout = async () => {
@@ -95,11 +98,15 @@ const closeTicket = async () => {
     });
     const data = await res.json();
     if (res.ok) {
+      // Update the local list and modal with the new Completed status.  The UI
+      // displays Completed as "Closed" via the statusLabel helper above.
       setTickets(prev =>
-        prev.map(t => t.TicketID === selectedTicket.TicketID ? { ...t, Status: "Closed" } : t)
+        prev.map(t => t.TicketID === selectedTicket.TicketID ? { ...t, CurrentStatus: "Completed" } : t)
       );
-      setSelectedTicket(prev => ({ ...prev, Status: "Closed" }));
-    } else console.error("Failed to close ticket", data);
+      setSelectedTicket(prev => ({ ...prev, CurrentStatus: "Completed" }));
+    } else {
+      console.error("Failed to close ticket", data);
+    }
   } catch (err) {
     console.error(err);
   }
@@ -107,12 +114,38 @@ const closeTicket = async () => {
 
 
   // Filter, search, paginate & sort tickets
+  // Normalize backend status values into display-friendly labels.  If you
+  // introduce new statuses on the backend, update this map accordingly.
+  const statusLabel = (status) => {
+    switch (status) {
+      case 'New':
+        return 'New';
+      case 'In Review':
+        return 'In Review';
+      case 'Quoting':
+        return 'Quoting';
+      case 'Awaiting Landlord Approval':
+        return 'Awaiting Approval';
+      case 'Awaiting Appointment':
+        return 'Awaiting Appointment';
+      case 'Approved':
+        return 'Approved';
+      case 'Scheduled':
+        return 'Scheduled';
+      case 'Completed':
+        return 'Closed';
+      default:
+        return status || '';
+    }
+  };
+
   const filteredTickets = tickets.filter(ticket => {
-    const matchesStatus = filterStatus ? ticket.Status === filterStatus : true;
-    const matchesDate = filterDate ? ticket.CreatedAt.split("T")[0] === filterDate : true;
+    const dispStatus = statusLabel(ticket.CurrentStatus);
+    const matchesStatus = filterStatus ? dispStatus === filterStatus : true;
+    const matchesDate = filterDate ? (ticket.CreatedAt?.split('T')[0] === filterDate) : true;
     const matchesSearch = searchTerm
-      ? ticket.Description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.TicketRefNumber.toLowerCase().includes(searchTerm.toLowerCase())
+      ? (ticket.Description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (ticket.TicketRefNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
       : true;
     return matchesStatus && matchesDate && matchesSearch;
   });
@@ -157,9 +190,13 @@ const closeTicket = async () => {
             <input type="text" placeholder="Search tickets..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
             <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}>
               <option value="">All Statuses</option>
-              <option value="Pending">Pending</option>
+              <option value="New">New</option>
+              <option value="In Review">In Review</option>
+              <option value="Quoting">Quoting</option>
+              <option value="Awaiting Approval">Awaiting Approval</option>
+              <option value="Awaiting Appointment">Awaiting Appointment</option>
+              <option value="Approved">Approved</option>
               <option value="Scheduled">Scheduled</option>
-              <option value="Rejected">Rejected</option>
               <option value="Closed">Closed</option>
             </select>
             <input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }} />
@@ -192,7 +229,7 @@ const closeTicket = async () => {
                             {ticket.UrgencyLevel}{isOld ? " • Old" : ""}
                           </span>
                         </p>
-                        <p>Status: <span className={`status-badge status-${ticket.Status.toLowerCase()}`}>{ticket.Status}</span></p>
+                        <p>Status: <span className={`status-badge status-${statusLabel(ticket.CurrentStatus).toLowerCase()}`}>{statusLabel(ticket.CurrentStatus)}</span></p>
                         <div className="ticket-actions">
                           <button className="view-details" onClick={() => openTicketModal(ticket)}>View Details</button>
                           <img src={gearIcon} alt="settings" className="settings-icon" />
@@ -225,7 +262,7 @@ const closeTicket = async () => {
             <div className="modal-section">
               <p><strong>Submitted:</strong> {new Date(selectedTicket.CreatedAt).toLocaleString()}</p>
               <p><strong>Description:</strong> {selectedTicket.Description}</p>
-              <p><strong>Status:</strong> <span className={`status-badge status-${selectedTicket.Status.toLowerCase()}`}>{selectedTicket.Status}</span></p>
+            <p><strong>Status:</strong> <span className={`status-badge status-${statusLabel(selectedTicket.CurrentStatus).toLowerCase()}`}>{statusLabel(selectedTicket.CurrentStatus)}</span></p>
             </div>
 
             {/* Media Preview */}
@@ -280,8 +317,8 @@ const closeTicket = async () => {
             </div>
 
             {/* Close Ticket Button */}
-            {selectedTicket.Status !== "Closed" && (
-              <button className="close-ticket-btn" onClick={handleCloseTicket}>Close Ticket</button>
+            {statusLabel(selectedTicket.CurrentStatus) !== 'Closed' && (
+              <button className="close-ticket-btn" onClick={closeTicket}>Close Ticket</button>
             )}
           </div>
         </div>

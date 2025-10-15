@@ -679,3 +679,148 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
 });
 
 export default router;
+
+// -------------------------------------------------------------------------------------
+// Additional helper routes
+// -------------------------------------------------------------------------------------
+
+/**
+ * GET /client/tickets
+ * Convenience endpoint used by the client dashboard to list tickets for the
+ * currently authenticated client. This simply proxies to the existing
+ * `/api/tickets` handler and filters based on the authenticated user. It
+ * enforces that the caller has the `Client` role to avoid exposing other
+ * users' data. If you already fetch tickets via `/api/tickets`, you do
+ * not need to use this route.
+ */
+router.get('/client/tickets', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'Client') {
+      return res.status(403).json({ message: 'Only clients can access their own tickets' });
+    }
+    // Reuse the logic from the main GET handler: select tickets for this user
+    const [rows] = await pool.query(
+      'SELECT * FROM tblTickets WHERE ClientUserID = ? ORDER BY TicketID DESC',
+      [req.user.userId]
+    );
+    return res.json({ tickets: rows });
+  } catch (err) {
+    console.error('Error fetching client tickets:', err);
+    return res.status(500).json({ message: 'Error fetching client tickets' });
+  }
+});
+
+/**
+ * GET /:ticketId/contractor
+ * Returns the currently assigned contractor (if any) for a given ticket. The
+ * assignment is stored in tblContractorSchedules. If no contractor is
+ * assigned, the response contains `{ contractor: null }`. Only authenticated
+ * users may access this endpoint. Clients will only receive the contractor
+ * information for their own tickets. Staff and landlords can access any
+ * ticket.
+ */
+router.get('/:ticketId/contractor', authMiddleware, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const ticketIdNum = parseInt(ticketId, 10);
+    if (!Number.isFinite(ticketIdNum)) return res.status(400).json({ message: 'Invalid ticketId' });
+
+    // Fetch the ticket row to enforce ownership for clients
+    const [[ticket]] = await pool.query(
+      'SELECT TicketID, ClientUserID FROM tblTickets WHERE TicketID = ? LIMIT 1',
+      [ticketIdNum]
+    );
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+
+    // Clients may only view their own tickets
+    if (req.user.role === 'Client' && ticket.ClientUserID !== req.user.userId) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    // Look up the most recent contractor assignment for this ticket
+    const [rows] = await pool.query(
+      `SELECT cs.ContractorUserID, u.FullName, u.Email, u.Phone
+         FROM tblContractorSchedules cs
+         JOIN tblusers u ON u.UserID = cs.ContractorUserID
+        WHERE cs.TicketID = ?
+        ORDER BY cs.ScheduleID DESC
+        LIMIT 1`,
+      [ticketIdNum]
+    );
+    if (!rows.length) return res.json({ contractor: null });
+    const contractor = {
+      UserID: rows[0].ContractorUserID,
+      FullName: rows[0].FullName,
+      Email: rows[0].Email,
+      Phone: rows[0].Phone,
+    };
+    return res.json({ contractor });
+  } catch (err) {
+    console.error('Error fetching assigned contractor:', err);
+    return res.status(500).json({ message: 'Error fetching assigned contractor' });
+  }
+});
+
+/**
+ * POST /:ticketId/close
+ * Allows a client or staff member to close a ticket prematurely. When
+ * invoked, the ticket's current status is set to 'Completed' and a
+ * corresponding history entry is recorded. Clients may only close their own
+ * tickets. Staff can close any ticket. Contractors and landlords are not
+ * permitted to close tickets. If the ticket is already completed
+ * nothing happens and a success response is returned. This endpoint does
+ * not delete the ticket or its media.
+ */
+router.post('/:ticketId/close', authMiddleware, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+    const id = parseInt(ticketId, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid ticketId' });
+
+    // Verify ticket exists and fetch client ID and current status
+    const [[ticket]] = await pool.query(
+      'SELECT TicketID, ClientUserID, CurrentStatus FROM tblTickets WHERE TicketID = ? LIMIT 1',
+      [id]
+    );
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+
+    // Authorization: only client owner or staff may close
+    if (req.user.role === 'Client' && ticket.ClientUserID !== req.user.userId) {
+      return res.status(403).json({ message: 'You may only close your own tickets' });
+    }
+    if (req.user.role !== 'Client' && req.user.role !== 'Staff') {
+      return res.status(403).json({ message: 'Only clients or staff may close tickets' });
+    }
+
+    // If already completed, no change
+    if (ticket.CurrentStatus === 'Completed') {
+      return res.json({ message: 'Ticket already completed', success: true });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      // Set status to Completed (treated as closed in UI)
+      await connection.execute(
+        'UPDATE tblTickets SET CurrentStatus = ? WHERE TicketID = ?',
+        ['Completed', id]
+      );
+      // Log status history
+      await connection.execute(
+        'INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)',
+        [id, 'Completed', req.user.userId]
+      );
+      await connection.commit();
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+
+    return res.json({ message: 'Ticket closed successfully', success: true });
+  } catch (err) {
+    console.error('Error closing ticket:', err);
+    return res.status(500).json({ message: 'Error closing ticket' });
+  }
+});
