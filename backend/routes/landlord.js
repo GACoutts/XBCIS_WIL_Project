@@ -99,14 +99,15 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
       LEFT JOIN tblLandlordApprovals la ON la.QuoteID = q.QuoteID
       WHERE ${whereClause}
       ORDER BY t.CreatedAt DESC
-      LIMIT ? OFFSET ?
+      LIMIT ${limitNum} OFFSET ${offsetNum}
     `;
 
     const [[countRow]] = await pool.execute(countSql, whereParams);
     const totalCount = countRow?.total || 0;
 
-    const dataParams = [...whereParams, limitNum, offsetNum];
-    const [rows] = await pool.execute(ticketsSql, dataParams);
+    const [rows] = await pool.execute(ticketsSql, whereParams);
+    console.log('[landlord/tickets] whereParams=', whereParams, 'limit=', limitNum, 'offset=', offsetNum);
+
 
     const tickets = rows.map(r => ({
       ticketId: r.TicketID,

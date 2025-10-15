@@ -27,3 +27,14 @@ export async function rejectQuote(quoteId) {
   const res = await fetch(`${API_BASE}/quotes/${quoteId}/reject`, { method: 'POST', credentials: 'include' });
   return res.json();
 }
+
+// Fetch the timeline/history for a specific ticket owned by the landlord.
+// Returns an array of history entries with fields HistoryID, Status, ChangedAt, ChangedBy.
+export async function getTicketHistory(ticketId) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/history`, { credentials: 'include' });
+  const data = await res.json();
+  // Handle different response shapes
+  if (data?.data?.timeline) return data.data.timeline;
+  if (data?.data) return data.data;
+  return [];
+}

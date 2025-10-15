@@ -7,6 +7,7 @@ import RoleRoute from './components/RoleRoute.jsx';
 import UserDashboard from './UserDashboard.jsx';
 import StaffDashboard from './StaffDashboard.jsx';
 import LandlordDashboard from './LandlordDashboard.jsx';
+import LandlordTickets from './LandlordTickets.jsx';
 import ContractorDashboard from './ContractorDashboard.jsx';
 import Notifications from './Notifications.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
@@ -86,6 +87,16 @@ export default function App() {
           element={
             <RoleRoute roles={['Landlord']}>
               <LandlordDashboard />
+            </RoleRoute>
+          }
+        />
+
+        {/* Landlord tickets page for viewing all tickets with history */}
+        <Route
+          path="/landlord/tickets"
+          element={
+            <RoleRoute roles={['Landlord']}>
+              <LandlordTickets />
             </RoleRoute>
           }
         />
