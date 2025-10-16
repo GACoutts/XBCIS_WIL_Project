@@ -6,6 +6,8 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import RoleRoute from './components/RoleRoute.jsx';
 import UserDashboard from './UserDashboard.jsx';
 import StaffDashboard from './StaffDashboard.jsx';
+import StaffTickets from './StaffTickets.jsx';
+import StaffContractors from './StaffContractors.jsx';
 import LandlordDashboard from './LandlordDashboard.jsx';
 import ContractorDashboard from './ContractorDashboard.jsx';
 import Notifications from './Notifications.jsx';
@@ -77,6 +79,26 @@ export default function App() {
           element={
             <RoleRoute roles={['Staff']}>
               <StaffDashboard />
+            </RoleRoute>
+          }
+        />
+
+        {/* Staff tickets page */}
+        <Route
+          path="/tickets"
+          element={
+            <RoleRoute roles={['Staff']}>
+              <StaffTickets />
+            </RoleRoute>
+          }
+        />
+
+        {/* Staff contractor management page */}
+        <Route
+          path="/contractors"
+          element={
+            <RoleRoute roles={['Staff']}>
+              <StaffContractors />
             </RoleRoute>
           }
         />

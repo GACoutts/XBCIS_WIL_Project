@@ -501,12 +501,45 @@ router.get('/stats', async (_req, res) => {
 // GET /inactive-users - List all users with Status = 'Inactive'
 router.get('/inactive-users', async (_req, res) => {
   try {
-    const [rows] = await pool.execute(
-      `SELECT UserID, FullName, Email, Role, Status
-         FROM tblusers
-        WHERE Status = 'Inactive'
-        ORDER BY DateRegistered DESC`
-    );
+    // Ensure the proof table exists
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS tblUserProofs (
+        ProofID INT AUTO_INCREMENT PRIMARY KEY,
+        UserID INT NOT NULL,
+        FilePath VARCHAR(255) NOT NULL,
+        Address VARCHAR(255) DEFAULT NULL,
+        UploadedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_userproofs_user FOREIGN KEY (UserID) REFERENCES tblusers(UserID)
+          ON DELETE CASCADE ON UPDATE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Query inactive users along with proof & property info
+    const [rows] = await pool.query(`
+      SELECT u.UserID, u.FullName, u.Email, u.Role, u.Status,
+             lp.FilePath    AS ProofFile,
+             lp.Address     AS UserAddress,
+             p.AddressLine1 AS PropertyAddress
+        FROM tblusers u
+        LEFT JOIN (
+          SELECT up.UserID, up.FilePath, up.Address
+            FROM tblUserProofs up
+            JOIN (
+              SELECT UserID, MAX(UploadedAt) AS LatestUpload
+                FROM tblUserProofs
+               GROUP BY UserID
+            ) latest
+              ON up.UserID = latest.UserID AND up.UploadedAt = latest.LatestUpload
+        ) lp ON u.UserID = lp.UserID
+        LEFT JOIN tblTenancies t ON t.TenantUserID = u.UserID AND t.IsActive = 1
+        LEFT JOIN tblLandlordProperties lpp ON lpp.LandlordUserID = u.UserID
+             AND (lpp.ActiveTo IS NULL OR lpp.ActiveTo >= CURDATE())
+             AND lpp.IsPrimary = 1
+        LEFT JOIN tblProperties p ON p.PropertyID = COALESCE(t.PropertyID, lpp.PropertyID)
+       WHERE u.Status = 'Inactive'
+       ORDER BY u.DateRegistered DESC
+    `);
+
     return res.json({ users: rows });
   } catch (err) {
     console.error('Get inactive users error:', err);

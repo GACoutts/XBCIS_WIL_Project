@@ -194,7 +194,8 @@ function LandlordDashboard() {
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li><Link to="/">Dashboard</Link></li>
-            <li><Link to="/tickets">Tickets</Link></li>
+            {/* Tickets link goes to the landlord tickets page which lists all tickets with history */}
+            <li><Link to="/landlord/tickets">Tickets</Link></li>
            {/* <li><Link to="/reports">Reports</Link></li> */}
             <li><Link to="/properties">Properties</Link></li>
             <li><Link to="/settings">Settings</Link></li>

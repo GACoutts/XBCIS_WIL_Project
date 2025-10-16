@@ -27,6 +27,9 @@ function CDashboard() {
   const [uploadingQuote, setUploadingQuote] = useState(false);
   const [markingComplete, setMarkingComplete] = useState(false);
 
+  // Modal state for job details
+  const [detailsJob, setDetailsJob] = useState(null);
+
   // Load jobs on mount
   useEffect(() => {
     async function loadJobs() {
@@ -198,16 +201,49 @@ function CDashboard() {
     return actions;
   };
 
+  /**
+   * Open job details modal.  Currently details are taken from the job
+   * object itself (client details and quote info).  You may extend
+   * this to fetch additional information (e.g. property address) from
+   * the backend if needed.
+   */
+  const handleViewDetails = (job) => {
+    setDetailsJob(job);
+  };
+
   return (
     <div className="contractor-dashboard">
+      {/* Top navigation bar */}
       <nav className="navbar">
         <div className="navbar-logo">
           <div className="logo-placeholder">GoodLiving</div>
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
-            <li><button className={activeTab === 'assigned' ? 'active' : ''} onClick={() => setActiveTab('assigned')}>Assigned Jobs</button></li>
-            <li><button className={activeTab === 'completed' ? 'active' : ''} onClick={() => setActiveTab('completed')}>Completed Jobs</button></li>
+            <li>
+              <a
+                href="#"
+                className={activeTab === 'assigned' ? 'active' : ''}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('assigned');
+                }}
+              >
+                Assigned Jobs
+              </a>
+            </li>
+            <li>
+              <a
+                href="#"
+                className={activeTab === 'completed' ? 'active' : ''}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('completed');
+                }}
+              >
+                Completed Jobs
+              </a>
+            </li>
           </ul>
         </div>
         <div className="navbar-profile">
@@ -222,31 +258,37 @@ function CDashboard() {
         </div>
       </nav>
 
+      {/* Main content area */}
       <div className="contractor-content">
         <div className="contractordashboard-title">
           <h1>Dashboard</h1>
         </div>
 
-        {/* Filters only apply to the active tab */}
+        {/* Filters apply to whichever tab is active */}
         <div className="jobs-filters">
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="">All Status</option>
-            {/* The display values are derived from contractorApi.formatJobStatus */}
-            <option value="New">New</option>
-            <option value="In Review">In Review</option>
-            <option value="Quoting">Quoting</option>
-            <option value="Awaiting Approval">Awaiting Approval</option>
-            <option value="Approved">Approved</option>
-            <option value="Awaiting Appointment">Awaiting Appointment</option>
-            <option value="Scheduled">Scheduled</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={e => setFilterDate(e.target.value)}
-          />
+          <label>
+            Status:
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">All Status</option>
+              <option value="New">New</option>
+              <option value="In Review">In Review</option>
+              <option value="Quoting">Quoting</option>
+              <option value="Awaiting Approval">Awaiting Approval</option>
+              <option value="Approved">Approved</option>
+              <option value="Awaiting Appointment">Awaiting Appointment</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label>
+            Submitted After:
+            <input
+              type="date"
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value)}
+            />
+          </label>
         </div>
 
         {loading ? (
@@ -257,45 +299,40 @@ function CDashboard() {
             {filteredAssignedJobs.length === 0 ? (
               <p>No assigned jobs</p>
             ) : (
-              <div className="jobs-table-container">
-                <table className="jobs-table">
-                  <thead>
-                    <tr>
-                      <th>Ref #</th>
-                      <th>Issue</th>
-                      <th>Submitted</th>
-                      <th>Urgency / Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAssignedJobs.map(job => {
-                      const statusInfo = formatJobStatus(job.status);
-                      const urgencyInfo = formatUrgency(job.urgency);
-                      const actions = getJobActions(job);
-                      return (
-                        <tr key={job.ticketId}>
-                          <td>{job.ticketRefNumber || job.ticketId}</td>
-                          <td>{job.description || job.subject}</td>
-                          <td>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}</td>
-                          <td>
-                            <div className="urgency-status">
-                              <span className={`urgency ${urgencyInfo.class}`}>{urgencyInfo.display}</span>
-                              <span className={`status-text ${statusInfo.class}`}>{statusInfo.display}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="action-buttons">
-                              {actions.map((action, idx) => (
-                                <button key={idx} className="action-btn" onClick={action.onClick}>{action.label}</button>
-                              ))}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="jobs-container">
+                {/* Header row */}
+                <div className="jobs-header">
+                  <div>Ticket ID</div>
+                  <div>Issue</div>
+                  <div>Submitted</div>
+                  <div>Urgency/Status</div>
+                  <div>Actions</div>
+                </div>
+                {/* Job cards */}
+                {filteredAssignedJobs.map((job) => {
+                  const statusInfo = formatJobStatus(job.status);
+                  const urgencyInfo = formatUrgency(job.urgency);
+                  const actions = getJobActions(job);
+                  return (
+                    <div key={job.ticketId} className="job-card">
+                      <div className="job-info-grid">
+                        <div className="info-value job-id">{job.ticketRefNumber || job.ticketId}</div>
+                        <div className="info-value">{job.description}</div>
+                        <div className="info-value">{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}</div>
+                        <div className="job-urgency-status">
+                          <span className={`urgency ${urgencyInfo.class}`}>{urgencyInfo.display}</span>
+                          <span className={`status-text ${statusInfo.class}`}>{statusInfo.display}</span>
+                        </div>
+                        <div className="action-buttons">
+                          {actions.map((action, idx) => (
+                            <button key={idx} className="action-btn" onClick={action.onClick}>{action.label}</button>
+                          ))}
+                          <button className="action-btn" onClick={() => handleViewDetails(job)}>View Details</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -305,25 +342,25 @@ function CDashboard() {
             {filteredCompletedJobs.length === 0 ? (
               <p>No completed jobs</p>
             ) : (
-              <div className="jobs-table-container">
-                <table className="jobs-table">
-                  <thead>
-                    <tr>
-                      <th>Ref #</th>
-                      <th>Issue</th>
-                      <th>Completed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCompletedJobs.map(job => (
-                      <tr key={job.ticketId}>
-                        <td>{job.ticketRefNumber || job.ticketId}</td>
-                        <td>{job.description || job.subject}</td>
-                        <td>{job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="jobs-container">
+                <div className="jobs-header jobs-header-completed">
+                  <div>Ticket ID</div>
+                  <div>Issue</div>
+                  <div>Completed</div>
+                  <div>Actions</div>
+                </div>
+                {filteredCompletedJobs.map((job) => (
+                  <div key={job.ticketId} className="job-card">
+                    <div className="job-completed-grid">
+                      <div className="info-value job-id">{job.ticketRefNumber || job.ticketId}</div>
+                      <div className="info-value">{job.description}</div>
+                      <div className="info-value">{job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : ''}</div>
+                      <div className="action-buttons">
+                        <button className="action-btn" onClick={() => handleViewDetails(job)}>View Details</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -334,19 +371,77 @@ function CDashboard() {
           <div className="ticket-modal-overlay">
             <div className="ticket-modal">
               <h3>Book Appointment</h3>
-              <p>Propose a date/time for ticket {modalJob.ticketRefNumber || modalJob.ticketId}.</p>
+              <p>
+                Propose a date/time for ticket {modalJob.ticketRefNumber || modalJob.ticketId}.
+              </p>
               <input
                 type="datetime-local"
                 value={appointmentDate}
-                onChange={e => setAppointmentDate(e.target.value)}
-                min={new Date().toISOString().slice(0,16)}
+                onChange={(e) => setAppointmentDate(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
               />
               <div className="modal-buttons">
                 <button onClick={() => handleBookAppointment(modalJob)}>Submit</button>
-                <button onClick={() => {
-                  setModalJob(null);
-                  setAppointmentDate('');
-                }}>Cancel</button>
+                <button
+                  onClick={() => {
+                    setModalJob(null);
+                    setAppointmentDate('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal for job details */}
+        {detailsJob && (
+          <div className="ticket-modal-overlay">
+            <div className="ticket-modal">
+              <h3>Job Details</h3>
+              <p>
+                <strong>Ticket Ref:</strong>{' '}
+                {detailsJob.ticketRefNumber || detailsJob.ticketId}
+              </p>
+              <p>
+                <strong>Issue:</strong> {detailsJob.description}
+              </p>
+              <p>
+                <strong>Status:</strong> {detailsJob.status}
+              </p>
+              <p>
+                <strong>Urgency:</strong> {detailsJob.urgency}
+              </p>
+              {detailsJob.client && (
+                <p>
+                  <strong>Client:</strong>{' '}
+                  {detailsJob.client.name} ({detailsJob.client.email}, {detailsJob.client.phone})
+                </p>
+              )}
+              <p>
+                <strong>Property:</strong> {detailsJob.propertyAddress || '—'}
+              </p>
+              {detailsJob.quote && (
+                <>
+                  <p>
+                    <strong>Quote Amount:</strong>{' '}
+                    {detailsJob.quote.amount != null ? `R${detailsJob.quote.amount}` : '—'}
+                  </p>
+                  <p>
+                    <strong>Quote Status:</strong>{' '}
+                    {detailsJob.quote.status || '—'}
+                  </p>
+                  {detailsJob.quote.landlordApproval && (
+                    <p>
+                      <strong>Landlord Approval:</strong>{' '}
+                      {detailsJob.quote.landlordApproval.status || 'Pending'}
+                    </p>
+                  )}
+                </>
+              )}
+              <div className="modal-buttons">
+                <button onClick={() => setDetailsJob(null)}>Close</button>
               </div>
             </div>
           </div>

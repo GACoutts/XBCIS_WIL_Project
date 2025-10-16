@@ -15,6 +15,11 @@ export default function SignUpPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
 
+  // Collect registration fields.  When signing up as a tenant/client or landlord
+  // we also capture a property address and a supporting document (lease or
+  // ownership proof).  These values will be sent to the backend via a
+  // multipart/form-data request when appropriate.  The `proofFile` state is
+  // separated because file inputs cannot be directly stored on objects.
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -22,7 +27,9 @@ export default function SignUpPage() {
     password: "",
     confirmPassword: "",
     role: "tenant", // UI key; will be mapped for API
+    address: "",      // property address for tenants/landlords
   });
+  const [proofFile, setProofFile] = useState(null);
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -62,6 +69,15 @@ export default function SignUpPage() {
     if (!Object.keys(ROLE_MAP).includes(formData.role))
       newErrors.role = "Please select a valid role";
 
+    // When the user selects the tenant or landlord role, they must provide
+    // a property address and upload a supporting proof document.  File
+    // selection is tracked in proofFile state rather than on formData.
+    const apiRole = ROLE_MAP[formData.role];
+    if (apiRole === 'Client' || apiRole === 'Landlord') {
+      if (!formData.address.trim()) newErrors.address = 'Address is required';
+      if (!proofFile) newErrors.proof = 'Proof document is required';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -75,26 +91,56 @@ export default function SignUpPage() {
 
     setSubmitting(true);
     try {
-      // 1) Register
-      const apiRole = ROLE_MAP[formData.role]; // map UI role to backend role enum
-      const response = await register({
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim() || null,
-        password: formData.password,
-        role: apiRole,
-      });
+      const apiRole = ROLE_MAP[formData.role];
 
-      // Check if approval is required
-      if (response?.requiresApproval) {
-        setSuccessMsg("Registration successful! Your account is pending staff approval. You'll be notified once approved.");
-        // Don't navigate - stay on registration page to show message
+      // Determine whether we need to send a multipart form.  Tenants (clients)
+      // and landlords must provide an address and supporting document.
+      const needsProof = apiRole === 'Client' || apiRole === 'Landlord';
+
+      if (needsProof) {
+        // Assemble a FormData payload.  Multer on the backend will parse
+        // multipart/form-data and populate req.body and req.file accordingly.
+        const fd = new FormData();
+        fd.append('fullName', formData.fullName.trim());
+        fd.append('email', formData.email.trim());
+        fd.append('phone', formData.phone.trim() || '');
+        fd.append('password', formData.password);
+        fd.append('role', apiRole);
+        fd.append('address', formData.address.trim());
+        if (proofFile) fd.append('proof', proofFile);
+
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          credentials: 'include',
+          body: fd
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || 'Registration failed');
+
+        if (data?.requiresApproval) {
+          setSuccessMsg('Registration successful! Your account is pending staff approval. You\'ll be notified once approved.');
+        } else {
+          setSuccessMsg('Account created successfully. You\'re in!');
+          navigate('/', { replace: true });
+        }
       } else {
-        setSuccessMsg("Account created successfully. You're in!");
-        navigate("/", { replace: true });
+        // Use the existing register helper for roles that do not require proof
+        const response = await register({
+          fullName: formData.fullName.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim() || null,
+          password: formData.password,
+          role: apiRole,
+        });
+        if (response?.requiresApproval) {
+          setSuccessMsg('Registration successful! Your account is pending staff approval. You\'ll be notified once approved.');
+        } else {
+          setSuccessMsg('Account created successfully. You\'re in!');
+          navigate('/', { replace: true });
+        }
       }
     } catch (err) {
-      setServerError(err.message || "Registration failed");
+      setServerError(err.message || 'Registration failed');
     } finally {
       setSubmitting(false);
     }
@@ -157,6 +203,38 @@ export default function SignUpPage() {
             {errors.phone && <span className="error">{errors.phone}</span>}
           </div>
           </div>
+
+          {/* Address and proof fields for tenants and landlords */}
+          {(formData.role === 'tenant' || formData.role === 'landlord') && (
+            <>
+              <div className="input">
+                <div className="input-head">Property Address</div>
+                <div className="input-row">
+                  <input
+                    type="text"
+                    name="address"
+                    placeholder="Enter your property address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    required
+                  />
+                  {errors.address && <span className="error">{errors.address}</span>}
+                </div>
+              </div>
+              <div className="input">
+                <div className="input-head">Proof of Occupancy/Ownership</div>
+                <div className="input-row">
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setProofFile(e.target.files[0])}
+                    required
+                  />
+                  {errors.proof && <span className="error">{errors.proof}</span>}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="input">
             <div className="input-head">Password</div>

@@ -41,81 +41,73 @@ router.get('/jobs', async (req, res) => {
   try {
     const contractorId = req.user.userId;
     const { page = 1, pageSize = 20, status } = req.query;
-    
+
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page) || 1);
     const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize) || 20));
     const offset = (pageNum - 1) * pageSizeNum;
 
-    // Build query conditions
-    let whereConditions = [];
-    let queryParams = [contractorId, contractorId];
-    
+    // Build optional status filter
+    const whereConditions = [];
+    const queryParams = [contractorId, contractorId];
     if (status && status !== 'all') {
       whereConditions.push('t.CurrentStatus = ?');
       queryParams.push(status);
     }
-
     const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : '';
 
-    // Main query to get contractor's assigned jobs
-    // Using fallback: tickets where contractor has an Approved quote (since AssignedContractorUserID may not exist)
     const jobsQuery = `
       SELECT 
         t.TicketID,
         t.TicketRefNumber,
-        t.Description as Subject,
         t.Description,
         t.CurrentStatus,
         t.UrgencyLevel,
         t.CreatedAt,
         t.UpdatedAt,
-        client.FullName as ClientName,
-        client.Email as ClientEmail,
-        client.Phone as ClientPhone,
+        client.FullName AS ClientName,
+        client.Email AS ClientEmail,
+        client.Phone AS ClientPhone,
+        p.AddressLine1 AS PropertyAddress,
         q.QuoteID,
         q.QuoteAmount,
         q.QuoteStatus,
-        q.SubmittedAt as QuoteSubmittedAt,
+        q.SubmittedAt AS QuoteSubmittedAt,
         la.ApprovalStatus,
         la.ApprovedAt
       FROM tblTickets t
-      LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
-      INNER JOIN tblQuotes q ON q.TicketID = t.TicketID 
-        AND q.ContractorUserID = ? 
-        AND q.QuoteStatus = 'Approved'
+      INNER JOIN tblContractorSchedules cs ON cs.TicketID = t.TicketID AND cs.ContractorUserID = ?
+      LEFT JOIN tblQuotes q ON q.TicketID = t.TicketID AND q.ContractorUserID = ?
       LEFT JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
+      LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
+      LEFT JOIN tblTenancies tny ON tny.TenantUserID = t.ClientUserID AND tny.IsActive = 1
+      LEFT JOIN tblLandlordProperties lpp ON lpp.LandlordUserID = t.ClientUserID AND (lpp.ActiveTo IS NULL OR lpp.ActiveTo >= CURDATE()) AND lpp.IsPrimary = 1
+      LEFT JOIN tblProperties p ON p.PropertyID = COALESCE(tny.PropertyID, lpp.PropertyID)
       WHERE 1=1 ${whereClause}
       ORDER BY COALESCE(t.UpdatedAt, t.CreatedAt) DESC
       LIMIT ? OFFSET ?
     `;
-
     queryParams.push(pageSizeNum, offset);
     const [jobs] = await pool.execute(jobsQuery, queryParams);
 
-    // Get total count for pagination
+    // Count total records (for pagination)
     const countQuery = `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*) AS total
       FROM tblTickets t
-      INNER JOIN tblQuotes q ON q.TicketID = t.TicketID 
-        AND q.ContractorUserID = ? 
-        AND q.QuoteStatus = 'Approved'
+      INNER JOIN tblContractorSchedules cs ON cs.TicketID = t.TicketID AND cs.ContractorUserID = ?
       WHERE 1=1 ${whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : ''}
     `;
-    
     const countParams = [contractorId];
     if (status && status !== 'all') {
       countParams.push(status);
     }
-    
     const [countResult] = await pool.execute(countQuery, countParams);
-    const totalJobs = countResult[0].total;
+    const totalJobs = countResult[0]?.total || 0;
 
     // Format response
     const formattedJobs = jobs.map(job => ({
       ticketId: job.TicketID,
       ticketRefNumber: job.TicketRefNumber,
-      subject: job.Subject,
       description: job.Description,
       status: job.CurrentStatus,
       urgency: job.UrgencyLevel,
@@ -126,7 +118,8 @@ router.get('/jobs', async (req, res) => {
         email: job.ClientEmail,
         phone: job.ClientPhone
       },
-      quote: {
+      propertyAddress: job.PropertyAddress || null,
+      quote: job.QuoteID ? {
         id: job.QuoteID,
         amount: parseFloat(job.QuoteAmount || 0),
         status: job.QuoteStatus,
@@ -135,7 +128,7 @@ router.get('/jobs', async (req, res) => {
           status: job.ApprovalStatus,
           approvedAt: job.ApprovedAt
         }
-      }
+      } : null
     }));
 
     res.json({
@@ -152,7 +145,7 @@ router.get('/jobs', async (req, res) => {
       },
       meta: {
         timestamp: new Date().toISOString(),
-        contractorId: contractorId
+        contractorId
       }
     });
 
