@@ -3,7 +3,11 @@ import 'dotenv/config';
 import express from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 import pool from '../db.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { authRateLimit } from '../middleware/rateLimiter.js';
 import {
@@ -15,6 +19,35 @@ import {
 } from '../utils/tokens.js';
 
 const router = express.Router();
+
+// -----------------------------------------------------------------------------
+// File upload setup for registration proof documents
+// We reuse the backend/uploads directory used by other uploads.  Files are
+// written with a "proof_" prefix and a sanitized basename.  Only image and
+// PDF files up to 10MB are accepted.
+const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const proofStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/[^\w\-]+/g, '_');
+    cb(null, `proof_${timestamp}_${base}${ext}`);
+  }
+});
+
+const proofFileFilter = (_req, file, cb) => {
+  const allowed = file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf';
+  cb(allowed ? null : new Error('Unsupported proof file type'), allowed);
+};
+
+const proofUpload = multer({
+  storage: proofStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: proofFileFilter
+});
 
 // Extract client info from request
 function getClientInfo(req) {
@@ -96,9 +129,17 @@ router.post('/login', authRateLimit, async (req, res) => {
 });
 
 // POST /register
-router.post('/register', authRateLimit, async (req, res) => {
+// This route accepts both JSON bodies and multipart/form-data.  For tenants
+// (role "Client") and landlords (role "Landlord"), clients must submit a
+// property address along with a proof document (image or PDF).  For other
+// roles (Contractor, Staff), the JSON body is sufficient.
+router.post('/register', authRateLimit, proofUpload.single('proof'), async (req, res) => {
   try {
-    const { fullName, email, password, phone, role } = req.body;
+    // In a multipart request, multer populates req.body with string values and
+    // req.file contains the uploaded file.  For JSON requests, req.file will be
+    // undefined and req.body will contain the JSON payload.
+    const { fullName, email, password, phone, role, address } = req.body;
+    const proofFile = req.file;
 
     if (!fullName || !email || !password || !role) {
       return res.status(400).json({ message: 'Missing required fields: fullName, email, password, role' });
@@ -106,6 +147,16 @@ router.post('/register', authRateLimit, async (req, res) => {
 
     const validRoles = ['Client', 'Landlord', 'Contractor', 'Staff'];
     if (!validRoles.includes(role)) return res.status(400).json({ message: 'Invalid role' });
+
+    // For tenants and landlords, ensure address and proof were supplied
+    if ((role === 'Client' || role === 'Landlord')) {
+      if (!address || !address.trim()) {
+        return res.status(400).json({ message: 'Address is required for Clients and Landlords' });
+      }
+      if (!proofFile) {
+        return res.status(400).json({ message: 'Proof document is required for Clients and Landlords' });
+      }
+    }
 
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const hash = await bcrypt.hash(password, rounds);
@@ -115,19 +166,69 @@ router.post('/register', authRateLimit, async (req, res) => {
       'INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role, Status) VALUES (?, ?, ?, ?, ?, ?)',
       [fullName, email, hash, phone || null, role, 'Inactive']
     );
+    const newUserId = result.insertId;
+
+    // If address and proof are provided, record them into tblUserProofs and
+    // create a property and mapping.  Ensure tblUserProofs exists.
+    if ((role === 'Client' || role === 'Landlord') && address && proofFile) {
+      try {
+        await pool.execute(`CREATE TABLE IF NOT EXISTS tblUserProofs (
+          ProofID INT AUTO_INCREMENT PRIMARY KEY,
+          UserID INT NOT NULL,
+          FilePath VARCHAR(255) NOT NULL,
+          Address VARCHAR(255) DEFAULT NULL,
+          UploadedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT fk_userproofs_user FOREIGN KEY (UserID) REFERENCES tblusers(UserID)
+            ON DELETE CASCADE ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+      } catch (e) {
+        console.error('Error ensuring tblUserProofs exists:', e);
+      }
+      const filePath = `/uploads/${proofFile.filename}`;
+      try {
+        await pool.execute(
+          'INSERT INTO tblUserProofs (UserID, FilePath, Address) VALUES (?, ?, ?)',
+          [newUserId, filePath, address]
+        );
+      } catch (e) {
+        console.error('Error inserting into tblUserProofs:', e);
+      }
+      // Create property record
+      try {
+        const propertyRef = 'PROP-' + Date.now();
+        const [propRes] = await pool.execute(
+          'INSERT INTO tblProperties (PropertyRef, AddressLine1) VALUES (?, ?)',
+          [propertyRef, address]
+        );
+        const propertyId = propRes.insertId;
+        if (role === 'Client') {
+          // Insert into tenancies table
+          await pool.execute(
+            'INSERT INTO tblTenancies (PropertyID, TenantUserID, StartDate, IsActive) VALUES (?, ?, CURDATE(), 1)',
+            [propertyId, newUserId]
+          );
+        } else if (role === 'Landlord') {
+          await pool.execute(
+            'INSERT INTO tblLandlordProperties (LandlordUserID, PropertyID, ActiveFrom, IsPrimary) VALUES (?, ?, CURDATE(), 1)',
+            [newUserId, propertyId]
+          );
+        }
+      } catch (e) {
+        console.error('Error creating property and mapping:', e);
+      }
+    }
 
     const { ip, userAgent } = getClientInfo(req);
-    
     try {
       await logAudit({
-        actorUserId: result.insertId,
-        targetUserId: result.insertId,
+        actorUserId: newUserId,
+        targetUserId: newUserId,
         action: 'register',
-        metadata: { 
+        metadata: {
           role,
           email,
           status: 'Inactive',
-          pendingApproval: true 
+          pendingApproval: true
         },
         ip,
         userAgent
@@ -136,9 +237,10 @@ router.post('/register', authRateLimit, async (req, res) => {
       console.warn('Audit log failure (register):', e?.message || e);
     }
 
-    // Return success without session cookies - user needs staff approval
+    // Always return success with requiresApproval = true.  At the moment all
+    // roles require staff activation prior to login.
     return res.status(201).json({
-      user: { userId: result.insertId, email, fullName, role, status: 'Inactive' },
+      user: { userId: newUserId, email, fullName, role, status: 'Inactive' },
       message: 'Registration successful! Your account is pending approval by staff.',
       requiresApproval: true
     });

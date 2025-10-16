@@ -406,10 +406,128 @@ body {
   margin-bottom: 40px;
 }
 
+/* Filter bar for jobs. Similar to staff ticket filters but without an outer border */
+.jobs-filters {
+  display: flex;
+  gap: 15px;
+  padding: 15px 90px 10px 90px;
+  margin-top: 10px;
+  background-color: #fff;
+  /* no border or radius here to keep filters floating cleanly */
+  align-items: center;
+  font-family: Arial, sans-serif;
+}
+
+.jobs-filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: bold;
+  color: black;
+}
+
+.jobs-filters select,
+.jobs-filters input[type="date"] {
+  margin-top: 5px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.jobs-filters select:hover,
+.jobs-filters input[type="date"]:hover {
+  border-color: #000;
+}
+
+.jobs-filters select:focus,
+.jobs-filters input[type="date"]:focus {
+  border-color: #FBD402;
+  box-shadow: 0 0 5px rgba(251, 212, 2, 0.5);
+}
+
 .contractor-dashboard .jobs-section h2 {
   font-size: 24px;
   margin-bottom: 20px;
   color: #333;
+}
+
+/* =========================
+   Job card layout
+   ========================= */
+.jobs-container {
+  margin: 20px 90px;
+  width: calc(100% - 180px);
+  background: white;
+  border-radius: 5px;
+  overflow-y: auto;
+  border: 1px solid #FBD402;
+  max-height: 400px;
+  box-sizing: border-box;
+}
+
+/* Header row for jobs container */
+.jobs-header {
+  display: grid;
+  grid-template-columns: 1fr 3fr 2fr 2fr 2fr;
+  padding: 15px;
+  border-bottom: 1px solid #FBD402;
+  background-color: white;
+  font-weight: 600;
+  color: black;
+}
+
+/* Alternate layout for completed jobs header */
+.jobs-header-completed {
+  grid-template-columns: 1fr 3fr 2fr 2fr;
+}
+
+/* Generic job card */
+.job-card {
+  border-bottom: 1px solid #FBD402;
+  padding: 15px;
+}
+
+.job-card:last-child {
+  border-bottom: none;
+}
+
+.job-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 3fr 2fr 2fr 2fr;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Completed job grid variant (now includes actions column) */
+.job-completed-grid {
+  display: grid;
+  /* Ticket ID | Issue | Completed | Actions */
+  grid-template-columns: 1fr 3fr 2fr 2fr;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Container for urgency and status badges */
+.job-urgency-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Info value formatting */
+.job-info-grid .info-value,
+.job-completed-grid .info-value {
+  font-size: 14px;
+  color: black;
+}
+
+.job-info-grid .job-id,
+.job-completed-grid .job-id {
+  font-weight: 600;
 }
 
 .contractor-dashboard .jobs-table-container {
@@ -456,6 +574,8 @@ body {
 .contractor-dashboard .urgency-high { color: #e74c3c; font-weight: bold; }
 .contractor-dashboard .urgency-medium { color: #f39c12; font-weight: bold; }
 .contractor-dashboard .urgency-low { color: #27ae60; font-weight: bold; }
+/* Critical urgency styling */
+.contractor-dashboard .urgency-critical { color: #dc3545; font-weight: bold; }
 
 .contractor-dashboard .action-buttons {
   display: flex;

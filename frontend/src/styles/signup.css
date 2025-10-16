@@ -12,6 +12,14 @@
 }
 
 /* The yellow card */
+/*
+ * The signup container scales up to give the form a prominent card look.
+ * Previously the height was fixed to 450px which caused fields added for
+ * landlords and tenants (address + proof) to overflow.  Setting
+ * `height: auto` with a minimum height allows the card to grow as
+ * additional form fields appear.  The scale transform remains to keep
+ * the design consistent.
+ */
 .signup-page-container .signup-container {
   background: #FBD402;
   border: 1px solid black;
@@ -20,7 +28,9 @@
   margin: 5px auto;
   text-align: center;
   width: 350px;
-  height: 450px;
+  /* Allow the card to expand with content while enforcing a minimum height */
+  min-height: 450px;
+  height: auto;
   position: relative;
   transform: scale(1.25);
   transform-origin: center center;

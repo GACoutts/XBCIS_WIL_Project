@@ -6,8 +6,9 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import RoleRoute from './components/RoleRoute.jsx';
 import UserDashboard from './UserDashboard.jsx';
 import StaffDashboard from './StaffDashboard.jsx';
+import StaffTickets from './StaffTickets.jsx';
+import StaffContractors from './StaffContractors.jsx';
 import LandlordDashboard from './LandlordDashboard.jsx';
-import LandlordTickets from './LandlordTickets.jsx';
 import ContractorDashboard from './ContractorDashboard.jsx';
 import Notifications from './Notifications.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
@@ -82,21 +83,31 @@ export default function App() {
           }
         />
 
+        {/* Staff tickets page */}
+        <Route
+          path="/tickets"
+          element={
+            <RoleRoute roles={['Staff']}>
+              <StaffTickets />
+            </RoleRoute>
+          }
+        />
+
+        {/* Staff contractor management page */}
+        <Route
+          path="/contractors"
+          element={
+            <RoleRoute roles={['Staff']}>
+              <StaffContractors />
+            </RoleRoute>
+          }
+        />
+
         <Route
           path="/landlord"
           element={
             <RoleRoute roles={['Landlord']}>
               <LandlordDashboard />
-            </RoleRoute>
-          }
-        />
-
-        {/* Landlord tickets page for viewing all tickets with history */}
-        <Route
-          path="/landlord/tickets"
-          element={
-            <RoleRoute roles={['Landlord']}>
-              <LandlordTickets />
             </RoleRoute>
           }
         />

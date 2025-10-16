@@ -65,10 +65,38 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const ticketRefNumber = 'TCKT-' + Date.now();
 
+    // Determine the property associated with the caller.  If the user is a
+    // tenant/client with an active tenancy, use that property.  Otherwise if
+    // they are a landlord with an active property, use their primary
+    // property.  If none found, set to NULL.
+    let propertyId = null;
+    try {
+      const [[tenancy]] = await pool.query(
+        'SELECT PropertyID FROM tblTenancies WHERE TenantUserID = ? AND IsActive = 1 LIMIT 1',
+        [userId]
+      );
+      if (tenancy && tenancy.PropertyID) {
+        propertyId = tenancy.PropertyID;
+      }
+    } catch (e) {
+      console.warn('Error fetching tenancy property:', e?.message || e);
+    }
+    if (!propertyId) {
+      try {
+        const [[lprop]] = await pool.query(
+          'SELECT PropertyID FROM tblLandlordProperties WHERE LandlordUserID = ? AND (ActiveTo IS NULL OR ActiveTo >= CURDATE()) AND IsPrimary = 1 LIMIT 1',
+          [userId]
+        );
+        if (lprop && lprop.PropertyID) propertyId = lprop.PropertyID;
+      } catch (e) {
+        console.warn('Error fetching landlord property:', e?.message || e);
+      }
+    }
+
     const [result] = await pool.execute(
-      `INSERT INTO tblTickets (ClientUserID, TicketRefNumber, Description, UrgencyLevel)
-       VALUES (?, ?, ?, ?)`,
-      [userId, ticketRefNumber, description, urgencyLevel]
+      `INSERT INTO tblTickets (ClientUserID, TicketRefNumber, Description, UrgencyLevel, PropertyID)
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, ticketRefNumber, description, urgencyLevel, propertyId]
     );
 
     const ticketId = result.insertId;
@@ -210,15 +238,21 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const { userId, role } = req.user;
 
-    let query = 'SELECT * FROM tblTickets';
+    let query;
     let params = [];
 
     if (role === 'Client') {
-      query += ' WHERE ClientUserID = ?';
+      // Clients see only their own tickets
+      query = 'SELECT t.*\n              FROM tblTickets t\n             WHERE t.ClientUserID = ?\n             ORDER BY t.TicketID DESC';
       params.push(userId);
+    } else if (role === 'Landlord') {
+      // Landlords can view tickets associated with their properties
+      query = `SELECT t.*, p.AddressLine1 AS PropertyAddress\n               FROM tblTickets t\n               LEFT JOIN tblProperties p ON t.PropertyID = p.PropertyID\n               LEFT JOIN tblLandlordProperties lp ON lp.PropertyID = t.PropertyID AND lp.LandlordUserID = ?\n              WHERE lp.LandlordPropertyID IS NOT NULL\n              ORDER BY t.TicketID DESC`;
+      params.push(userId);
+    } else {
+      // Staff and Contractors see all tickets; include property address for staff
+      query = `SELECT t.*, p.AddressLine1 AS PropertyAddress\n               FROM tblTickets t\n               LEFT JOIN tblProperties p ON t.PropertyID = p.PropertyID\n              ORDER BY t.TicketID DESC`;
     }
-
-    query += ' ORDER BY TicketID DESC';
 
     const [rows] = await pool.query(query, params);
     res.json({ tickets: rows });
