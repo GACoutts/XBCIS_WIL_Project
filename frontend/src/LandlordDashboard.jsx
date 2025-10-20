@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,18 +15,23 @@ import { useAuth } from "./context/AuthContext.jsx";
 import "./styles/landlorddash.css";
 
 import {
-  getTickets,
-  getQuotesForTicketLandlord,
+  getTicketsFiltered,
+  approveTicket,
+  rejectTicket,
   approveQuote,
-  rejectQuote
-} from "./landlordApi"; // adjust path
+  rejectQuote,
+  getProperties
+} from "./landlordApi";
 
 function LandlordDashboard() {
-  const navigate = useNavigate();
+  // NOTE: useNavigate is not used in this component. The call was removed to
+  // prevent reference errors when navigating. Navigation is handled via
+  // <Link> components in the JSX below.
 
   const [tickets, setTickets] = useState([]);
-  const [quotes, setQuotes] = useState({}); // { ticketId: [quotes...] }
+  const [properties, setProperties] = useState([]);
   const [rangeMonths, setRangeMonths] = useState(3);
+  const [filterPropertyId, setFilterPropertyId] = useState("");
   const { logout } = useAuth();
   const [showLogout, setShowLogout] = useState(false);
 
@@ -36,134 +41,111 @@ function LandlordDashboard() {
   };
 
 
-  // Fetch tickets
+  // Load properties for filter on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getProperties();
+        if (res.success) setProperties(res.data || []);
+        else setProperties([]);
+      } catch (err) {
+        console.error("Error loading landlord properties", err);
+        setProperties([]);
+      }
+    })();
+  }, []);
+
+  // Load tickets whenever filter changes
   useEffect(() => {
     async function loadTickets() {
       try {
-        const data = await getTickets();
-        // landlord API returns { success, data: { tickets, pagination } }
-        const list = Array.isArray(data?.tickets)
-          ? data.tickets
-          : Array.isArray(data?.data?.tickets)
-            ? data.data.tickets
+        const params = {};
+        if (filterPropertyId) params.propertyId = filterPropertyId;
+        params.limit = 200; // fetch enough tickets
+        const data = await getTicketsFiltered(params);
+        const list = Array.isArray(data?.data?.tickets)
+          ? data.data.tickets
+          : Array.isArray(data?.tickets)
+            ? data.tickets
             : [];
         setTickets(list);
       } catch (err) {
         console.error("Error fetching tickets:", err);
-        setTickets([]); // Ensure tickets is always an array
+        setTickets([]);
       }
     }
     loadTickets();
-  }, []);
+  }, [filterPropertyId]);
 
-  // Fetch quotes per ticket
-  useEffect(() => {
-    async function loadQuotes() {
-      try {
-        const allQuotes = {};
-        for (const t of tickets) {
-          const ticketQuotes = await getQuotesForTicketLandlord(t.TicketID);
-          allQuotes[t.TicketID] = ticketQuotes;
-        }
-        setQuotes(allQuotes);
-      } catch (err) {
-        console.error("Error fetching quotes:", err);
-      }
-    }
-    if (tickets.length) loadQuotes();
-  }, [tickets]);
 
-  // Approve/reject quote
-  async function handleAction(ticketId, quoteId, action) {
-    try {
-      if (action === "approve") await approveQuote(quoteId);
-      else await rejectQuote(quoteId);
-
-      setQuotes((prev) => ({
-        ...prev,
-        [ticketId]: prev[ticketId].map((q) =>
-          q.QuoteID !== quoteId
-            ? q
-            : { ...q, QuoteStatus: action === "approve" ? "Approved" : "Rejected" }
-        )
-      }));
-    } catch (err) {
-      console.error("Error updating quote:", err);
-    }
-  }
-
-  // Filter tickets for chart.  Use the createdAt timestamp returned from the
-  // landlord API instead of the non-existent SubmittedAt property.  Only
-  // include tickets created within the selected month range.
+  // Filter tickets for chart and summary: only include tickets within the
+  // selected range and (optionally) belonging to the chosen property.  A
+  // ticket will be included if its createdAt date is within the past
+  // rangeMonths months and it matches the property filter.
   const filteredTickets = useMemo(() => {
     const now = new Date();
     return tickets.filter((t) => {
-      const created = t.createdAt || t.CreatedAt || t.SubmittedAt;
+      // property filter
+      if (filterPropertyId && String(t.propertyId) !== String(filterPropertyId)) return false;
+      const created = t.createdAt;
       if (!created) return false;
       const d = new Date(created);
       if (isNaN(d)) return false;
-      const monthsDiff =
-        (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+      const monthsDiff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
       return monthsDiff < rangeMonths;
     });
-  }, [tickets, rangeMonths]);
+  }, [tickets, rangeMonths, filterPropertyId]);
 
   // Chart data
   const chartData = useMemo(() => {
     const map = new Map();
     filteredTickets.forEach((t) => {
-      const created = t.createdAt || t.CreatedAt || t.SubmittedAt;
+      const created = t.createdAt;
       const d = new Date(created);
       if (isNaN(d)) return;
-      const label = d.toLocaleString("default", { month: "long" });
-      const quoteSum = quotes[t.TicketID]
-        ? quotes[t.TicketID].reduce((acc, q) => acc + Number(q.QuoteAmount || 0), 0)
-        : 0;
+      const label = d.toLocaleString('default', { month: 'long' });
+      const quoteSum = t.quote ? Number(t.quote.amount || 0) : 0;
       map.set(label, (map.get(label) || 0) + quoteSum);
     });
-
+    // Determine the order of months to show (most recent first)
     const monthsOrdered = Array.from(
       new Set(
         filteredTickets
           .map((t) => {
-            const created = t.createdAt || t.CreatedAt || t.SubmittedAt;
+            const created = t.createdAt;
             const d = new Date(created);
             if (isNaN(d)) return null;
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           })
           .filter(Boolean)
       )
     ).sort();
-
     const labels = monthsOrdered.map((ym) => {
-      const [y, m] = ym.split("-");
+      const [y, m] = ym.split('-');
       const d = new Date(Number(y), Number(m) - 1, 1);
-      return d.toLocaleString("default", { month: "long" });
+      return d.toLocaleString('default', { month: 'long' });
     });
-
     const finalLabels = labels.length ? labels : Array.from(map.keys());
-
     return finalLabels.map((label) => ({
       name: label,
       cost: Math.round(((map.get(label) || 0) / 1000) * 10) / 10
     }));
-  }, [filteredTickets, quotes]);
+  }, [filteredTickets]);
 
   // Summary stats
   const summary = useMemo(() => {
     const totals = { logged: filteredTickets.length, approved: 0, rejected: 0, pending: 0, cost: 0 };
     filteredTickets.forEach((t) => {
-      const ticketQuotes = quotes[t.TicketID] || [];
-      const ticketCost = ticketQuotes.reduce((acc, q) => acc + Number(q.QuoteAmount || 0), 0);
-      totals.cost += ticketCost;
-      ticketQuotes.forEach((q) => {
-        if (q.QuoteStatus === "Approved") totals.approved += 1;
-        else if (q.QuoteStatus === "Rejected") totals.rejected += 1;
-        else totals.pending += 1;
-      });
+      if (t.quote) {
+        const q = t.quote;
+        totals.cost += Number(q.amount || 0);
+        if (q.status === 'Approved') totals.approved += 1;
+        else if (q.status === 'Rejected') totals.rejected += 1;
+        else if (q.status === 'Pending') totals.pending += 1;
+      }
     });
     return totals;
-  }, [filteredTickets, quotes]);
+  }, [filteredTickets]);
 
   const fmtCurrency = (v) =>
     new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 }).format(v);
@@ -180,9 +162,22 @@ function LandlordDashboard() {
     );
   };
 
-  const maxValue = Math.max(...chartData.map((d) => d.cost));
+  const maxValue = Math.max(...chartData.map((d) => d.cost), 0);
   const maxRounded = Math.ceil(maxValue / 2) * 2;
   const ticks = Array.from({ length: maxRounded / 2 + 1 }, (_, i) => i * 2);
+
+  // Partition tickets into awaiting ticket approvals and pending quote approvals
+  const awaitingTickets = tickets.filter(
+    (t) => t.status === 'Awaiting Landlord Approval' && (!filterPropertyId || String(t.propertyId) === String(filterPropertyId))
+  );
+  const pendingQuoteTickets = tickets.filter((t) => {
+    return (
+      t.quote &&
+      t.quote.status === 'Pending' &&
+      (!t.quote.landlordApproval || !t.quote.landlordApproval.status) &&
+      (!filterPropertyId || String(t.propertyId) === String(filterPropertyId))
+    );
+  });
 
   return (
     <>
@@ -193,12 +188,10 @@ function LandlordDashboard() {
         </div>
         <div className="navbar-right">
           <ul className="navbar-menu">
-            <li><Link to="/">Dashboard</Link></li>
-            {/* Tickets link goes to the landlord tickets page which lists all tickets with history */}
+            <li><Link to="/landlord">Dashboard</Link></li>
             <li><Link to="/landlord/tickets">Tickets</Link></li>
-           {/* <li><Link to="/reports">Reports</Link></li> */}
-            <li><Link to="/properties">Properties</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
+            <li><Link to="/landlord/properties">Properties</Link></li>
+            <li><Link to="/landlord/settings">Settings</Link></li>
           </ul>
         </div>
         <div className="navbar-profile">
@@ -216,83 +209,81 @@ function LandlordDashboard() {
         </div>
       </nav>
 
-      {/* Dashboard Title + Independent Button */}
-      <div
-        className="dashboard-title"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          margin: "20px 0"
-        }}
-      >
+      {/* Dashboard Title */}
+      <div className="dashboard-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 0' }}>
         <h1 style={{ margin: 0 }}>Dashboard</h1>
-        <button
-          style={{
-            padding: "8px 16px",
-            fontSize: 14,
-            backgroundColor: "#FBD402",
-            color: "black",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-            fontWeight: 600
-          }}
-          onClick={() => navigate("/landlord-quotes")}
-        >
-          View Contractor Quotes
-        </button>
       </div>
 
-      {/* Pending Approvals */}
-      <div className="sub-title"><h2>Pending Approvals</h2></div>
+      {/* Awaiting Ticket Approvals */}
+      <div className="sub-title"><h2>Awaiting Ticket Approvals</h2></div>
       <div className="pendingapprovals-wrapper">
         <div className="pendingapprovals-card">
-          <div className="pendingapprovals-header">
+          <div className="pendingapprovals-header" style={{ gridTemplateColumns: '120px 1fr 1fr 140px 200px' }}>
             <div className="column column-ticket">Ticket ID</div>
             <div className="column column-property">Property</div>
             <div className="column column-issue">Issue</div>
             <div className="column column-submitted">Submitted</div>
-            <div className="column column-status">Status</div>
             <div className="column column-actions">Actions</div>
           </div>
           <div className="pendingapprovals-body">
-            {tickets.map((ticket) => {
-              const ticketQuotes = quotes[ticket.TicketID] || [];
-              const pendingQuote = ticketQuotes.find((q) => q.QuoteStatus === "Pending");
-
-              return (
-                <div key={ticket.TicketID} className="pendingapprovals-row">
-                  <div className="cell ticket">{ticket.TicketID}</div>
-                  <div className="cell property">{ticket.PropertyAddress}</div>
-                  <div className="cell issue">{ticket.Description}</div>
-                  <div className="cell submitted">{new Date(ticket.SubmittedAt).toLocaleDateString()}</div>
-                  <div className="cell status">
-                    <span className={`status-pill ${pendingQuote ? "pending" : "approved"}`}>
-                      {pendingQuote ? "Pending" : "Approved"}
-                    </span>
-                  </div>
-                  <div className="cell actions">
-                    {pendingQuote && (
-                      <>
-                        <button
-                          onClick={() => handleAction(ticket.TicketID, pendingQuote.QuoteID, "approve")}
-                          className="btn btn-approve"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleAction(ticket.TicketID, pendingQuote.QuoteID, "reject")}
-                          className="btn btn-reject"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
+            {awaitingTickets.length ? (
+              awaitingTickets.map((t) => (
+                <div key={t.ticketId} className="pendingapprovals-row" style={{ gridTemplateColumns: '120px 1fr 1fr 140px 200px' }}>
+                  <div className="cell ticket">{t.referenceNumber || t.ticketId}</div>
+                  <div className="cell property">{t.propertyAddress || '—'}</div>
+                  <div className="cell issue">{t.description || '—'}</div>
+                  <div className="cell submitted">{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : ''}</div>
+                  <div className="cell actions" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button className="btn btn-approve" onClick={() => approveTicket(t.ticketId).then(() => setTickets((prev) => prev.map((tk) => tk.ticketId === t.ticketId ? { ...tk, status: 'New' } : tk)))}>Approve</button>
+                    <button className="btn btn-reject" onClick={() => {
+                      const reason = prompt('Reason for rejection (optional):', '');
+                      rejectTicket(t.ticketId, reason).then(() => setTickets((prev) => prev.map((tk) => tk.ticketId === t.ticketId ? { ...tk, status: 'Rejected' } : tk)));
+                    }}>Reject</button>
                   </div>
                 </div>
-              );
-            })}
+              ))
+            ) : (
+              <div className="pendingapprovals-row" style={{ justifyContent: 'center', gridTemplateColumns: '1fr' }}>
+                No tickets awaiting approval.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quote Approvals */}
+      <div className="sub-title" style={{ marginTop: '40px' }}><h2>Quote Approvals</h2></div>
+      <div className="pendingapprovals-wrapper">
+        <div className="pendingapprovals-card">
+          <div className="pendingapprovals-header" style={{ gridTemplateColumns: '120px 1fr 1fr 140px 200px' }}>
+            <div className="column column-ticket">Ticket ID</div>
+            <div className="column column-property">Property</div>
+            <div className="column column-issue">Issue</div>
+            <div className="column column-quote">Quote</div>
+            <div className="column column-actions">Actions</div>
+          </div>
+          <div className="pendingapprovals-body">
+            {pendingQuoteTickets.length ? (
+              pendingQuoteTickets.map((t) => (
+                <div key={t.ticketId} className="pendingapprovals-row" style={{ gridTemplateColumns: '120px 1fr 1fr 140px 200px' }}>
+                  <div className="cell ticket">{t.referenceNumber || t.ticketId}</div>
+                  <div className="cell property">{t.propertyAddress || '—'}</div>
+                  <div className="cell issue">{t.description || '—'}</div>
+                  <div className="cell submitted">R {Number(t.quote?.amount).toFixed(0)}</div>
+                  <div className="cell actions" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button className="btn btn-approve" onClick={() => approveQuote(t.quote.id).then(() => setTickets((prev) => prev.map((tk) => tk.ticketId === t.ticketId ? { ...tk, quote: { ...tk.quote, status: 'Approved', landlordApproval: { status: 'Approved' } }, status: 'Approved' } : tk)))}>Approve</button>
+                    <button className="btn btn-reject" onClick={() => {
+                      const reason = prompt('Reason for rejection (optional):', '');
+                      rejectQuote(t.quote.id).then(() => setTickets((prev) => prev.map((tk) => tk.ticketId === t.ticketId ? { ...tk, quote: { ...tk.quote, status: 'Rejected', landlordApproval: { status: 'Rejected' } }, status: 'In Review' } : tk)));
+                    }}>Reject</button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="pendingapprovals-row" style={{ justifyContent: 'center', gridTemplateColumns: '1fr' }}>
+                No quotes awaiting approval.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -305,14 +296,46 @@ function LandlordDashboard() {
               <h3 style={{ margin: 0 }}>Maintenance Costs Review</h3>
               <div style={{ fontSize: 12, color: "#666" }}>Last {rangeMonths} months</div>
             </div>
-            <div>
-              <label style={{ fontSize: 12, marginRight: 8 }}>Range:</label>
-              <select value={rangeMonths} onChange={(e) => setRangeMonths(Number(e.target.value))}>
-                <option value={1}>1 month</option>
-                <option value={3}>3 months</option>
-                <option value={6}>6 months</option>
-                <option value={12}>12 months</option>
-              </select>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 12, marginRight: 4 }}>Range:</label>
+                <select
+                  value={rangeMonths}
+                  onChange={(e) => setRangeMonths(Number(e.target.value))}
+                  style={{ padding: '3px 6px', border: '1px solid #FBD402', borderRadius: 4, fontSize: 13 }}
+                >
+                  <option value={1}>1 month</option>
+                  <option value={3}>3 months</option>
+                  <option value={6}>6 months</option>
+                  <option value={12}>12 months</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, marginRight: 4 }}>Property:</label>
+                <select
+                  value={filterPropertyId}
+                  onChange={(e) => setFilterPropertyId(e.target.value)}
+                  style={{ padding: '3px 6px', border: '1px solid #FBD402', borderRadius: 4, fontSize: 13 }}
+                >
+                  <option value="">All</option>
+                  {properties.map((p) => {
+                    const addr = [
+                      p.AddressLine1,
+                      p.AddressLine2,
+                      p.City,
+                      p.Province,
+                      p.PostalCode
+                    ]
+                      .filter((x) => x && x.toString().trim())
+                      .join(', ');
+                    return (
+                      <option key={p.PropertyID} value={p.PropertyID}>
+                        {addr || p.PropertyID}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             </div>
           </div>
 

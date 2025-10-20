@@ -43,6 +43,7 @@ import adminRoutes from './routes/admin.js';
 import roleRequestRoutes from './routes/roleRequests.js';
 import landlordRoutes from './routes/landlord.js';
 import notificationsRoutes from './routes/notifications.js';
+import profileRoutes from './routes/profile.js';
 
 // Middleware
 import { generalRateLimit, passwordResetRateLimit } from './middleware/rateLimiter.js';
@@ -104,6 +105,46 @@ app.use('/uploads/job-updates', express.static(path.resolve(__dirname, 'uploads/
 // Legacy uploads (general)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// --- Stream proof files directly (supports nested paths like uploads/proofs/abc.pdf) ---
+app.get('/api/admin/proofs/*', (req, res) => {
+  try {
+    // The wildcard after /api/admin/proofs/ -> e.g. "uploads/proofs/abc.pdf" or "proofs/abc.pdf"
+    const raw = (req.params[0] || '').replace(/^\/+/, ''); // drop any leading slash
+
+    if (!raw) return res.status(400).json({ message: 'Missing file path' });
+
+    // Build a path under the uploads root, stripping an optional leading "uploads/"
+    const uploadsRoot = path.resolve(__dirname, 'uploads');
+    const rel = raw.replace(/^uploads\//, '');           // normalize "uploads/..." -> "..."
+    const abs = path.resolve(uploadsRoot, rel);          // absolute file path under uploads/
+
+    // Security: ensure resolved path stays within uploads/
+    if (!abs.startsWith(uploadsRoot + path.sep) && abs !== uploadsRoot) {
+      return res.status(400).json({ message: 'Invalid path' });
+    }
+
+    if (!fs.existsSync(abs)) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    res.type(abs); // Express sets Content-Type from the file extension
+
+    // Use sendFile with a callback so we can report fs errors cleanly
+    res.sendFile(abs, (err) => {
+      if (err) {
+        console.error('sendFile error:', err);
+        if (!res.headersSent) {
+          return res.status(500).json({ message: 'Failed to load file' });
+        }
+      }
+    });
+  } catch (e) {
+    console.error('proof stream error:', e);
+    return res.status(500).json({ message: 'Failed to load file' });
+  }
+});
+
+
 // -------------------------------------------------------------------------------------
 // Routes
 // -------------------------------------------------------------------------------------
@@ -114,6 +155,9 @@ app.use('/api/roles', roleRequestRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/landlord', landlordRoutes);
+
+// Profile API for user settings
+app.use('/api/profile', profileRoutes);
 
 // Notifications API
 app.use('/api/notifications', notificationsRoutes);

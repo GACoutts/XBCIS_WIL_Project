@@ -115,10 +115,28 @@ export default function ReviewRoleRequests() {
                 <td>{u.Status}</td>
                 <td>{u.UserAddress || u.Address || '—'}</td>
                 <td>
-                  {u.ProofFile ? (
-                    <a href={u.ProofFile} target="_blank" rel="noopener noreferrer">View</a>
-                  ) : '—'}
+                  {u.ProofFile ? (() => {
+                    const raw = String(u.ProofFile || '');
+                    const clean = raw
+                      .replace(/^https?:\/\/[^/]+\/?/, '') // drop origin if present
+                      .replace(/^\//, '')                  // drop leading slash
+                      .replace(/\\/g, '/');                // ensure URL separators
+
+                    const href = `/api/admin/proofs/${encodeURI(clean)}`;
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="admin-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View
+                      </a>
+                    );
+                  })() : '—'}
                 </td>
+
                 <td>
                   <button className="admin-btn" onClick={() => handleAccept(u.UserID)}>Accept</button>
                   <button className="admin-btn" onClick={() => handleReject(u.UserID)}>Reject</button>

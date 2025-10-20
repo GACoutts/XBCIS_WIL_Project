@@ -35,6 +35,7 @@ export default function SignUpPage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [registered, setRegistered] = useState(false); // <-- added
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -118,7 +119,8 @@ export default function SignUpPage() {
         if (!res.ok) throw new Error(data?.message || 'Registration failed');
 
         if (data?.requiresApproval) {
-          setSuccessMsg('Registration successful! Your account is pending staff approval. You\'ll be notified once approved.');
+          setSuccessMsg('Your account has been registered successfully. Please await account approval.');
+          setRegistered(true); // <-- added
         } else {
           setSuccessMsg('Account created successfully. You\'re in!');
           navigate('/', { replace: true });
@@ -133,7 +135,8 @@ export default function SignUpPage() {
           role: apiRole,
         });
         if (response?.requiresApproval) {
-          setSuccessMsg('Registration successful! Your account is pending staff approval. You\'ll be notified once approved.');
+          setSuccessMsg('Your account has been registered successfully. Please await account approval.');
+          setRegistered(true); // <-- added
         } else {
           setSuccessMsg('Account created successfully. You\'re in!');
           navigate('/', { replace: true });
@@ -148,7 +151,6 @@ export default function SignUpPage() {
 
   return (
     <div className="signup-page-container">
-      {successMsg ? <p className="success" style={{ position: 'absolute', top: '-85px', left: '50%', transform: 'translateX(-50%)', width: '350px', textAlign: 'center', zIndex: 10 }}>{successMsg}</p> : null}
       <div className="signup-container">
         <div className="logo-placeholder">GoodLiving</div>
 
@@ -157,154 +159,176 @@ export default function SignUpPage() {
         </div>
         <hr className="underline" />
 
-        <form className="inputs" onSubmit={handleSubmit} noValidate>
-          <div className="input">
-            <div className="input-head">Full name</div>
-            <div className="input-row">
-          <input
-          type="text"
-          name="fullName"
-          placeholder="E.G. John Doe"
-          value={formData.fullName}
-          onChange={handleChange}
-          required
-          />
-          {errors.fullName && <span className="error">{errors.fullName}</span>}
-          {serverError && !errors.fullName && <span className="error">{serverError}</span>} 
+        {/* Success notice (when approval is required) */}
+        {registered && successMsg && (
+          <div className="success" style={{ marginTop: 8 }}>
+            {successMsg}
+            <div style={{ marginTop: 8 }}>
+              <Link to="/login" className="submit" role="button">Go to login</Link>
+            </div>
           </div>
-          </div>
+        )}
 
-          <div className="input">
-            <div className="input-head">Email address</div>
-            <div className="input-row">
-            <input
-              type="email"
-              name="email"
-              placeholder="E.G. example@mail.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              autoComplete="username"
-            />
-            {errors.email && <span className="error">{errors.email}</span>}
-          </div>
-          </div>
-
-          <div className="input">
-            <div className="input-head">Phone number (optional)</div>
-            <div className="input-row">
-            <input
-              type="tel"
-              name="phone"
-              placeholder="E.G. +27 12 345 6789"
-              value={formData.phone}
-              onChange={handleChange}
-            />
-            {errors.phone && <span className="error">{errors.phone}</span>}
-          </div>
-          </div>
-
-          {/* Address and proof fields for tenants and landlords */}
-          {(formData.role === 'tenant' || formData.role === 'landlord') && (
-            <>
-              <div className="input">
-                <div className="input-head">Property Address</div>
-                <div className="input-row">
-                  <input
-                    type="text"
-                    name="address"
-                    placeholder="Enter your property address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    required
-                  />
-                  {errors.address && <span className="error">{errors.address}</span>}
-                </div>
+        {/* Show the form only if not registered yet */}
+        {!registered && (
+          <form className="inputs" onSubmit={handleSubmit} noValidate>
+            <div className="input">
+              <div className="input-head">Full name:</div>
+              <div className="input-row">
+                <input
+                  type="text"
+                  name="fullName"
+                  placeholder="E.G. John Doe"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.fullName && <span className="error">{errors.fullName}</span>}
+                {serverError && !errors.fullName && <span className="error">{serverError}</span>}
               </div>
-              <div className="input">
-                <div className="input-head">Proof of Occupancy/Ownership</div>
-                <div className="input-row">
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(e) => setProofFile(e.target.files[0])}
-                    required
-                  />
+            </div>
+
+            <div className="input">
+              <div className="input-head">Email address:</div>
+              <div className="input-row">
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="E.G. example@mail.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  autoComplete="username"
+                />
+                {errors.email && <span className="error">{errors.email}</span>}
+              </div>
+            </div>
+
+            <div className="input">
+              <div className="input-head">Phone number:</div>
+              <div className="input-row">
+                <input
+                  type="tel"
+                  name="phone"
+                  placeholder="E.G. +27 12 345 6789"
+                  value={formData.phone}
+                  onChange={handleChange}
+                />
+                {errors.phone && <span className="error">{errors.phone}</span>}
+              </div>
+            </div>
+
+            {/* Address and proof fields for tenants and landlords */}
+            {(formData.role === 'tenant' || formData.role === 'landlord') && (
+              <>
+                <div className="input">
+                  <div className="input-head">Property Address:</div>
+                  <div className="input-row">
+                    <input
+                      type="text"
+                      name="address"
+                      placeholder="Enter your property address"
+                      value={formData.address}
+                      onChange={handleChange}
+                      required
+                    />
+                    {errors.address && <span className="error">{errors.address}</span>}
+                  </div>
+                </div>
+                <div className="input">
+                  <div className="input-head">Proof of Occupancy/Ownership:</div>
+                  <div className="input-row">
+                    <input
+                      id="proof"
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setProofFile(e.target.files[0])}
+                      required
+                    />
+                    <label
+                      htmlFor="proof"
+                      className={`file-trigger ${proofFile ? 'has-file' : 'placeholder'}`}
+                      title={proofFile ? proofFile.name : 'Choose file…'}
+                    >
+                      {proofFile ? proofFile.name : 'Choose file…'}
+                    </label>
+                  </div>
                   {errors.proof && <span className="error">{errors.proof}</span>}
                 </div>
+
+              </>
+            )}
+
+            <div className="input">
+              <div className="input-head">Password:</div>
+              <div className="input-row">
+                <input
+                  type="password"
+                  name="password"
+                  placeholder="Minimum 8 characters"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  autoComplete="new-password"
+                />
+                {errors.password && <span className="error">{errors.password}</span>}
               </div>
-            </>
-          )}
+            </div>
 
-          <div className="input">
-            <div className="input-head">Password</div>
-            <div className="input-row">
-            <input
-              type="password"
-              name="password"
-              placeholder="Minimum 8 characters"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              autoComplete="new-password"
-            />
-            {errors.password && <span className="error">{errors.password}</span>}
-          </div>
-          </div>
+            <div className="input">
+              <div className="input-head">Confirm password:</div>
+              <div className="input-row">
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Re-enter your password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  autoComplete="new-password"
+                />
+                {errors.confirmPassword && <span className="error">{errors.confirmPassword}</span>}
+              </div>
+            </div>
 
-          <div className="input">
-            <div className="input-head">Confirm password</div>
-            <div className="input-row">
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Re-enter your password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              autoComplete="new-password"
-            />
-            {errors.confirmPassword && <span className="error">{errors.confirmPassword}</span>}
-          </div>
-          </div>
-
-          <div className="submit-container">
-            <button type="submit" className="submit" disabled={submitting}>
-              {submitting ? "Creating account…" : "Sign up"}
-            </button>
-          </div>
-        </form>
+            <div className="submit-container">
+              <button type="submit" className="submit" disabled={submitting}>
+                {submitting ? "Creating account…" : "Sign up"}
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="role-selection">
-            <div
-              className={`role-circle ${formData.role === "tenant" ? "active" : ""}`}
-              onClick={() => handleRoleChange("tenant")}
-              title="Tenant (Client)"
-            ></div>
-            <span>Tenant</span>
+          <div
+            className={`role-circle ${formData.role === "tenant" ? "active" : ""}`}
+            onClick={() => handleRoleChange("tenant")}
+            title="Tenant (Client)"
+          ></div>
+          <span>Tenant</span>
 
-            <div
-              className={`role-circle ${formData.role === "landlord" ? "active" : ""}`}
-              onClick={() => handleRoleChange("landlord")}
-              title="Landlord"
-            ></div>
-            <span>Landlord</span>
+          <div
+            className={`role-circle ${formData.role === "landlord" ? "active" : ""}`}
+            onClick={() => handleRoleChange("landlord")}
+            title="Landlord"
+          ></div>
+          <span>Landlord</span>
 
-            <div
-              className={`role-circle ${formData.role === "contractor" ? "active" : ""}`}
-              onClick={() => handleRoleChange("contractor")}
-              title="Contractor"
-            ></div>
-            <span>Contractor</span>
+          <div
+            className={`role-circle ${formData.role === "contractor" ? "active" : ""}`}
+            onClick={() => handleRoleChange("contractor")}
+            title="Contractor"
+          ></div>
+          <span>Contractor</span>
 
-            <div
-              className={`role-circle ${formData.role === "rawson" ? "active" : ""}`}
-              onClick={() => handleRoleChange("rawson")}
-              title="Rawson Staff"
-            ></div>
-            <span>Rawson</span>
-          </div>
-          {errors.role && <p className="error">{errors.role}</p>}
+          <div
+            className={`role-circle ${formData.role === "rawson" ? "active" : ""}`}
+            onClick={() => handleRoleChange("rawson")}
+            title="Rawson Staff"
+          ></div>
+          <span>Rawson</span>
+        </div>
+        {errors.role && <p className="error">{errors.role}</p>}
 
         <div className="got-account">
           Got an account? <Link to="/login" className="link">Sign in</Link>
