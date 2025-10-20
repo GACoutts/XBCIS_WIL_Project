@@ -1,9 +1,36 @@
 // backend/routes/landlord.js  (ESM, fixed & consistent)
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+// -----------------------------------------------------------------------------
+// Multer configuration for property proof uploads
+// -----------------------------------------------------------------------------
+// Store uploaded property proofs in a dedicated folder.  Files are named with
+// a timestamp and a sanitized version of the original name to avoid clashes.
+const propertyProofStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, path.join('uploads', 'property-proofs')),
+  filename: (_req, file, cb) => {
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]+/g, '_');
+    cb(null, `${timestamp}_${base}${ext}`);
+  }
+});
+const propertyProofUpload = multer({
+  storage: propertyProofStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // up to 20MB
+  fileFilter: (_req, file, cb) => {
+    // Accept images and PDFs for property proof
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowed.includes(file.mimetype.toLowerCase())) return cb(null, true);
+    return cb(new Error('Only PDF and image files are allowed for property proofs'));
+  }
+});
 
 router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
@@ -47,6 +74,13 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
         t.CurrentStatus,
         t.PropertyID,
 
+        -- Property information
+        p.AddressLine1 AS PropertyAddressLine1,
+        p.AddressLine2 AS PropertyAddressLine2,
+        p.City         AS PropertyCity,
+        p.Province     AS PropertyProvince,
+        p.PostalCode   AS PropertyPostalCode,
+
         -- Client information
         client.FullName AS ClientName,
         client.Email    AS ClientEmail,
@@ -71,6 +105,7 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
         la.ApprovedAt     as LandlordApprovedAt
 
       FROM tblTickets t
+      LEFT JOIN tblProperties p ON p.PropertyID = t.PropertyID
       LEFT JOIN tblusers client on client.UserID = t.ClientUserID
 
       LEFT JOIN tblQuotes q on q.TicketID = t.TicketID
@@ -99,15 +134,14 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
       LEFT JOIN tblLandlordApprovals la ON la.QuoteID = q.QuoteID
       WHERE ${whereClause}
       ORDER BY t.CreatedAt DESC
-      LIMIT ${limitNum} OFFSET ${offsetNum}
+      LIMIT ? OFFSET ?
     `;
 
     const [[countRow]] = await pool.execute(countSql, whereParams);
     const totalCount = countRow?.total || 0;
 
-    const [rows] = await pool.execute(ticketsSql, whereParams);
-    console.log('[landlord/tickets] whereParams=', whereParams, 'limit=', limitNum, 'offset=', offsetNum);
-
+    const dataParams = [...whereParams, limitNum, offsetNum];
+    const [rows] = await pool.execute(ticketsSql, dataParams);
 
     const tickets = rows.map(r => ({
       ticketId: r.TicketID,
@@ -117,6 +151,17 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
       status: r.CurrentStatus,
       createdAt: r.CreatedAt,
       propertyId: r.PropertyID,
+
+      // Compose a human-readable property address for convenience.  If
+      // multiple lines are provided they are joined with commas.  The
+      // frontend can override this formatting as needed.
+      propertyAddress: [
+        r.PropertyAddressLine1,
+        r.PropertyAddressLine2,
+        r.PropertyCity,
+        r.PropertyProvince,
+        r.PropertyPostalCode
+      ].filter(v => v && v.toString().trim()).join(', '),
 
       client: {
         name: r.ClientName,
@@ -472,6 +517,202 @@ router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), asy
   } catch (err) {
     try { await connection.rollback(); } catch { }
     console.error('Landlord reject quote error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * POST /api/landlord/tickets/:ticketId/approve
+ * Approve a newly logged ticket.  Marks the corresponding row in
+ * tblLandlordTicketApprovals as Approved, stamps ApprovedAt, and
+ * advances the ticket's CurrentStatus to 'New' (so staff can see it).
+ * Only the landlord(s) who own the ticket's property may approve.
+ */
+router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const landlordId = req.user.userId;
+    const ticketId = Number.parseInt(req.params.ticketId, 10);
+    if (Number.isNaN(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
+
+    // Verify landlord owns the ticket via property mapping
+    const owns = await landlordOwnsTicket(landlordId, ticketId);
+    if (!owns) return res.status(403).json({ message: 'Not allowed to approve this ticket' });
+
+    await connection.beginTransaction();
+
+    // Update landlord ticket approval
+    await connection.execute(
+      `UPDATE tblLandlordTicketApprovals
+         SET ApprovalStatus = 'Approved', ApprovedAt = NOW(), Reason = NULL
+       WHERE TicketID = ? AND LandlordUserID = ?`,
+      [ticketId, landlordId]
+    );
+
+    // Update ticket status to New (so staff can process it)
+    await connection.execute(
+      `UPDATE tblTickets SET CurrentStatus = 'New' WHERE TicketID = ?`,
+      [ticketId]
+    );
+
+    // Append history entry
+    try {
+      await connection.execute(
+        `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
+         VALUES (?, 'New', ?, NOW())`,
+        [ticketId, landlordId]
+      );
+    } catch (_err) { /* ignore */ }
+
+    await connection.commit();
+    return res.json({ success: true, message: 'Ticket approved successfully' });
+  } catch (err) {
+    try { await connection.rollback(); } catch { }
+    console.error('Landlord approve ticket error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * POST /api/landlord/tickets/:ticketId/reject
+ * Reject a newly logged ticket.  Updates the row in
+ * tblLandlordTicketApprovals with status 'Rejected' and saves the
+ * provided reason.  The ticket's CurrentStatus is set to 'Rejected'.
+ * Optionally, staff may take further action to notify the client.
+ */
+router.post('/tickets/:ticketId/reject', requireAuth, permitRoles('Landlord'), async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const landlordId = req.user.userId;
+    const ticketId = Number.parseInt(req.params.ticketId, 10);
+    if (Number.isNaN(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
+    const reason = (req.body?.reason || '').toString().trim() || null;
+
+    const owns = await landlordOwnsTicket(landlordId, ticketId);
+    if (!owns) return res.status(403).json({ message: 'Not allowed to reject this ticket' });
+
+    await connection.beginTransaction();
+
+    await connection.execute(
+      `UPDATE tblLandlordTicketApprovals
+         SET ApprovalStatus = 'Rejected', ApprovedAt = NOW(), Reason = ?
+       WHERE TicketID = ? AND LandlordUserID = ?`,
+      [reason, ticketId, landlordId]
+    );
+
+    await connection.execute(
+      `UPDATE tblTickets SET CurrentStatus = 'Rejected' WHERE TicketID = ?`,
+      [ticketId]
+    );
+
+    try {
+      await connection.execute(
+        `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
+         VALUES (?, 'Rejected', ?, NOW())`,
+        [ticketId, landlordId]
+      );
+    } catch { /* ignore */ }
+
+    await connection.commit();
+    return res.json({ success: true, message: 'Ticket rejected successfully' });
+  } catch (err) {
+    try { await connection.rollback(); } catch { }
+    console.error('Landlord reject ticket error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * GET /api/landlord/properties
+ * Returns all properties associated with the authenticated landlord along
+ * with the currently active tenant (if any) for each property.
+ */
+router.get('/properties', requireAuth, permitRoles('Landlord'), async (req, res) => {
+  try {
+    const landlordId = req.user.userId;
+    // Fetch all properties for the landlord including full address details.  The
+    // tblProperties schema now includes AddressLine2 and PostalCode columns in
+    // addition to the existing Province column, so we can select these fields
+    // directly.  If the columns were not added via migration, MySQL will
+    // complain; ensure you have run the migration 26-add-property-addressline2-postalcode.sql.
+    const [rows] = await pool.execute(
+      `SELECT
+         p.PropertyID,
+         p.AddressLine1,
+         p.AddressLine2,
+         p.City,
+         p.Province,
+         p.PostalCode,
+         t.TenantUserID,
+         tenant.FullName AS TenantName,
+         tenant.Email    AS TenantEmail
+       FROM tblLandlordProperties lp
+       JOIN tblProperties p ON p.PropertyID = lp.PropertyID
+       LEFT JOIN tblTenancies t ON t.PropertyID = p.PropertyID AND t.IsActive = 1
+       LEFT JOIN tblusers tenant ON tenant.UserID = t.TenantUserID
+       WHERE lp.LandlordUserID = ?
+         AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+       ORDER BY p.PropertyID ASC`,
+      [landlordId]
+    );
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('Landlord /properties error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/landlord/properties
+ * Adds a new property for the authenticated landlord.  Accepts form data
+ * fields (addressLine1, addressLine2, city, postalCode) and an uploaded
+ * proof file (field name "proof").  Returns the new property ID on success.
+ */
+router.post('/properties', requireAuth, permitRoles('Landlord'), propertyProofUpload.single('proof'), async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const landlordId = req.user.userId;
+    const { addressLine1, addressLine2, city, province, postalCode } = req.body;
+    const proof = req.file;
+    if (!addressLine1 || !city || !province || !postalCode || !proof) {
+      return res.status(400).json({ success: false, message: 'Address fields, province and proof are required' });
+    }
+
+    await connection.beginTransaction();
+
+    // Insert into tblProperties with the new AddressLine2, Province and PostalCode fields.
+    const [propRes] = await connection.execute(
+      `INSERT INTO tblProperties (AddressLine1, AddressLine2, City, Province, PostalCode)
+       VALUES (?, ?, ?, ?, ?)`,
+      [addressLine1, addressLine2 || null, city, province, postalCode]
+    );
+    const propertyId = propRes.insertId;
+
+    // Link property to landlord
+    await connection.execute(
+      `INSERT INTO tblLandlordProperties (PropertyID, LandlordUserID, ActiveFrom, IsPrimary)
+       VALUES (?, ?, CURDATE(), 1)`,
+      [propertyId, landlordId]
+    );
+
+    // Save proof path (relative to uploads directory)
+    const filePath = path.join('uploads', 'property-proofs', req.file.filename);
+    await connection.execute(
+      `INSERT INTO tblPropertyProofs (PropertyID, FilePath) VALUES (?, ?)`,
+      [propertyId, filePath]
+    );
+
+    await connection.commit();
+    return res.status(201).json({ success: true, data: { propertyId } });
+  } catch (err) {
+    try { await connection.rollback(); } catch { }
+    console.error('Landlord /properties POST error:', err);
     return res.status(500).json({ success: false, message: 'Server error' });
   } finally {
     connection.release();

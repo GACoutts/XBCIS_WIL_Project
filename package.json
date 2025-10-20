@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "dotenv": "^17.2.3",
+    "mime": "^4.1.0",
     "mysql2": "^3.15.2",
     "nodemon": "^3.1.10",
     "recharts": "^3.2.1",

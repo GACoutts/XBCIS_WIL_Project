@@ -28,13 +28,79 @@ export async function rejectQuote(quoteId) {
   return res.json();
 }
 
-// Fetch the timeline/history for a specific ticket owned by the landlord.
-// Returns an array of history entries with fields HistoryID, Status, ChangedAt, ChangedBy.
-export async function getTicketHistory(ticketId) {
-  const res = await fetch(`${API_BASE}/tickets/${ticketId}/history`, { credentials: 'include' });
-  const data = await res.json();
-  // Handle different response shapes
-  if (data?.data?.timeline) return data.data.timeline;
-  if (data?.data) return data.data;
-  return [];
+/**
+ * Fetch tickets with optional filters.  Accepts an object of query parameters
+ * such as { status, dateFrom, dateTo, limit, offset, propertyId }.  The
+ * returned object matches the backend format: { success, data: { tickets, pagination } }.
+ *
+ * @param {Object} params
+ */
+export async function getTicketsFiltered(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.append(key, value);
+    }
+  });
+  const qs = query.toString();
+  const res = await fetch(`${API_BASE}/tickets${qs ? `?${qs}` : ''}`, { credentials: 'include' });
+  return res.json();
+}
+
+/**
+ * Approve a newly logged ticket.  This moves the ticket from the
+ * landlord's awaiting approvals list to staff review by updating its
+ * CurrentStatus to 'New'.
+ * @param {number} ticketId
+ */
+export async function approveTicket(ticketId) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/approve`, {
+    method: 'POST',
+    credentials: 'include'
+  });
+  return res.json();
+}
+
+/**
+ * Reject a newly logged ticket.  Landlords may optionally provide a
+ * reason for the rejection.  This sets the ticket's status to
+ * 'Rejected' and records the reason.
+ * @param {number} ticketId
+ * @param {string} reason
+ */
+export async function rejectTicket(ticketId, reason) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/reject`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason })
+  });
+  return res.json();
+}
+
+/**
+ * Retrieve all properties belonging to the authenticated landlord.  Each
+ * property includes its address fields and the currently active tenant
+ * (if any).
+ */
+export async function getProperties() {
+  const res = await fetch(`${API_BASE}/properties`, { credentials: 'include' });
+  return res.json();
+}
+
+/**
+ * Add a new property for the landlord.  Accepts a FormData object
+ * containing addressLine1, addressLine2, city, province and postalCode
+ * along with a file field named 'proof'.  Returns { success, data: { propertyId } } on
+ * success.
+ *
+ * @param {FormData} formData
+ */
+export async function addProperty(formData) {
+  const res = await fetch(`${API_BASE}/properties`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  });
+  return res.json();
 }

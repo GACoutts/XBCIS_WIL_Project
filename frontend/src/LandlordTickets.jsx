@@ -1,172 +1,339 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { getTickets, getQuotesForTicketLandlord, getTicketHistory } from "./landlordApi";
+import { Link } from "react-router-dom";
+import { useAuth } from "./context/AuthContext.jsx";
+import {
+  getTicketsFiltered,
+  approveTicket,
+  rejectTicket,
+  approveQuote,
+  rejectQuote,
+  getProperties
+} from "./landlordApi";
+
+import "./styles/landlorddash.css";
 
 /**
- * LandlordTickets page
+ * LandlordTickets
  *
- * This component lists all tickets that belong to the current landlord.
- * Each row can be expanded to reveal the associated quotes and a simple
- * status history timeline. Quotes include the contractor and quote status
- * with buttons to approve or reject if still pending. The status history
- * shows the changes recorded for the ticket.
+ * This page lists all tickets related to the landlord's properties.  It
+ * separates tickets into "Current" (open/in-progress) and "History"
+ * (completed or rejected) sections.  Landlords can filter tickets by
+ * status and property, approve or reject newly logged tickets
+ * ("Awaiting Landlord Approval"), and approve or reject contractor
+ * quotes that are pending their decision.  Basic details such as the
+ * ticket reference, property address, issue, submission date, current
+ * status and quote information are shown.
  */
 export default function LandlordTickets() {
-  const navigate = useNavigate();
-
+  const { logout } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
   const [tickets, setTickets] = useState([]);
-  const [expandedRows, setExpandedRows] = useState({});
-  const [quotes, setQuotes] = useState({});
-  const [histories, setHistories] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState([]);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPropertyId, setFilterPropertyId] = useState("");
 
+  // Fetch properties (for filter) on mount
   useEffect(() => {
-    // Fetch all landlord tickets on mount
-    async function fetchData() {
+    (async () => {
       try {
-        const result = await getTickets();
-        const list = Array.isArray(result?.tickets)
-          ? result.tickets
-          : Array.isArray(result?.data?.tickets)
-          ? result.data.tickets
-          : [];
+        const res = await getProperties();
+        if (res.success) setProperties(res.data || []);
+        else setProperties([]);
+      } catch (err) {
+        console.error("Error loading landlord properties", err);
+        setProperties([]);
+      }
+    })();
+  }, []);
+
+  // Fetch tickets whenever the filters change
+  useEffect(() => {
+    (async () => {
+      try {
+        const params = {};
+        if (filterStatus) params.status = filterStatus;
+        if (filterPropertyId) params.propertyId = filterPropertyId;
+        // Limit to 100 for now; pagination could be added later
+        params.limit = 100;
+        const res = await getTicketsFiltered(params);
+        const list = Array.isArray(res?.data?.tickets)
+          ? res.data.tickets
+          : Array.isArray(res?.tickets)
+            ? res.tickets
+            : [];
         setTickets(list);
       } catch (err) {
         console.error("Error loading tickets", err);
         setTickets([]);
-      } finally {
-        setLoading(false);
       }
-    }
-    fetchData();
-  }, []);
+    })();
+  }, [filterStatus, filterPropertyId]);
 
-  // Toggle expansion for a given ticket row
-  const toggleRow = (ticketId) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [ticketId]: !prev[ticketId],
-    }));
-    // Lazy load quotes and history when expanding for the first time
-    if (!quotes[ticketId]) loadQuotes(ticketId);
-    if (!histories[ticketId]) loadHistory(ticketId);
+  const handleLogout = async () => {
+    await logout();
+    window.location.reload();
   };
 
-  const loadQuotes = async (ticketId) => {
+  // Event handlers for ticket approval and rejection
+  const handleApproveTicket = async (ticketId) => {
     try {
-      const q = await getQuotesForTicketLandlord(ticketId);
-      setQuotes((prev) => ({ ...prev, [ticketId]: q || [] }));
+      const res = await approveTicket(ticketId);
+      if (!res.success) alert(res.message || "Failed to approve ticket");
+      // Remove the ticket from awaiting list by reloading tickets
+      setTickets((prev) => prev.map((t) => (t.ticketId === ticketId ? { ...t, status: 'New' } : t)));
     } catch (err) {
-      console.error("Error loading quotes", err);
-      setQuotes((prev) => ({ ...prev, [ticketId]: [] }));
+      console.error("Approve ticket error", err);
+      alert("Error approving ticket");
     }
   };
 
-  const loadHistory = async (ticketId) => {
+  const handleRejectTicket = async (ticketId) => {
+    const reason = prompt("Please provide a reason for rejection (optional):", "");
     try {
-      const h = await getTicketHistory(ticketId);
-      setHistories((prev) => ({ ...prev, [ticketId]: h || [] }));
+      const res = await rejectTicket(ticketId, reason);
+      if (!res.success) alert(res.message || "Failed to reject ticket");
+      setTickets((prev) => prev.map((t) => (t.ticketId === ticketId ? { ...t, status: 'Rejected' } : t)));
     } catch (err) {
-      console.error("Error loading history", err);
-      setHistories((prev) => ({ ...prev, [ticketId]: [] }));
+      console.error("Reject ticket error", err);
+      alert("Error rejecting ticket");
     }
   };
 
-  if (loading) return <div>Loading tickets…</div>;
+  // Event handlers for quote approval and rejection
+  const handleApproveQuote = async (ticketId, quoteId) => {
+    try {
+      const res = await approveQuote(quoteId);
+      if (!res.success) alert(res.message || "Failed to approve quote");
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.ticketId === ticketId
+            ? {
+                ...t,
+                quote: t.quote
+                  ? { ...t.quote, status: 'Approved', landlordApproval: { status: 'Approved' } }
+                  : null,
+                status: 'Approved'
+              }
+            : t
+        )
+      );
+    } catch (err) {
+      console.error("Approve quote error", err);
+      alert("Error approving quote");
+    }
+  };
+
+  const handleRejectQuote = async (ticketId, quoteId) => {
+    const reason = prompt("Please provide a reason for rejection (optional):", "");
+    try {
+      const res = await rejectQuote(quoteId);
+      if (!res.success) alert(res.message || "Failed to reject quote");
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.ticketId === ticketId
+            ? {
+                ...t,
+                quote: t.quote
+                  ? { ...t.quote, status: 'Rejected', landlordApproval: { status: 'Rejected' } }
+                  : null,
+                status: 'In Review'
+              }
+            : t
+        )
+      );
+    } catch (err) {
+      console.error("Reject quote error", err);
+      alert("Error rejecting quote");
+    }
+  };
+
+  // Partition tickets into current and history categories
+  const currentTickets = tickets.filter(
+    (t) => t.status !== 'Completed' && t.status !== 'Rejected'
+  );
+  const historyTickets = tickets.filter(
+    (t) => t.status === 'Completed' || t.status === 'Rejected'
+  );
+
+  // Compose property options for filtering
+  const propertyOptions = [
+    { value: '', label: 'All Properties' },
+    ...properties.map((p) => ({
+      value: p.PropertyID.toString(),
+      label: [p.AddressLine1, p.AddressLine2, p.City, p.Province, p.PostalCode]
+        .filter((x) => x && x.toString().trim())
+        .join(', ')
+    }))
+  ];
 
   return (
-    <div className="landlord-tickets-page" style={{ padding: "1rem" }}>
-      <h2>All Tickets</h2>
-      <table className="tickets-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left", padding: "4px" }}>Ticket ID</th>
-            <th style={{ textAlign: "left", padding: "4px" }}>Issue</th>
-            <th style={{ textAlign: "left", padding: "4px" }}>Submitted</th>
-            <th style={{ textAlign: "left", padding: "4px" }}>Status</th>
-            <th style={{ textAlign: "left", padding: "4px" }}>Quote Status</th>
-            <th style={{ textAlign: "left", padding: "4px" }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tickets.map((t) => {
-            const ticketId = t.TicketID;
-            const createdAt = t.createdAt || t.CreatedAt || t.SubmittedAt;
-            const dateStr = createdAt ? new Date(createdAt).toLocaleString() : "";
-            // determine quote summary: first quote's status or aggregated status
-            const tq = quotes[ticketId] || [];
-            let quoteStatus = "N/A";
-            if (tq.length) {
-              const hasApproved = tq.some((q) => q.QuoteStatus === "Approved");
-              const hasRejected = tq.every((q) => q.QuoteStatus === "Rejected");
-              if (hasApproved) quoteStatus = "Approved";
-              else if (hasRejected) quoteStatus = "Rejected";
-              else quoteStatus = "Pending";
-            }
-            return (
-              <React.Fragment key={ticketId}>
-                <tr
-                  style={{ cursor: "pointer", borderBottom: "1px solid #ddd" }}
-                  onClick={() => toggleRow(ticketId)}
-                >
-                  <td style={{ padding: "4px" }}>{ticketId}</td>
-                  <td style={{ padding: "4px" }}>{t.Description || t.description}</td>
-                  <td style={{ padding: "4px" }}>{dateStr}</td>
-                  <td style={{ padding: "4px" }}>{t.CurrentStatus || t.status}</td>
-                  <td style={{ padding: "4px" }}>{quoteStatus}</td>
-                  <td style={{ padding: "4px" }}>{expandedRows[ticketId] ? "Hide" : "View"} Details</td>
-                </tr>
-                {expandedRows[ticketId] && (
-                  <tr>
-                    <td colSpan="6" style={{ padding: "8px", background: "#f9f9f9" }}>
-                      {/* Quote details */}
-                      <h4>Quotes</h4>
-                      {tq.length ? (
-                        <table style={{ width: "100%", marginBottom: "1rem", borderCollapse: "collapse" }}>
-                          <thead>
-                            <tr>
-                              <th>Quote ID</th>
-                              <th>Amount</th>
-                              <th>Status</th>
-                              <th>Contractor</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {tq.map((q) => (
-                              <tr key={q.QuoteID}>
-                                <td>{q.QuoteID}</td>
-                                <td>{q.QuoteAmount}</td>
-                                <td>{q.QuoteStatus}</td>
-                                <td>{q.ContractorUserID || q.ContractorName}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p>No quotes available.</p>
-                      )}
+    <>
+      {/* Navbar */}
+      <nav className="navbar">
+        <div className="navbar-logo">
+          <div className="logo-placeholder">GoodLiving</div>
+        </div>
+        <div className="navbar-right">
+          <ul className="navbar-menu">
+            <li>
+              <Link to="/landlord">Dashboard</Link>
+            </li>
+            <li>
+              <Link to="/landlord/tickets" className="active">
+                Tickets
+              </Link>
+            </li>
+            <li>
+              <Link to="/landlord/properties">Properties</Link>
+            </li>
+            <li>
+              <Link to="/landlord/settings">Settings</Link>
+            </li>
+          </ul>
+        </div>
+        <div className="navbar-profile">
+          <button
+            className="profile-btn"
+            onClick={() => setShowLogout(!showLogout)}
+          >
+            <img src="https://placehold.co/40" alt="profile" />
+          </button>
+          {showLogout && (
+            <div className="logout-popup">
+              <button onClick={async () => { await logout(); window.location.reload(); }}>Log Out</button>
+            </div>
+          )}
+        </div>
+      </nav>
 
-                      {/* History timeline */}
-                      <h4>Status History</h4>
-                      {histories[ticketId] && histories[ticketId].length ? (
-                        <ul style={{ listStyle: "none", paddingLeft: 0 }}>
-                          {histories[ticketId].map((h) => (
-                            <li key={h.HistoryID || Math.random()}>
-                              {new Date(h.ChangedAt).toLocaleString()} – {h.Status}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p>No history available.</p>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+      <div style={{ padding: '80px 90px 40px' }}>
+        <h1 style={{ marginBottom: 20 }}>My Tickets</h1>
+        {/* Filters */}
+        <div style={{ display: 'flex', gap: 20, marginBottom: 20, alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600 }}>Status:</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{ marginTop: 5, padding: '6px 10px', borderRadius: 5, border: '1px solid #FBD402', fontSize: 14 }}
+            >
+              <option value="">All</option>
+              <option value="Awaiting Landlord Approval">Awaiting Approval</option>
+              <option value="New">New</option>
+              <option value="In Review">In Review</option>
+              <option value="Quoting">Quoting</option>
+              <option value="Approved">Approved</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Completed">Completed</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 13, fontWeight: 600 }}>Property:</label>
+            <select
+              value={filterPropertyId}
+              onChange={(e) => setFilterPropertyId(e.target.value)}
+              style={{ marginTop: 5, padding: '6px 10px', borderRadius: 5, border: '1px solid #FBD402', fontSize: 14 }}
+            >
+              {propertyOptions.map((opt) => (
+                <option key={opt.value || 'all'} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Current Tickets */}
+        <div className="pendingapprovals-wrapper" style={{ marginTop: 0 }}>
+          <h2 style={{ margin: '0 0 10px 0' }}>Current Tickets</h2>
+          <div className="pendingapprovals-card">
+            <div className="pendingapprovals-header">
+              <div className="column column-ticket">Ticket ID</div>
+              <div className="column column-property">Property</div>
+              <div className="column column-issue">Issue</div>
+              <div className="column column-submitted">Submitted</div>
+              <div className="column column-status">Status</div>
+              <div className="column column-actions">Actions</div>
+            </div>
+            <div className="pendingapprovals-body">
+              {currentTickets.length ? (
+                currentTickets.map((t) => {
+                  const awaitingApproval = t.status === 'Awaiting Landlord Approval';
+                  const pendingQuote = t.quote && t.quote.status === 'Pending' && (!t.quote.landlordApproval || !t.quote.landlordApproval.status);
+                  return (
+                    <div key={t.ticketId} className="pendingapprovals-row">
+                      <div className="cell ticket">{t.referenceNumber || t.ticketId}</div>
+                      <div className="cell property">{t.propertyAddress || '—'}</div>
+                      <div className="cell issue">{t.description || '—'}</div>
+                      <div className="cell submitted">{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : ''}</div>
+                      <div className="cell status">
+                        <span className={`status-pill ${awaitingApproval ? 'pending' : t.status === 'Approved' ? 'approved' : t.status === 'Rejected' ? 'rejected' : 'pending'}`}>{awaitingApproval ? 'Awaiting Approval' : t.status}</span>
+                      </div>
+                      <div className="cell actions">
+                        {awaitingApproval ? (
+                          <>
+                            <button className="btn btn-approve" onClick={() => handleApproveTicket(t.ticketId)}>Approve</button>
+                            <button className="btn btn-reject" onClick={() => handleRejectTicket(t.ticketId)}>Reject</button>
+                          </>
+                        ) : pendingQuote ? (
+                          <>
+                            <button className="btn btn-approve" onClick={() => handleApproveQuote(t.ticketId, t.quote.id)}>Approve Quote</button>
+                            <button className="btn btn-reject" onClick={() => handleRejectQuote(t.ticketId, t.quote.id)}>Reject Quote</button>
+                          </>
+                        ) : (
+                          <span style={{ color: '#666' }}>—</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="pendingapprovals-row" style={{ justifyContent: 'center', gridTemplateColumns: '1fr' }}>
+                  No current tickets.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* History Tickets */}
+        <div className="pendingapprovals-wrapper" style={{ marginTop: 40 }}>
+          <h2 style={{ margin: '0 0 10px 0' }}>Ticket & Quote History</h2>
+          <div className="pendingapprovals-card">
+            <div className="pendingapprovals-header" style={{ gridTemplateColumns: '1fr 3fr 2fr 2fr 2fr' }}>
+              <div className="column column-ticket">Ticket ID</div>
+              <div className="column column-property">Property</div>
+              <div className="column column-issue">Issue</div>
+              <div className="column column-status">Status</div>
+              <div className="column column-status">Quote</div>
+            </div>
+            <div className="pendingapprovals-body">
+              {historyTickets.length ? (
+                historyTickets.map((t) => (
+                  <div key={t.ticketId} className="pendingapprovals-row" style={{ gridTemplateColumns: '1fr 3fr 2fr 2fr 2fr' }}>
+                    <div className="cell ticket">{t.referenceNumber || t.ticketId}</div>
+                    <div className="cell property">{t.propertyAddress || '—'}</div>
+                    <div className="cell issue">{t.description || '—'}</div>
+                    <div className="cell status">
+                      <span className={`status-pill ${t.status === 'Completed' ? 'approved' : 'rejected'}`}>{t.status}</span>
+                    </div>
+                    <div className="cell">
+                      {t.quote
+                        ? `${t.quote.status} (R ${Number(t.quote.amount).toFixed(0)})`
+                        : '—'}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="pendingapprovals-row" style={{ justifyContent: 'center', gridTemplateColumns: '1fr' }}>
+                  No history tickets.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

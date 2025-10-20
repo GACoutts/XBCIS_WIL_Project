@@ -6,9 +6,10 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import RoleRoute from './components/RoleRoute.jsx';
 import UserDashboard from './UserDashboard.jsx';
 import StaffDashboard from './StaffDashboard.jsx';
-import StaffTickets from './StaffTickets.jsx';
-import StaffContractors from './StaffContractors.jsx';
 import LandlordDashboard from './LandlordDashboard.jsx';
+import LandlordTickets from './LandlordTickets.jsx';
+import LandlordProperties from './LandlordProperties.jsx';
+import Settings from './Settings.jsx';
 import ContractorDashboard from './ContractorDashboard.jsx';
 import Notifications from './Notifications.jsx';
 import ForgotPassword from './ForgotPassword.jsx';
@@ -17,7 +18,8 @@ import DebugHUD from './components/DebugHUD.jsx';
 import ManageRoles from './components/ManageRoles.jsx';
 import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
 import RoleDashboardRedirect from './components/RoleDashboardRedirect.jsx';
-
+import StaffTickets from './StaffTickets.jsx';
+import StaffContractors from './StaffContractors.jsx';
 
 // Role management components
 import RequestRole from './RequestRole.jsx';
@@ -26,7 +28,7 @@ import Sessions from './Sessions';
 export default function App() {
   // Only show DebugHUD in development mode
   const isDevelopment = import.meta.env.DEV || import.meta.env.VITE_DEBUG_HUD === 'true';
-  
+
   return (
     <>
       {/* Debug overlay - only in development */}
@@ -52,7 +54,7 @@ export default function App() {
           path="/"
           element={<RoleDashboardRedirect />}
         />
-        
+
         {/* Client dashboard route */}
         <Route
           path="/client"
@@ -62,7 +64,7 @@ export default function App() {
             </RoleRoute>
           }
         />
-        
+
         {/* Client-only ticket creation */}
         <Route
           path="/ticket"
@@ -83,7 +85,51 @@ export default function App() {
           }
         />
 
-        {/* Staff tickets page */}
+        {/* Landlord routes */}
+        <Route
+          path="/landlord"
+          element={
+            <RoleRoute roles={['Landlord']}>
+              <LandlordDashboard />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/landlord/tickets"
+          element={
+            <RoleRoute roles={['Landlord']}>
+              <LandlordTickets />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/landlord/properties"
+          element={
+            <RoleRoute roles={['Landlord']}>
+              <LandlordProperties />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/landlord/settings"
+          element={
+            <RoleRoute roles={['Landlord']}>
+              <Settings />
+            </RoleRoute>
+          }
+        />
+
+        {/* General settings page for clients, staff and contractors */}
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Staff: Tickets */}
         <Route
           path="/tickets"
           element={
@@ -93,7 +139,7 @@ export default function App() {
           }
         />
 
-        {/* Staff contractor management page */}
+        {/* Staff: Contractors */}
         <Route
           path="/contractors"
           element={
@@ -104,10 +150,18 @@ export default function App() {
         />
 
         <Route
-          path="/landlord"
+          path="/staff/settings"
           element={
-            <RoleRoute roles={['Landlord']}>
-              <LandlordDashboard />
+            <RoleRoute roles={['Staff']}>
+              <Settings />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/contractor/settings"
+          element={
+            <RoleRoute roles={['Contractor']}>
+              <Settings />
             </RoleRoute>
           }
         />
@@ -138,7 +192,7 @@ export default function App() {
 
         {/* Role management */}
         <Route path="/request-role" element={<ProtectedRoute><RequestRole /></ProtectedRoute>} />
-        
+
         {/* Staff role management routes */}
         <Route
           path="/staff/manage-roles"
@@ -148,7 +202,7 @@ export default function App() {
             </RoleRoute>
           }
         />
-        
+
         <Route
           path="/staff/role-requests"
           element={
