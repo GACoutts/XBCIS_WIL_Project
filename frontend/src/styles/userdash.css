@@ -380,3 +380,66 @@
 
 /* keep things evenly spaced */
 .log-ticket-card .form-row { margin-bottom: 12px; }
+.priority-high { background-color: #e53e3e; }   /* red */
+.priority-medium { background-color: #dd6b20; } /* orange */
+.priority-low { background-color: #38a169; }    /* green */
+
+/* ----- Subtitle + Tabs Container ----- */
+.dashboard-page .sub-title {
+  padding-left: 90px;
+  margin-top: -25px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap; /* allow wrapping on smaller screens */
+}
+
+/* ----- Ticket Tabs ----- */
+.dashboard-page .ticket-tabs {
+  display: flex;
+  gap: 10px;           /* space between Open/Closed buttons */
+  justify-content: center; /* center tabs horizontally */
+  flex-wrap: wrap;      /* allow wrapping on smaller screens */
+  margin-left: 0;       /* optional: can remove */
+}
+
+
+/* Tab Buttons */
+.dashboard-page .tab-btn {
+  padding: 8px 18px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: #f5f5f5;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.2s, color 0.2s;
+  min-width: 110px;
+}
+
+.dashboard-page .tab-btn.active {
+  background-color: #FBD402;
+  color: black;
+  border-color: #FBD402;
+}
+
+/* ----- Responsive: Mobile screens ----- */
+@media (max-width: 768px) {
+  .dashboard-page .sub-title {
+    flex-direction: column;  /* subtitle above tabs */
+    align-items: flex-start; /* align left or center if you prefer */
+    padding-left: 15px;
+    gap: 10px;
+  }
+
+  .dashboard-page .ticket-tabs {
+    justify-content: center;  /* center tabs on mobile */
+    width: 100%;
+  }
+
+  .dashboard-page .tab-btn {
+    flex: none;       /* prevent stretching on mobile */
+    min-width: 100px; /* smaller width for mobile */
+  }
+}
