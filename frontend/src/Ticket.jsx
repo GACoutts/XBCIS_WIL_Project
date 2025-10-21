@@ -67,6 +67,34 @@ function Ticket() {
     }
   };
 
+  if (done) {
+    return (
+      <div className="logticket">
+        <nav className="navbar">
+          <div className="navbar-logo">
+            <img src="https://placehold.co/120x40" alt="logo" />
+          </div>
+          <div className="navbar-right">
+            <ul className="navbar-menu">
+              <li><Link to="/">Dashboard</Link></li>
+              <li><Link to="/ticket">Tickets</Link></li>
+              <li><Link to="/reports">Reports</Link></li>
+              <li><Link to="/notifications">Notifications</Link></li>
+              <li><Link to="/settings">Settings</Link></li>
+            </ul>
+          </div>
+          <div className="navbar-profile">
+            <img src="https://placehold.co/40" alt="profile" />
+          </div>
+        </nav>
+
+        <div className="container-confirmation">
+          <div className="header">
+            <div className="text"><h2>Ticket Submitted</h2></div>
+            <hr className="underline" />
+          </div>
+          <p className="text">Your ticket has been logged successfully. We'll keep you updated on its status.</p>
+        </div>
   // Navbar component for reuse
   const Navbar = () => (
     <nav className="navbar">
@@ -86,6 +114,23 @@ function Ticket() {
 
   return (
     <div className="logticket">
+      <nav className="navbar">
+        <div className="navbar-logo">
+          <div className="logo-placeholder">GoodLiving</div>
+        </div>
+        <div className="navbar-right">
+          <ul className="navbar-menu">
+            <li><Link to="/">Dashboard</Link></li>
+            <li><Link to="/ticket">Tickets</Link></li>
+          {/*  <li><Link to="/reports">Reports</Link></li> */}
+            <li><Link to="/notifications">Notifications</Link></li>
+            <li><Link to="/settings">Settings</Link></li>
+          </ul>
+        </div>
+        <div className="navbar-profile">
+          <img src="https://placehold.co/40" alt="profile" />
+        </div>
+      </nav>
       <Navbar />
 
       <div className="container">

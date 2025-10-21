@@ -198,7 +198,9 @@ export function formatJobStatus(status) {
     'Scheduled': { display: 'Scheduled', class: 'status-scheduled', color: '#20c997' },
     'In Progress': { display: 'In Progress', class: 'status-progress', color: '#fd7e14' },
     'Completed': { display: 'Completed', class: 'status-completed', color: '#198754' },
-    'Cancelled': { display: 'Cancelled', class: 'status-cancelled', color: '#6c757d' }
+    'Cancelled': { display: 'Cancelled', class: 'status-cancelled', color: '#6c757d' },
+    // Treat 'Closed' as 'Completed'
+    'Closed': { display: 'Completed', class: 'status-completed', color: '#198754' }
   };
 
   return statusMap[status] || { display: status, class: 'status-unknown', color: '#6c757d' };

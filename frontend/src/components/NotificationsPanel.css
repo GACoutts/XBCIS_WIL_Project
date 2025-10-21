@@ -1,0 +1,34 @@
+/* Styles for the embedded notifications panel */
+.notifications-panel {
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #fff;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background-color: #fafafa;
+}
+
+.notification-item h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notification-item p {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.notification-item small {
+  color: #888;
+  font-size: 11px;
+}

@@ -191,6 +191,7 @@ function LandlordDashboard() {
             <li><Link to="/landlord">Dashboard</Link></li>
             <li><Link to="/landlord/tickets">Tickets</Link></li>
             <li><Link to="/landlord/properties">Properties</Link></li>
+            <li><Link to="/notifications">Notifications</Link></li>
             <li><Link to="/landlord/settings">Settings</Link></li>
           </ul>
         </div>

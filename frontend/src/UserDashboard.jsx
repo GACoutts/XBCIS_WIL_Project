@@ -179,6 +179,7 @@ const displayedTickets = sortedTickets.filter(ticket =>
             <ul className="navbar-menu">
               <li><Link to="/">Dashboard</Link></li>
               <li><Link to="/ticket">Tickets</Link></li>
+              <li><Link to="/notifications">Notifications</Link></li>
               <li><Link to="/settings">Settings</Link></li>
             </ul>
           </div>

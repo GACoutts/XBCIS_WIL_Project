@@ -327,6 +327,7 @@ function StaffDashboard() {
             <li><Link to="/staff">Dashboard</Link></li>
             <li><Link to="/tickets">Tickets</Link></li>
             <li><Link to="/contractors">Contractors</Link></li>
+            <li><Link to="/notifications">Notifications</Link></li>
             <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import './NotificationsPanel.css';
 
 /**
  * Lightweight notifications panel (embed-able widget).

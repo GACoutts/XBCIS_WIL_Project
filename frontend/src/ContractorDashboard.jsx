@@ -72,14 +72,7 @@ function CDashboard() {
   const filteredAssignedJobs = filterJobs(assignedJobs);
   const filteredCompletedJobs = filterJobs(completedJobs);
 
-  /**
-   * Trigger quote upload flow.  Currently this simply opens a file input and
-   * submits the selected PDF to the /api/quotes/:ticketId endpoint.  After
-   * successful upload, the job list is refreshed.  Only PDF files up to
-   * 10MB are accepted by the backend.
-   */
   const handleUploadQuote = async (job) => {
-    // Create a temporary file input to select a PDF
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/pdf';
@@ -88,7 +81,6 @@ function CDashboard() {
       if (!file) return;
       const formData = new FormData();
       formData.append('files', file);
-      // Example fields; adjust if backend expects quoteAmount/description
       const quoteAmount = prompt('Enter quote amount (numeric):');
       const quoteDescription = prompt('Enter quote description:');
       formData.append('quoteAmount', quoteAmount || '0');
@@ -103,7 +95,6 @@ function CDashboard() {
         const data = await res.json();
         if (!res.ok) throw new Error(data?.message || 'Failed to upload quote');
         alert('Quote submitted successfully');
-        // Refresh jobs
         const refreshed = await getJobs({ page: 1, pageSize: 100 });
         setJobs(Array.isArray(refreshed?.data?.jobs) ? refreshed.data.jobs : []);
         setModalJob(null);
@@ -117,11 +108,6 @@ function CDashboard() {
     input.click();
   };
 
-  /**
-   * Propose an appointment date/time for a job using the contractor API.
-   * If the proposed date/time is invalid or the API returns an error,
-   * a message is displayed.  Upon success the job list is refreshed.
-   */
   const handleBookAppointment = async (job) => {
     if (!appointmentDate) {
       alert('Select a date/time');
@@ -129,13 +115,11 @@ function CDashboard() {
     }
     try {
       const proposed = new Date(appointmentDate);
-      // Use start time as midday if only date selected (without time)
       if (!appointmentDate.includes('T')) {
         proposed.setHours(12, 0, 0, 0);
       }
       await postJobSchedule(job.ticketId, { proposedStart: proposed.toISOString() });
       alert('Appointment proposed successfully');
-      // Refresh jobs
       const refreshed = await getJobs({ page: 1, pageSize: 100 });
       setJobs(Array.isArray(refreshed?.data?.jobs) ? refreshed.data.jobs : []);
       setModalJob(null);
@@ -146,12 +130,6 @@ function CDashboard() {
     }
   };
 
-  /**
-   * Mark a job/ticket as completed.  Sends a POST request to the backend
-   * /api/tickets/:ticketId/complete endpoint.  Only contractors with an
-   * approved quote (assigned jobs) may complete tickets.  On success the
-   * job status is refreshed.
-   */
   const handleMarkCompleted = async (job) => {
     if (markingComplete) return;
     try {
@@ -163,7 +141,6 @@ function CDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to mark completed');
       alert('Ticket marked as completed');
-      // Refresh jobs
       const refreshed = await getJobs({ page: 1, pageSize: 100 });
       setJobs(Array.isArray(refreshed?.data?.jobs) ? refreshed.data.jobs : []);
       setModalJob(null);
@@ -175,24 +152,15 @@ function CDashboard() {
     }
   };
 
-  /**
-   * Determine available actions for a job based on its current status.  The
-   * returned array of action objects contains a label and an onClick
-   * handler.  When new statuses are introduced, update this function
-   * accordingly.
-   */
   const getJobActions = (job) => {
     const actions = [];
-    // Contractors can upload a quote when the job is in review or quoting stage and no approved quote exists
-    if ((job.status === 'In Review' || job.status === 'Quoting') && (!job.quote || job.quote.status !== 'Approved')) {
+    if ((job.status === 'In Review' || job.status === 'Quoting' || job.status === 'Awaiting Landlord Approval') && (!job.quote || job.quote.status !== 'Approved')) {
       actions.push({ label: 'Upload Quote', onClick: () => handleUploadQuote(job) });
     }
-    // When a quote is approved, the contractor may propose an appointment even if ticket status still says Quoting
     const quoteApproved = job.quote && job.quote.status === 'Approved';
     if (quoteApproved || job.status === 'Approved' || job.status === 'Awaiting Appointment') {
       actions.push({ label: 'Book Appointment', onClick: () => setModalJob(job) });
     }
-    // If an appointment is scheduled or the job is in progress, allow completion
     if (job.status === 'Scheduled' || job.status === 'In Progress') {
       actions.push({ label: 'Mark Completed', onClick: () => handleMarkCompleted(job) });
     }
@@ -208,7 +176,6 @@ function CDashboard() {
         <div className="navbar-right">
           <ul className="navbar-menu">
             <li>
-              {/* Use links styled like other dashboards; onClick still updates the tab */}
               <a
                 href="#"
                 className={activeTab === 'assigned' ? 'active' : ''}
@@ -231,6 +198,9 @@ function CDashboard() {
               >
                 Completed Jobs
               </a>
+            </li>
+            <li>
+              <Link to="/notifications">Notifications</Link>
             </li>
             <li>
               <Link to="/contractor/settings">Settings</Link>
@@ -258,7 +228,6 @@ function CDashboard() {
         <div className="jobs-filters">
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="">All Status</option>
-            {/* The display values are derived from contractorApi.formatJobStatus */}
             <option value="New">New</option>
             <option value="In Review">In Review</option>
             <option value="Quoting">Quoting</option>

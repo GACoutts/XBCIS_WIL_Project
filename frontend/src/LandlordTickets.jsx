@@ -187,6 +187,9 @@ export default function LandlordTickets() {
               <Link to="/landlord/properties">Properties</Link>
             </li>
             <li>
+              <Link to="/notifications">Notifications</Link>
+            </li>
+            <li>
               <Link to="/landlord/settings">Settings</Link>
             </li>
           </ul>
