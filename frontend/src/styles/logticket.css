@@ -5,13 +5,14 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  height: 100vh;
+  min-height: 100vh;      /* allow content to grow */
   margin: 0;
   padding-top: calc(var(--navbar-height) + 20px);
   box-sizing: border-box;
-  overflow: hidden;
+  overflow-y: auto;        /* enable vertical scrolling */
   position: relative;
 }
+
 
 /* NAVBAR */
 .logticket .navbar {
