@@ -76,10 +76,12 @@ router.post(
           message: "Ticket not found" 
         });
       }
-      if (ticketRows[0].CurrentStatus !== "In Review") {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Ticket not in review stage" 
+      
+      const allowedStatuses = ['In Review', 'Quoting', 'Awaiting Landlord Approval'];
+      if (!allowedStatuses.includes(ticketRows[0].CurrentStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ticket is not in a stage that allows new quotes'
         });
       }
 

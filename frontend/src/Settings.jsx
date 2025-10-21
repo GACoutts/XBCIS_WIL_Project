@@ -15,9 +15,11 @@ import { useAuth } from './context/AuthContext.jsx';
  */
 export default function Settings() {
   const { user, logout } = useAuth();
-  const [profile, setProfile] = useState({ fullName: '', email: '', phone: '', role: '' });
+  // include whatsappOptIn in profile for notification preferences
+  const [profile, setProfile] = useState({ fullName: '', email: '', phone: '', role: '', whatsappOptIn: false });
   const [showLogout, setShowLogout] = useState(false);
-  const [form, setForm] = useState({ fullName: '', phone: '' });
+  // include whatsappOptIn in form to allow editing
+  const [form, setForm] = useState({ fullName: '', phone: '', whatsappOptIn: false });
   const [saving, setSaving] = useState(false);
 
   // Load current profile on mount
@@ -28,7 +30,11 @@ export default function Settings() {
         const data = await res.json();
         if (data.success) {
           setProfile(data.data);
-          setForm({ fullName: data.data.fullName || '', phone: data.data.phone || '' });
+          setForm({
+            fullName: data.data.fullName || '',
+            phone: data.data.phone || '',
+            whatsappOptIn: Boolean(data.data.whatsappOptIn)
+          });
         }
       } catch (err) {
         console.error('Error fetching profile', err);
@@ -41,7 +47,8 @@ export default function Settings() {
   };
 
   const handleSave = async () => {
-    if (!form.fullName && !form.phone) {
+    // If no fields are changed, do nothing
+    if (!form.fullName && !form.phone && typeof form.whatsappOptIn === 'undefined') {
       alert('Nothing to update');
       return;
     }
@@ -144,6 +151,17 @@ export default function Settings() {
             onChange={(e) => handleChange('phone', e.target.value)}
             style={{ width: '100%', padding: '6px 8px', marginBottom: '12px', border: '1px solid #FBD402', borderRadius: 4 }}
           />
+          {/* WhatsApp opt-in toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+            <input
+              id="whatsapp-optin"
+              type="checkbox"
+              checked={form.whatsappOptIn || false}
+              onChange={(e) => handleChange('whatsappOptIn', e.target.checked)}
+              style={{ marginRight: '8px' }}
+            />
+            <label htmlFor="whatsapp-optin" style={{ fontWeight: 600 }}>Opt into WhatsApp notifications</label>
+          </div>
           <button
             onClick={handleSave}
             disabled={saving}

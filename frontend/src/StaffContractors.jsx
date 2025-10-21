@@ -120,6 +120,7 @@ export default function StaffContractors() {
             <li><Link to="/tickets">Tickets</Link></li>
             <li><Link to="/quotes">Quotes</Link></li>
             <li><Link to="/contractors">Contractors</Link></li>
+            <li><Link to="/notifications">Notifications</Link></li>
             <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>

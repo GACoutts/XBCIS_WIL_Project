@@ -12,7 +12,8 @@ router.get('/me', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
     const [rows] = await pool.execute(
-      `SELECT UserID, FullName, Email, Phone, Role, Status
+      `SELECT UserID, FullName, Email, Phone, Role, Status,
+              COALESCE(WhatsAppOptIn, 0) AS WhatsAppOptIn
        FROM tblusers
        WHERE UserID = ?
        LIMIT 1`,
@@ -28,7 +29,9 @@ router.get('/me', requireAuth, async (req, res) => {
       email: user.Email,
       phone: user.Phone,
       role: user.Role,
-      status: user.Status
+      status: user.Status,
+      // expose WhatsAppOptIn so clients can toggle preferences
+      whatsappOptIn: Boolean(user.WhatsAppOptIn)
     } });
   } catch (err) {
     console.error('Profile /me error:', err);
@@ -42,8 +45,8 @@ router.get('/me', requireAuth, async (req, res) => {
 // provided will remain unchanged.  Returns the updated profile.
 router.put('/me', requireAuth, async (req, res) => {
   const userId = req.user.userId;
-  const { fullName, phone } = req.body || {};
-  if (!fullName && !phone) {
+  const { fullName, phone, whatsappOptIn } = req.body || {};
+  if (!fullName && !phone && typeof whatsappOptIn === 'undefined') {
     return res.status(400).json({ success: false, message: 'No fields to update' });
   }
   try {
@@ -58,6 +61,11 @@ router.put('/me', requireAuth, async (req, res) => {
       sets.push('Phone = ?');
       params.push(phone.trim());
     }
+    // convert boolean/number to int (1 or 0) for storage
+    if (typeof whatsappOptIn !== 'undefined') {
+      sets.push('WhatsAppOptIn = ?');
+      params.push(whatsappOptIn ? 1 : 0);
+    }
     params.push(userId);
     await pool.execute(
       `UPDATE tblusers SET ${sets.join(', ')} WHERE UserID = ?`,
@@ -65,7 +73,8 @@ router.put('/me', requireAuth, async (req, res) => {
     );
     // Return updated record
     const [rows] = await pool.execute(
-      `SELECT UserID, FullName, Email, Phone, Role, Status
+      `SELECT UserID, FullName, Email, Phone, Role, Status,
+              COALESCE(WhatsAppOptIn, 0) AS WhatsAppOptIn
        FROM tblusers
        WHERE UserID = ?
        LIMIT 1`,
@@ -78,7 +87,8 @@ router.put('/me', requireAuth, async (req, res) => {
       email: user.Email,
       phone: user.Phone,
       role: user.Role,
-      status: user.Status
+      status: user.Status,
+      whatsappOptIn: Boolean(user.WhatsAppOptIn)
     } });
   } catch (err) {
     console.error('Profile update error:', err);

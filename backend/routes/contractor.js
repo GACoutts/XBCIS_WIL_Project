@@ -49,15 +49,23 @@ router.get('/jobs', async (req, res) => {
 
     // Build optional status filter
     const whereConditions = [];
-    const queryParams = [contractorId, contractorId];
     if (status && status !== 'all') {
       whereConditions.push('t.CurrentStatus = ?');
-      queryParams.push(status);
     }
     const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : '';
 
+    /*
+      VISIBILITY RULES (fixed):
+      A contractor should see a ticket if ANY of the following are true:
+        - They have any schedule on the ticket (tblContractorSchedules)
+        - They have an approved quote on the ticket (tblQuotes with QuoteStatus='Approved')
+        - They were explicitly assigned by staff (tblTickets.AssignedContractorID)
+
+      We unify these in a derived "assigned" set and join to tblTickets.
+      DISTINCT prevents duplicates when a contractor has multiple quotes on the same ticket.
+    */
     const jobsQuery = `
-      SELECT 
+      SELECT DISTINCT
         t.TicketID,
         t.TicketRefNumber,
         t.Description,
@@ -76,7 +84,13 @@ router.get('/jobs', async (req, res) => {
         la.ApprovalStatus,
         la.ApprovedAt
       FROM tblTickets t
-      INNER JOIN tblContractorSchedules cs ON cs.TicketID = t.TicketID AND cs.ContractorUserID = ?
+      INNER JOIN (
+        SELECT TicketID FROM tblContractorSchedules WHERE ContractorUserID = ?
+        UNION
+        SELECT TicketID FROM tblQuotes WHERE ContractorUserID = ? AND QuoteStatus = 'Approved'
+        UNION
+        SELECT TicketID FROM tblTickets WHERE AssignedContractorID = ?
+      ) assigned ON assigned.TicketID = t.TicketID
       LEFT JOIN tblQuotes q ON q.TicketID = t.TicketID AND q.ContractorUserID = ?
       LEFT JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
       LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
@@ -87,17 +101,30 @@ router.get('/jobs', async (req, res) => {
       ORDER BY COALESCE(t.UpdatedAt, t.CreatedAt) DESC
       LIMIT ? OFFSET ?
     `;
-    queryParams.push(pageSizeNum, offset);
-    const [jobs] = await pool.execute(jobsQuery, queryParams);
 
-    // Count total records (for pagination)
+    // Params for jobs query (order matches the 4 ?s before pagination, plus status if present)
+    const jobQueryParams = [contractorId, contractorId, contractorId, contractorId];
+    if (status && status !== 'all') {
+      jobQueryParams.push(status);
+    }
+    jobQueryParams.push(pageSizeNum, offset);
+
+    const [jobs] = await pool.execute(jobsQuery, jobQueryParams);
+
+    // Count total records (for pagination) – mirror the same derived assigned set
     const countQuery = `
       SELECT COUNT(*) AS total
       FROM tblTickets t
-      INNER JOIN tblContractorSchedules cs ON cs.TicketID = t.TicketID AND cs.ContractorUserID = ?
+      INNER JOIN (
+        SELECT TicketID FROM tblContractorSchedules WHERE ContractorUserID = ?
+        UNION
+        SELECT TicketID FROM tblQuotes WHERE ContractorUserID = ? AND QuoteStatus = 'Approved'
+        UNION
+        SELECT TicketID FROM tblTickets WHERE AssignedContractorID = ?
+      ) assigned ON assigned.TicketID = t.TicketID
       WHERE 1=1 ${whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : ''}
     `;
-    const countParams = [contractorId];
+    const countParams = [contractorId, contractorId, contractorId];
     if (status && status !== 'all') {
       countParams.push(status);
     }
