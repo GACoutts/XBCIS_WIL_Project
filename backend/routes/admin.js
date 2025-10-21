@@ -547,4 +547,94 @@ router.get('/inactive-users', async (_req, res) => {
   }
 });
 
+// ----- TENANCY LINKING VIA GOOGLE GEO -----
+// Requires Staff role
+
+// GET /api/admin/properties/:propertyId/candidate-tenants?radiusMeters=50
+router.get('/properties/:propertyId/candidate-tenants', async (req, res) => {
+  try {
+    const { propertyId } = req.params;
+    const radius = Number(req.query.radiusMeters || 50);
+
+    const [[prop]] = await pool.query(
+      `SELECT PlaceId, Latitude, Longitude FROM tblProperties WHERE PropertyID = ?`,
+      [propertyId]
+    );
+    if (!prop) return res.status(404).json({ message: 'Property not found' });
+
+    let candidates = [];
+    if (prop.PlaceId) {
+      const [rows] = await pool.query(
+        `SELECT UserID, FullName, Email FROM tblusers WHERE Role='Client' AND PlaceId = ?`,
+        [prop.PlaceId]
+      );
+      candidates = rows;
+    } else if (prop.Latitude != null && prop.Longitude != null) {
+      const [rows] = await pool.query(
+        `
+        SELECT u.UserID, u.FullName, u.Email,
+          (6371000 * 2 * ASIN(SQRT(
+             POWER(SIN(RADIANS(u.Latitude - ?)/2), 2) +
+             COS(RADIANS(?)) * COS(RADIANS(u.Latitude)) *
+             POWER(SIN(RADIANS(u.Longitude - ?)/2), 2)
+          ))) AS distance_m
+        FROM tblusers u
+        WHERE u.Role='Client' AND u.Latitude IS NOT NULL AND u.Longitude IS NOT NULL
+        HAVING distance_m <= ?
+        ORDER BY distance_m ASC
+        `,
+        [prop.Latitude, prop.Latitude, prop.Longitude, radius]
+      );
+      candidates = rows;
+    }
+
+    return res.json({ candidates });
+  } catch (err) {
+    console.error('admin candidates error', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/admin/tenancies { propertyId, tenantUserId, startDate }
+router.post('/tenancies', async (req, res) => {
+  try {
+    const { propertyId, tenantUserId, startDate } = req.body || {};
+    if (!propertyId || !tenantUserId || !startDate) {
+      return res.status(400).json({ message: 'Missing fields' });
+    }
+
+    await pool.query(
+      `UPDATE tblTenancies
+         SET IsActive = 0, EndDate = CURDATE()
+       WHERE PropertyID = ? AND TenantUserID = ? AND IsActive = 1`,
+      [propertyId, tenantUserId]
+    );
+
+    await pool.query(
+      `INSERT INTO tblTenancies (PropertyID, TenantUserID, StartDate, IsActive)
+       VALUES (?, ?, ?, 1)`,
+      [propertyId, tenantUserId, startDate]
+    );
+
+    // Notify tenant that their account is now linked to a property
+    try {
+      await notifyUser({
+        userId: tenantUserId,
+        ticketId: null,
+        template: 'tenancy_linked',
+        params: { propertyId },
+        eventKey: `tenancy_linked:${propertyId}:${tenantUserId}`,
+        fallbackToEmail: true,
+      });
+    } catch (notifyErr) {
+      console.error('[admin/tenancies] notify error:', notifyErr);
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('admin tenancies error', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 export default router;

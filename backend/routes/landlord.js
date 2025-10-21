@@ -10,8 +10,6 @@ const router = express.Router();
 // -----------------------------------------------------------------------------
 // Multer configuration for property proof uploads
 // -----------------------------------------------------------------------------
-// Store uploaded property proofs in a dedicated folder.  Files are named with
-// a timestamp and a sanitized version of the original name to avoid clashes.
 const propertyProofStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, path.join('uploads', 'property-proofs')),
   filename: (_req, file, cb) => {
@@ -25,13 +23,15 @@ const propertyProofUpload = multer({
   storage: propertyProofStorage,
   limits: { fileSize: 20 * 1024 * 1024 }, // up to 20MB
   fileFilter: (_req, file, cb) => {
-    // Accept images and PDFs for property proof
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (allowed.includes(file.mimetype.toLowerCase())) return cb(null, true);
     return cb(new Error('Only PDF and image files are allowed for property proofs'));
   }
 });
 
+// -----------------------------------------------------------------------------
+// Tickets for landlord (fixes Incorrect arguments to mysqld_stmt_execute)
+// -----------------------------------------------------------------------------
 router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const landlordId = req.user.userId;
@@ -152,9 +152,6 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
       createdAt: r.CreatedAt,
       propertyId: r.PropertyID,
 
-      // Compose a human-readable property address for convenience.  If
-      // multiple lines are provided they are joined with commas.  The
-      // frontend can override this formatting as needed.
       propertyAddress: [
         r.PropertyAddressLine1,
         r.PropertyAddressLine2,
@@ -232,14 +229,14 @@ async function landlordOwnsTicket(landlordId, ticketId) {
   return rows.length > 0;
 }
 
-/** helper: landlord owns quote (via the quote's ticket → property mapping) */
+/** helper: landlord owns quote (via the quote's ticket to property mapping) */
 async function landlordOwnsQuote(landlordId, quoteId) {
   const [rows] = await pool.execute(
     `
     SELECT 1
-    FROM tblquotes q
-    JOIN tbltickets t ON t.TicketID = q.TicketID
-    JOIN tbllandlordproperties lp
+    FROM tblQuotes q
+    JOIN tblTickets t ON t.TicketID = q.TicketID
+    JOIN tblLandlordProperties lp
          ON lp.PropertyID = t.PropertyID
         AND lp.LandlordUserID = ?
         AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
@@ -250,7 +247,6 @@ async function landlordOwnsQuote(landlordId, quoteId) {
   );
   return rows.length > 0;
 }
-
 
 /**
  * GET /api/landlord/quotes/:ticketId
@@ -304,10 +300,10 @@ router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord
       `
       SELECT
         a.ScheduleID AS AppointmentID,
-      a.TicketID,
-      a.ProposedDate AS Date,
-      a.Notes,
-      a.ClientConfirmed AS Status
+        a.TicketID,
+        a.ProposedDate AS Date,
+        a.Notes,
+        a.ClientConfirmed AS Status
       FROM tblContractorSchedules a
       WHERE a.TicketID = ?
       ORDER BY a.ProposedDate ASC;
@@ -335,7 +331,7 @@ router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), a
     const owns = await landlordOwnsTicket(landlordId, ticketId);
     if (!owns) return res.status(403).json({ message: 'Not allowed to access this ticket' });
 
-    // Try a flexible SELECT (works with common column names); returns [] if table missing
+    // Flexible SELECT (handles schema differences) – returns [] if table missing
     let rows = [];
     try {
       const [hist] = await pool.execute(
@@ -365,7 +361,6 @@ router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), a
 
 /**
  * POST /api/landlord/quotes/:quoteId/approve
- * Marks a quote as Approved and records landlord approval (ownership enforced)
  */
 router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), async (req, res) => {
   const connection = await pool.getConnection();
@@ -380,7 +375,7 @@ router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), as
     await connection.beginTransaction();
 
     const [[qrow]] = await connection.execute(
-      'SELECT TicketID FROM tblquotes WHERE QuoteID = ? LIMIT 1',
+      'SELECT TicketID FROM tblQuotes WHERE QuoteID = ? LIMIT 1',
       [quoteId]
     );
     if (!qrow) {
@@ -390,56 +385,44 @@ router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), as
     const ticketId = qrow.TicketID;
 
     await connection.execute(
-      'UPDATE tblquotes SET QuoteStatus = ? WHERE QuoteID = ?',
+      'UPDATE tblQuotes SET QuoteStatus = ? WHERE QuoteID = ?',
       ['Approved', quoteId]
     );
 
     // Optional: reject all other quotes for the same ticket
     await connection.execute(
-      `UPDATE tblquotes
-          SET QuoteStatus = 'Rejected'
-        WHERE TicketID = ?
-          AND QuoteID <> ?`,
+      `UPDATE tblQuotes
+       SET QuoteStatus = 'Rejected'
+       WHERE TicketID = ? AND QuoteID <> ?`,
       [ticketId, quoteId]
     );
 
     // Advance the ticket to Approved
     await connection.execute(
-      `UPDATE tbltickets
-          SET CurrentStatus = 'Approved'
-        WHERE TicketID = ?`,
+      `UPDATE tbltickets SET CurrentStatus = 'Approved' WHERE TicketID = ?`,
       [ticketId]
     );
 
-
-    // Insert-or-update landlord approval 
+    // Insert-or-update landlord approval
     try {
-      // Try INSERT first
       await connection.execute(
-        `INSERT INTO tbllandlordapprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
-     VALUES (?, ?, 'Approved', NOW())`,
+        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
+         VALUES (?, ?, 'Approved', NOW())`,
         [quoteId, landlordId]
       );
-    } catch (e1) {
-      try {
-        // If already exists or insert failed, try UPDATE
-        await connection.execute(
-          `UPDATE tbllandlordapprovals
+    } catch {
+      await connection.execute(
+        `UPDATE tblLandlordApprovals
          SET ApprovalStatus = 'Approved', ApprovedAt = NOW()
-       WHERE QuoteID = ? AND LandlordUserID = ?`,
-          [quoteId, landlordId]
-        );
-      } catch (e2) {
-        // Table/columns might not exist yet — don't fail the whole transaction
-        console.warn('Skipping landlord approvals write:', e2?.message || e2);
-      }
+         WHERE QuoteID = ? AND LandlordUserID = ?`,
+        [quoteId, landlordId]
+      );
     }
-
 
     // Best-effort: append ticket history
     try {
       await connection.execute(
-        `INSERT INTO tblticketstatushistory (TicketID, Status, UpdatedByUserID, ChangedAt)
+        `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
          VALUES (?, 'Approved', ?, NOW())`,
         [ticketId, landlordId]
       );
@@ -458,7 +441,6 @@ router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), as
 
 /**
  * POST /api/landlord/quotes/:quoteId/reject
- * Marks a quote as Rejected and records landlord decision (ownership enforced)
  */
 router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), async (req, res) => {
   const connection = await pool.getConnection();
@@ -473,7 +455,7 @@ router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), asy
     await connection.beginTransaction();
 
     const [[qrow]] = await connection.execute(
-      'SELECT TicketID FROM tblquotes WHERE QuoteID = ? LIMIT 1',
+      'SELECT TicketID FROM tblQuotes WHERE QuoteID = ? LIMIT 1',
       [quoteId]
     );
     if (!qrow) {
@@ -483,30 +465,28 @@ router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), asy
     const ticketId = qrow.TicketID;
 
     await connection.execute(
-      'UPDATE tblquotes SET QuoteStatus = ? WHERE QuoteID = ?',
+      'UPDATE tblQuotes SET QuoteStatus = ? WHERE QuoteID = ?',
       ['Rejected', quoteId]
     );
 
-    // Insert-or-update landlord decision
     try {
       await connection.execute(
-        `INSERT INTO tbllandlordapprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
+        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
          VALUES (?, ?, 'Rejected', NOW())`,
         [quoteId, landlordId]
       );
     } catch {
       await connection.execute(
-        `UPDATE tbllandlordapprovals
+        `UPDATE tblLandlordApprovals
            SET ApprovalStatus = 'Rejected', ApprovedAt = NOW()
          WHERE QuoteID = ? AND LandlordUserID = ?`,
         [quoteId, landlordId]
       );
     }
 
-    // Best-effort: append ticket history
     try {
       await connection.execute(
-        `INSERT INTO tblticketstatushistory (TicketID, Status, UpdatedByUserID, ChangedAt)
+        `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
          VALUES (?, 'In Review', ?, NOW())`,
         [ticketId, landlordId]
       );
@@ -525,10 +505,6 @@ router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), asy
 
 /**
  * POST /api/landlord/tickets/:ticketId/approve
- * Approve a newly logged ticket.  Marks the corresponding row in
- * tblLandlordTicketApprovals as Approved, stamps ApprovedAt, and
- * advances the ticket's CurrentStatus to 'New' (so staff can see it).
- * Only the landlord(s) who own the ticket's property may approve.
  */
 router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), async (req, res) => {
   const connection = await pool.getConnection();
@@ -537,13 +513,11 @@ router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), 
     const ticketId = Number.parseInt(req.params.ticketId, 10);
     if (Number.isNaN(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
 
-    // Verify landlord owns the ticket via property mapping
     const owns = await landlordOwnsTicket(landlordId, ticketId);
     if (!owns) return res.status(403).json({ message: 'Not allowed to approve this ticket' });
 
     await connection.beginTransaction();
 
-    // Update landlord ticket approval
     await connection.execute(
       `UPDATE tblLandlordTicketApprovals
          SET ApprovalStatus = 'Approved', ApprovedAt = NOW(), Reason = NULL
@@ -551,13 +525,11 @@ router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), 
       [ticketId, landlordId]
     );
 
-    // Update ticket status to New (so staff can process it)
     await connection.execute(
       `UPDATE tblTickets SET CurrentStatus = 'New' WHERE TicketID = ?`,
       [ticketId]
     );
 
-    // Append history entry
     try {
       await connection.execute(
         `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
@@ -579,10 +551,6 @@ router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), 
 
 /**
  * POST /api/landlord/tickets/:ticketId/reject
- * Reject a newly logged ticket.  Updates the row in
- * tblLandlordTicketApprovals with status 'Rejected' and saves the
- * provided reason.  The ticket's CurrentStatus is set to 'Rejected'.
- * Optionally, staff may take further action to notify the client.
  */
 router.post('/tickets/:ticketId/reject', requireAuth, permitRoles('Landlord'), async (req, res) => {
   const connection = await pool.getConnection();
@@ -628,19 +596,12 @@ router.post('/tickets/:ticketId/reject', requireAuth, permitRoles('Landlord'), a
   }
 });
 
-/**
- * GET /api/landlord/properties
- * Returns all properties associated with the authenticated landlord along
- * with the currently active tenant (if any) for each property.
- */
+// -----------------------------------------------------------------------------
+// Properties (unchanged logic, but compatible with PlaceId/geo if present)
+// -----------------------------------------------------------------------------
 router.get('/properties', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const landlordId = req.user.userId;
-    // Fetch all properties for the landlord including full address details.  The
-    // tblProperties schema now includes AddressLine2 and PostalCode columns in
-    // addition to the existing Province column, so we can select these fields
-    // directly.  If the columns were not added via migration, MySQL will
-    // complain; ensure you have run the migration 26-add-property-addressline2-postalcode.sql.
     const [rows] = await pool.execute(
       `SELECT
          p.PropertyID,
@@ -668,12 +629,6 @@ router.get('/properties', requireAuth, permitRoles('Landlord'), async (req, res)
   }
 });
 
-/**
- * POST /api/landlord/properties
- * Adds a new property for the authenticated landlord.  Accepts form data
- * fields (addressLine1, addressLine2, city, postalCode) and an uploaded
- * proof file (field name "proof").  Returns the new property ID on success.
- */
 router.post('/properties', requireAuth, permitRoles('Landlord'), propertyProofUpload.single('proof'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -686,22 +641,47 @@ router.post('/properties', requireAuth, permitRoles('Landlord'), propertyProofUp
 
     await connection.beginTransaction();
 
-    // Insert into tblProperties with the new AddressLine2, Province and PostalCode fields.
-    const [propRes] = await connection.execute(
-      `INSERT INTO tblProperties (AddressLine1, AddressLine2, City, Province, PostalCode)
-       VALUES (?, ?, ?, ?, ?)`,
-      [addressLine1, addressLine2 || null, city, province, postalCode]
-    );
-    const propertyId = propRes.insertId;
+    // Optional geo
+    const placeId = (req.body?.placeId || req.body?.PlaceId || null);
+    const safePlaceId = placeId ? String(placeId).replace(/^places\//, '').slice(0, 64) : null;
+    const latitude = req.body?.latitude != null && `${req.body.latitude}`.trim() !== '' ? Number(req.body.latitude) : null;
+    const longitude = req.body?.longitude != null && `${req.body.longitude}`.trim() !== '' ? Number(req.body.longitude) : null;
 
-    // Link property to landlord
+    // REUSE if PlaceId exists
+    let propertyId = null;
+    if (safePlaceId) {
+      const [exists] = await connection.execute(
+        `SELECT PropertyID FROM tblProperties WHERE PlaceId = ? LIMIT 1`,
+        [safePlaceId]
+      );
+      if (exists.length) propertyId = exists[0].PropertyID;
+    }
+
+    if (!propertyId) {
+      const [propRes] = await connection.execute(
+        `INSERT INTO tblProperties
+         (AddressLine1, AddressLine2, City, Province, PostalCode, PlaceId, Latitude, Longitude)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          addressLine1,
+          addressLine2 || null,
+          city,
+          province,
+          postalCode,
+          safePlaceId,
+          Number.isFinite(latitude) ? latitude : null,
+          Number.isFinite(longitude) ? longitude : null,
+        ]
+      );
+      propertyId = propRes.insertId;
+    }
+
     await connection.execute(
       `INSERT INTO tblLandlordProperties (PropertyID, LandlordUserID, ActiveFrom, IsPrimary)
        VALUES (?, ?, CURDATE(), 1)`,
       [propertyId, landlordId]
     );
 
-    // Save proof path (relative to uploads directory)
     const filePath = path.join('uploads', 'property-proofs', req.file.filename);
     await connection.execute(
       `INSERT INTO tblPropertyProofs (PropertyID, FilePath) VALUES (?, ?)`,
@@ -718,6 +698,5 @@ router.post('/properties', requireAuth, permitRoles('Landlord'), propertyProofUp
     connection.release();
   }
 });
-
 
 export default router;

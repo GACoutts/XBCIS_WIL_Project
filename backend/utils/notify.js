@@ -1,13 +1,84 @@
+import axios from 'axios';
+import nodemailer from 'nodemailer';
+import pool from '../db.js';
+
+// ----- WhatsApp / Email config ------------------------------------------------
+const bool = (v, d = false) => ['1', 'true', 'yes', 'on'].includes(String(v || '').toLowerCase());
+const WA_ENABLED = bool(process.env.WHATSAPP_ENABLE, false);
+const WA_PROVIDER = (process.env.WHATSAPP_PROVIDER || 'meta').toLowerCase();
+const WA_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+const WA_TOKEN = process.env.WHATSAPP_TOKEN || '';
+const WA_CC = process.env.WHATSAPP_DEFAULT_COUNTRY || '+27';
+const BRAND = process.env.WHATSAPP_FROM_DISPLAY || 'Rawson';
+
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_FROM = process.env.SMTP_FROM || '"Rawson" <no-reply@example.com>';
+
+const MAX_ATTEMPTS = parseInt(process.env.NOTIFY_MAX_ATTEMPTS || '5', 10);
+
+// ----- Transport --------------------------------------------------------------
+let transporter = null;
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: false,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+}
+
+// ----- Helpers ----------------------------------------------------------------
+function normalizeMsisdn(phone) {
+  if (!phone) return null;
+  const cleaned = String(phone).replace(/[^\d+]/g, '');
+  if (cleaned.startsWith('+')) return cleaned;
+  return WA_CC + cleaned.replace(/^0+/, '');
+}
+
+function renderTemplate(key, params = {}) {
+  switch (key) {
+    case 'ticket_created':
+      return `New ticket ${params.ticketRef} from ${params.clientName}. Urgency: ${params.urgency}\n${params.description || ''}`.trim();
+    case 'contractor_assigned':
+      return `You have been assigned to ticket ${params.ticketRef}. Please review and follow up.`;
+    case 'quote_status':
+    case 'quote_status_changed':
+      return `Quote #${params.quoteId} for ticket ${params.ticketRef} is ${params.status}.`;
+    case 'message_new':
+      return `${params.senderName}: ${params.preview}`;
+    case 'appointment_scheduled':
+      return `Appointment scheduled for ticket ${params.ticketRef || ''} on ${params.date || ''} at ${params.time || ''}.`;
+    case 'job_completed':
+      return `Job for ticket ${params.ticketRef || ''} has been completed by ${params.contractorName || 'the contractor'}.`;
+    case 'appointment_proposed':
+      return `Proposed appointment for ticket ${params.ticketRef || ''} on ${params.date || ''} at ${params.time || ''}.`;
+    default:
+      return params.text || 'Notification';
+  }
+}
+
+// ----- WhatsApp sending -------------------------------------------------------
+async function sendWhatsAppMeta({ to, text }) {
+  const url = `https://graph.facebook.com/v20.0/${WA_PHONE_ID}/messages`;
+  const res = await axios.post(
+    url,
+    {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'text',
+      text: { preview_url: false, body: text },
+    },
+    { headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' } }
+  );
+  return res.data?.messages?.[0]?.id || null;
+}
 
 /**
- * Send a WhatsApp template message via the Meta Cloud API.  The
- * template must already be approved in the WhatsApp Business Manager.
- *
- * @param {Object} opts
- * @param {string} opts.to - E.164 formatted phone number
- * @param {string} opts.name - Template name registered in Meta
- * @param {Array} opts.components - Template component array
- * @param {string} [opts.lang='en'] - Language code
+ * Send a WhatsApp Template (Meta Cloud API)
  */
 async function sendWhatsAppTemplate({ to, name, components, lang = 'en' }) {
   const url = `https://graph.facebook.com/v20.0/${WA_PHONE_ID}/messages`;
@@ -27,9 +98,7 @@ async function sendWhatsAppTemplate({ to, name, components, lang = 'en' }) {
   return res.data?.messages?.[0]?.id || null;
 }
 
-// Mapping of notification templates to WhatsApp template definitions.
-// Each entry provides the WhatsApp template name and a function that
-// builds the components array from our params object
+// Mapping of templates -> WA components builder
 const TEMPLATE_MAP = {
   ticket_created: {
     name: 'ticket_created',
@@ -45,7 +114,6 @@ const TEMPLATE_MAP = {
       },
     ],
   },
-  // Notifies participants that an appointment has been scheduled
   appointment_scheduled: {
     name: 'appointment_scheduled',
     build: (p) => [
@@ -59,7 +127,6 @@ const TEMPLATE_MAP = {
       },
     ],
   },
-  // Notifies participants that a job has been completed
   job_completed: {
     name: 'job_completed',
     build: (p) => [
@@ -72,8 +139,6 @@ const TEMPLATE_MAP = {
       },
     ],
   },
-
-  // Notifies clients that a contractor has proposed an appointment time (awaiting confirmation)
   appointment_proposed: {
     name: 'appointment_proposed',
     build: (p) => [
@@ -92,9 +157,7 @@ const TEMPLATE_MAP = {
     build: (p) => [
       {
         type: 'body',
-        parameters: [
-          { type: 'text', text: p.ticketRef || '' },
-        ],
+        parameters: [{ type: 'text', text: p.ticketRef || '' }],
       },
     ],
   },
@@ -112,87 +175,10 @@ const TEMPLATE_MAP = {
     ],
   },
 };
-/* alias so callers can use either key */
+// alias
 TEMPLATE_MAP.quote_status_changed = TEMPLATE_MAP.quote_status;
-import axios from 'axios';
-import nodemailer from 'nodemailer';
-import pool from '../db.js';
 
-const bool = (v, d = false) => ['1', 'true', 'yes', 'on'].includes(String(v || '').toLowerCase());
-const WA_ENABLED = bool(process.env.WHATSAPP_ENABLE, false);
-const WA_PROVIDER = (process.env.WHATSAPP_PROVIDER || 'meta').toLowerCase();
-const WA_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-const WA_TOKEN = process.env.WHATSAPP_TOKEN || '';
-const WA_CC = process.env.WHATSAPP_DEFAULT_COUNTRY || '+27';
-const BRAND = process.env.WHATSAPP_FROM_DISPLAY || 'Rawson';
-
-const SMTP_HOST = process.env.SMTP_HOST || '';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
-const SMTP_USER = process.env.SMTP_USER || '';
-const SMTP_PASS = process.env.SMTP_PASS || '';
-const SMTP_FROM = process.env.SMTP_FROM || '"Rawson" <no-reply@example.com>';
-
-const MAX_ATTEMPTS = parseInt(process.env.NOTIFY_MAX_ATTEMPTS || '5', 10);
-
-let transporter = null;
-if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-  transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: false,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
-}
-
-function normalizeMsisdn(phone) {
-  if (!phone) return null;
-  const cleaned = String(phone).replace(/[^\d+]/g, '');
-  if (cleaned.startsWith('+')) return cleaned;
-  return WA_CC + cleaned.replace(/^0+/, '');
-}
-
-function renderTemplate(key, params = {}) {
-  switch (key) {
-    case 'ticket_created':
-      return `New ticket ${params.ticketRef} from ${params.clientName}. Urgency: ${params.urgency}\n${params.description || ''}`.trim();
-    case 'contractor_assigned':
-      return `You have been assigned to ticket ${params.ticketRef}. Please review and follow up.`;
-    case 'quote_status':
-      return `Quote #${params.quoteId} for ticket ${params.ticketRef} is ${params.status}.`;
-    case 'quote_status_changed':
-      return `Quote #${params.quoteId} for ticket ${params.ticketRef} is ${params.status}.`;
-    case 'message_new':
-      return `${params.senderName}: ${params.preview}`;
-    case 'appointment_scheduled':
-      // Fallback text for appointment scheduling
-      return `Appointment scheduled for ticket ${params.ticketRef || ''} on ${params.date || ''} at ${params.time || ''}.`;
-    case 'job_completed':
-      // Fallback text for job completion
-      return `Job for ticket ${params.ticketRef || ''} has been completed by ${params.contractorName || 'the contractor'}.`;
-    case 'appointment_proposed':
-      // Fallback text when a contractor proposes a tentative appointment
-      return `Proposed appointment for ticket ${params.ticketRef || ''} on ${params.date || ''} at ${params.time || ''}.`;
-    default:
-      return params.text || 'Notification';
-  }
-}
-
-async function sendWhatsAppMeta({ to, text }) {
-  const url = `https://graph.facebook.com/v20.0/${WA_PHONE_ID}/messages`;
-  const res = await axios.post(
-    url,
-    {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to,
-      type: 'text',
-      text: { preview_url: false, body: text },
-    },
-    { headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' } }
-  );
-  return res.data?.messages?.[0]?.id || null;
-}
-
+// ----- Email ------------------------------------------------------------------
 async function sendEmail({ to, subject, text }) {
   if (!transporter) throw new Error('SMTP not configured');
   const info = await transporter.sendMail({ from: SMTP_FROM, to, subject, text });
@@ -204,13 +190,13 @@ async function sendEmail({ to, subject, text }) {
  * Returns { notificationId, sent, channel, error }
  */
 export async function notifyUser({ userId, ticketId = null, template, params = {}, eventKey, fallbackToEmail = true }) {
-  // Dedupe check
+  // Dedupe check (drop CreatedAt from ORDER BY; use NOW() fallback)
   if (eventKey) {
     const [rows] = await pool.query(
       `SELECT MarkAsSent FROM tblNotifications
        WHERE UserID=? AND NotificationType IN ('WhatsApp','Email') AND EventKey=?
-       ORDER BY COALESCE(SentAt, LastAttemptAt, CreatedAt) DESC
-        LIMIT 1`,
+       ORDER BY COALESCE(SentAt, LastAttemptAt, NOW()) DESC
+       LIMIT 1`,
       [userId, eventKey]
     );
     if (rows.length && rows[0].MarkAsSent === 1) {
@@ -228,7 +214,7 @@ export async function notifyUser({ userId, ticketId = null, template, params = {
   const text = renderTemplate(template, params);
   const msisdn = normalizeMsisdn(user.Phone);
 
-  // Create notification row
+  // Create notification row (CreatedAt not required by code anywhere)
   const [ins] = await pool.query(
     `INSERT INTO tblNotifications
      (UserID, TicketID, NotificationType, NotificationContent, EventKey, Status, MarkAsSent, AttemptCount, LastAttemptAt)
@@ -239,9 +225,8 @@ export async function notifyUser({ userId, ticketId = null, template, params = {
 
   let sent = false, providerId = null, errMsg = null, channel = null;
 
-  // Try WhatsApp (only if enabled + opted-in + have number)
+  // Try WhatsApp (template -> text)
   if (WA_ENABLED && user.WhatsAppOptIn && msisdn) {
-    // Attempt template-based message first if a mapping exists.
     const tmpl = TEMPLATE_MAP[template];
     if (tmpl) {
       try {
@@ -253,11 +238,9 @@ export async function notifyUser({ userId, ticketId = null, template, params = {
         sent = true;
         channel = 'WhatsApp';
       } catch (e) {
-        // Capture error but allow fallback to free-form if template fails
         errMsg = e?.response?.data?.error?.message || e.message || 'WhatsApp template send failed';
       }
     }
-    // If no template exists or template send failed, fall back to free-form text
     if (!sent) {
       try {
         providerId = await sendWhatsAppMeta({ to: msisdn, text });
@@ -284,13 +267,13 @@ export async function notifyUser({ userId, ticketId = null, template, params = {
 
   await pool.query(
     `UPDATE tblNotifications
-     SET Status=?,
-         MarkAsSent=?,
-         ProviderMessageID=?,
-         ErrorMessage=?,
-         AttemptCount=AttemptCount+1,
-         LastAttemptAt=NOW(),
-         SentAt = CASE WHEN ? = 1 THEN NOW() ELSE SentAt END
+       SET Status=?,
+           MarkAsSent=?,
+           ProviderMessageID=?,
+           ErrorMessage=?,
+           AttemptCount=AttemptCount+1,
+           LastAttemptAt=NOW(),
+           SentAt = CASE WHEN ? = 1 THEN NOW() ELSE SentAt END
      WHERE NotificationID=?`,
     [
       sent ? 'Sent' : 'Failed',
@@ -302,18 +285,17 @@ export async function notifyUser({ userId, ticketId = null, template, params = {
     ]
   );
 
-
   return { notificationId, sent, channel, error: errMsg };
 }
 
-/** Retry helper: pick failed rows and try email fallback */
+/** Retry helper: pick failed rows and try email fallback (drop CreatedAt from ORDER BY) */
 export async function retryFailedNotifications(limit = 50) {
   const [rows] = await pool.query(
     `SELECT NotificationID, UserID, NotificationContent, AttemptCount
-     FROM tblNotifications
-     WHERE MarkAsSent=0 AND AttemptCount < ?
-     ORDER BY COALESCE(SentAt, LastAttemptAt, CreatedAt) DESC
-     LIMIT ?`,
+       FROM tblNotifications
+      WHERE MarkAsSent=0 AND AttemptCount < ?
+      ORDER BY COALESCE(SentAt, LastAttemptAt, NOW()) DESC
+      LIMIT ?`,
     [MAX_ATTEMPTS, limit]
   );
 
@@ -324,14 +306,25 @@ export async function retryFailedNotifications(limit = 50) {
       if (!u?.Email) throw new Error('No email for retry');
       const id = await sendEmail({ to: u.Email, subject: `${BRAND}: Notification Retry`, text: n.NotificationContent });
       await pool.query(
-        `UPDATE tblNotifications SET Status='Sent', MarkAsSent=1, ProviderMessageID=?, AttemptCount=AttemptCount+1, LastAttemptAt=NOW() WHERE NotificationID=?`,
+        `UPDATE tblNotifications
+            SET Status='Sent',
+                MarkAsSent=1,
+                ProviderMessageID=?,
+                AttemptCount=AttemptCount+1,
+                LastAttemptAt=NOW(),
+                SentAt=NOW()
+          WHERE NotificationID=?`,
         [id || null, n.NotificationID]
       );
       ok++;
     } catch (e) {
       fail++;
       await pool.query(
-        `UPDATE tblNotifications SET ErrorMessage=?, AttemptCount=AttemptCount+1, LastAttemptAt=NOW() WHERE NotificationID=?`,
+        `UPDATE tblNotifications
+            SET ErrorMessage=?,
+                AttemptCount=AttemptCount+1,
+                LastAttemptAt=NOW()
+          WHERE NotificationID=?`,
         [e.message || 'Retry failed', n.NotificationID]
       );
     }

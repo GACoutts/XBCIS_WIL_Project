@@ -300,7 +300,6 @@
 .signup-page-container .input input:-ms-input-placeholder     { font-size: 12px; color:#777; }
 .signup-page-container .input input::-ms-input-placeholder    { font-size: 12px; color:#777; }
 
-/* Custom file input (the label) when showing placeholder text */
 .signup-page-container .file-trigger.placeholder {
   font-size: 12px;   
   color: #777;
@@ -308,5 +307,30 @@
 
 .signup-page-container .file-trigger.has-file {
   font-size: 12px; 
+  color: #333;
+}
+
+.signup-page-container .input-row .address-picker-input {
+  /* width behavior */
+  flex: 0 0 200px;
+  max-width: 100%;
+
+  /* visual match */
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background: #fff;
+  outline: none;
+  height: 28px;          /* match file trigger & text inputs */
+  line-height: 16px;     /* comfortable text rendering */
+  font-size: 13px;
+}
+
+/* Selected address helper text below the row */
+.signup-page-container .input small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
   color: #333;
 }
