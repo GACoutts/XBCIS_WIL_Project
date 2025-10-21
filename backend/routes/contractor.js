@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
+import { notifyUser } from '../utils/notify.js';
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
@@ -40,81 +41,100 @@ router.get('/jobs', async (req, res) => {
   try {
     const contractorId = req.user.userId;
     const { page = 1, pageSize = 20, status } = req.query;
-    
+
     // Validate pagination parameters
     const pageNum = Math.max(1, parseInt(page) || 1);
     const pageSizeNum = Math.min(100, Math.max(1, parseInt(pageSize) || 20));
     const offset = (pageNum - 1) * pageSizeNum;
 
-    // Build query conditions
-    let whereConditions = [];
-    let queryParams = [contractorId, contractorId];
-    
+    // Build optional status filter
+    const whereConditions = [];
     if (status && status !== 'all') {
       whereConditions.push('t.CurrentStatus = ?');
-      queryParams.push(status);
     }
-
     const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : '';
 
-    // Main query to get contractor's assigned jobs
-    // Using fallback: tickets where contractor has an Approved quote (since AssignedContractorUserID may not exist)
+    /*
+      VISIBILITY RULES (fixed):
+      A contractor should see a ticket if ANY of the following are true:
+        - They have any schedule on the ticket (tblContractorSchedules)
+        - They have an approved quote on the ticket (tblQuotes with QuoteStatus='Approved')
+        - They were explicitly assigned by staff (tblTickets.AssignedContractorID)
+
+      We unify these in a derived "assigned" set and join to tblTickets.
+      DISTINCT prevents duplicates when a contractor has multiple quotes on the same ticket.
+    */
     const jobsQuery = `
-      SELECT 
+      SELECT DISTINCT
         t.TicketID,
         t.TicketRefNumber,
-        t.Description as Subject,
         t.Description,
         t.CurrentStatus,
         t.UrgencyLevel,
         t.CreatedAt,
         t.UpdatedAt,
-        client.FullName as ClientName,
-        client.Email as ClientEmail,
-        client.Phone as ClientPhone,
+        client.FullName AS ClientName,
+        client.Email AS ClientEmail,
+        client.Phone AS ClientPhone,
+        p.AddressLine1 AS PropertyAddress,
         q.QuoteID,
         q.QuoteAmount,
         q.QuoteStatus,
-        q.SubmittedAt as QuoteSubmittedAt,
+        q.SubmittedAt AS QuoteSubmittedAt,
         la.ApprovalStatus,
         la.ApprovedAt
       FROM tblTickets t
-      LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
-      INNER JOIN tblQuotes q ON q.TicketID = t.TicketID 
-        AND q.ContractorUserID = ? 
-        AND q.QuoteStatus = 'Approved'
+      INNER JOIN (
+        SELECT TicketID FROM tblContractorSchedules WHERE ContractorUserID = ?
+        UNION
+        SELECT TicketID FROM tblQuotes WHERE ContractorUserID = ? AND QuoteStatus = 'Approved'
+        UNION
+        SELECT TicketID FROM tblTickets WHERE AssignedContractorID = ?
+      ) assigned ON assigned.TicketID = t.TicketID
+      LEFT JOIN tblQuotes q ON q.TicketID = t.TicketID AND q.ContractorUserID = ?
       LEFT JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
+      LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
+      LEFT JOIN tblTenancies tny ON tny.TenantUserID = t.ClientUserID AND tny.IsActive = 1
+      LEFT JOIN tblLandlordProperties lpp ON lpp.LandlordUserID = t.ClientUserID AND (lpp.ActiveTo IS NULL OR lpp.ActiveTo >= CURDATE()) AND lpp.IsPrimary = 1
+      LEFT JOIN tblProperties p ON p.PropertyID = COALESCE(tny.PropertyID, lpp.PropertyID)
       WHERE 1=1 ${whereClause}
       ORDER BY COALESCE(t.UpdatedAt, t.CreatedAt) DESC
       LIMIT ? OFFSET ?
     `;
 
-    queryParams.push(pageSizeNum, offset);
-    const [jobs] = await pool.execute(jobsQuery, queryParams);
+    // Params for jobs query (order matches the 4 ?s before pagination, plus status if present)
+    const jobQueryParams = [contractorId, contractorId, contractorId, contractorId];
+    if (status && status !== 'all') {
+      jobQueryParams.push(status);
+    }
+    jobQueryParams.push(pageSizeNum, offset);
 
-    // Get total count for pagination
+    const [jobs] = await pool.execute(jobsQuery, jobQueryParams);
+
+    // Count total records (for pagination) – mirror the same derived assigned set
     const countQuery = `
-      SELECT COUNT(*) as total
+      SELECT COUNT(*) AS total
       FROM tblTickets t
-      INNER JOIN tblQuotes q ON q.TicketID = t.TicketID 
-        AND q.ContractorUserID = ? 
-        AND q.QuoteStatus = 'Approved'
+      INNER JOIN (
+        SELECT TicketID FROM tblContractorSchedules WHERE ContractorUserID = ?
+        UNION
+        SELECT TicketID FROM tblQuotes WHERE ContractorUserID = ? AND QuoteStatus = 'Approved'
+        UNION
+        SELECT TicketID FROM tblTickets WHERE AssignedContractorID = ?
+      ) assigned ON assigned.TicketID = t.TicketID
       WHERE 1=1 ${whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : ''}
     `;
-    
-    const countParams = [contractorId];
+    const countParams = [contractorId, contractorId, contractorId];
     if (status && status !== 'all') {
       countParams.push(status);
     }
-    
     const [countResult] = await pool.execute(countQuery, countParams);
-    const totalJobs = countResult[0].total;
+    const totalJobs = countResult[0]?.total || 0;
 
     // Format response
     const formattedJobs = jobs.map(job => ({
       ticketId: job.TicketID,
       ticketRefNumber: job.TicketRefNumber,
-      subject: job.Subject,
       description: job.Description,
       status: job.CurrentStatus,
       urgency: job.UrgencyLevel,
@@ -125,7 +145,8 @@ router.get('/jobs', async (req, res) => {
         email: job.ClientEmail,
         phone: job.ClientPhone
       },
-      quote: {
+      propertyAddress: job.PropertyAddress || null,
+      quote: job.QuoteID ? {
         id: job.QuoteID,
         amount: parseFloat(job.QuoteAmount || 0),
         status: job.QuoteStatus,
@@ -134,7 +155,7 @@ router.get('/jobs', async (req, res) => {
           status: job.ApprovalStatus,
           approvedAt: job.ApprovedAt
         }
-      }
+      } : null
     }));
 
     res.json({
@@ -151,7 +172,7 @@ router.get('/jobs', async (req, res) => {
       },
       meta: {
         timestamp: new Date().toISOString(),
-        contractorId: contractorId
+        contractorId
       }
     });
 
@@ -362,6 +383,31 @@ router.post('/jobs/:id/schedule', async (req, res) => {
       `, [ticketId, contractorId]);
 
       await connection.commit();
+
+      // After committing the proposal, notify the client of the proposed appointment
+      try {
+        // Fetch the ticket reference and client ID for notifications
+        const [[ticket]] = await pool.query(
+          'SELECT TicketRefNumber, ClientUserID FROM tblTickets WHERE TicketID = ? LIMIT 1',
+          [ticketId]
+        );
+        if (ticket) {
+          // Extract date and time strings (keep date/time separate for template)
+          const dateStr = startTime.toISOString().split('T')[0];
+          const timeStr = startTime.toISOString().split('T')[1]?.substring(0, 5) || '';
+          const params = { ticketRef: ticket.TicketRefNumber, date: dateStr, time: timeStr };
+          await notifyUser({
+            userId: ticket.ClientUserID,
+            ticketId: ticketId,
+            template: 'appointment_proposed',
+            params,
+            eventKey: `appointment_proposed:${ticketId}:${scheduleId}`,
+            fallbackToEmail: true
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[contractor/schedule] notification error:', notifyErr);
+      }
 
       res.json({
         success: true,

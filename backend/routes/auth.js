@@ -3,7 +3,11 @@ import 'dotenv/config';
 import express from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 import pool from '../db.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { requireAuth } from '../middleware/authMiddleware.js';
 import { authRateLimit } from '../middleware/rateLimiter.js';
 import {
@@ -13,8 +17,35 @@ import {
   clearAuthCookies,
   logAudit
 } from '../utils/tokens.js';
+import { normalizePlaceId } from '../utils/geo.js';
 
 const router = express.Router();
+
+// -----------------------------------------------------------------------------
+// File upload setup for registration proof documents
+const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const proofStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext).replace(/[^\w\-]+/g, '_');
+    cb(null, `proof_${timestamp}_${base}${ext}`);
+  }
+});
+
+const proofFileFilter = (_req, file, cb) => {
+  const allowed = file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf';
+  cb(allowed ? null : new Error('Unsupported proof file type'), allowed);
+};
+
+const proofUpload = multer({
+  storage: proofStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: proofFileFilter
+});
 
 // Extract client info from request
 function getClientInfo(req) {
@@ -48,7 +79,6 @@ router.post('/login', authRateLimit, async (req, res) => {
 
     const user = rows[0];
     if (user.Status !== 'Active') return res.status(403).json({ message: `Account status is ${user.Status}` });
-
 
     if (!user.PasswordHash || !user.PasswordHash.startsWith('$2')) {
       console.error('Login error: invalid PasswordHash for user', user.UserID);
@@ -96,9 +126,26 @@ router.post('/login', authRateLimit, async (req, res) => {
 });
 
 // POST /register
-router.post('/register', authRateLimit, async (req, res) => {
+router.post('/register', authRateLimit, proofUpload.single('proof'), async (req, res) => {
   try {
-    const { fullName, email, password, phone, role } = req.body;
+    // include geo fields from Google Autocomplete
+    const b = req.body || {};
+    const fullName = (b.fullName || '').trim();
+    const email = (b.email || '').trim().toLowerCase();
+    const password = b.password || '';
+    const phone = (b.phone || '').trim() || null;
+    const role = (b.role || '').trim(); // Client / Landlord / Contractor / Staff
+    const address = (b.address || '').trim();
+    const proofFile = req.file;
+
+    // Accept either casing; clamp safely for DB
+    const safePlaceId = normalizePlaceId(b.placeId || b.PlaceId || null);
+
+    // Lat/lng as nullable floats
+    const latNum =
+      b.latitude !== undefined && b.latitude !== null && `${b.latitude}`.trim() !== '' ? Number(b.latitude) : null;
+    const lngNum =
+      b.longitude !== undefined && b.longitude !== null && `${b.longitude}`.trim() !== '' ? Number(b.longitude) : null;
 
     if (!fullName || !email || !password || !role) {
       return res.status(400).json({ message: 'Missing required fields: fullName, email, password, role' });
@@ -107,27 +154,114 @@ router.post('/register', authRateLimit, async (req, res) => {
     const validRoles = ['Client', 'Landlord', 'Contractor', 'Staff'];
     if (!validRoles.includes(role)) return res.status(400).json({ message: 'Invalid role' });
 
+    if ((role === 'Client' || role === 'Landlord')) {
+      if (!address) return res.status(400).json({ message: 'Address is required for Clients and Landlords' });
+      if (!proofFile) return res.status(400).json({ message: 'Proof document is required for Clients and Landlords' });
+    }
+
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const hash = await bcrypt.hash(password, rounds);
 
-    // Create user with Inactive status - requires staff approval
+    // Create user with Inactive status - requires staff approval (your current policy)
     const [result] = await pool.execute(
-      'INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role, Status) VALUES (?, ?, ?, ?, ?, ?)',
-      [fullName, email, hash, phone || null, role, 'Inactive']
+      `INSERT INTO tblusers
+       (FullName, Email, PasswordHash, Phone, Role, Status, PlaceId, Latitude, Longitude)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        fullName,
+        email,
+        hash,
+        phone,
+        role,
+        'Inactive',
+        safePlaceId || null,
+        Number.isFinite(latNum) ? latNum : null,
+        Number.isFinite(lngNum) ? lngNum : null
+      ]
     );
+    const newUserId = result.insertId;
+
+    // Proofs + property creation/mapping
+    if ((role === 'Client' || role === 'Landlord') && address && proofFile) {
+      try {
+        await pool.execute(`CREATE TABLE IF NOT EXISTS tblUserProofs (
+          ProofID INT AUTO_INCREMENT PRIMARY KEY,
+          UserID INT NOT NULL,
+          FilePath VARCHAR(255) NOT NULL,
+          Address VARCHAR(255) DEFAULT NULL,
+          UploadedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          CONSTRAINT fk_userproofs_user FOREIGN KEY (UserID) REFERENCES tblusers(UserID)
+            ON DELETE CASCADE ON UPDATE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+      } catch (e) {
+        console.error('Error ensuring tblUserProofs exists:', e);
+      }
+
+      const filePath = `/uploads/${proofFile.filename}`;
+      try {
+        await pool.execute(
+          'INSERT INTO tblUserProofs (UserID, FilePath, Address) VALUES (?, ?, ?)',
+          [newUserId, filePath, address]
+        );
+      } catch (e) {
+        console.error('Error inserting into tblUserProofs:', e);
+      }
+
+      // Create or reuse a property record by PlaceId
+      try {
+        let propertyId = null;
+
+        if (safePlaceId) {
+          const [exists] = await pool.execute(
+            'SELECT PropertyID FROM tblProperties WHERE PlaceId = ? LIMIT 1',
+            [safePlaceId]
+          );
+          if (exists.length) propertyId = exists[0].PropertyID;
+        }
+
+        if (!propertyId) {
+          const [propRes] = await pool.execute(
+            `INSERT INTO tblProperties
+             (PropertyRef, AddressLine1, PlaceId, Latitude, Longitude)
+             VALUES (?, ?, ?, ?, ?)`,
+            [
+              'PROP-' + Date.now(),
+              address,
+              safePlaceId || null,
+              Number.isFinite(latNum) ? latNum : null,
+              Number.isFinite(lngNum) ? lngNum : null,
+            ]
+          );
+          propertyId = propRes.insertId;
+        }
+
+        if (role === 'Client') {
+          await pool.execute(
+            'INSERT INTO tblTenancies (PropertyID, TenantUserID, StartDate, IsActive) VALUES (?, ?, CURDATE(), 1)',
+            [propertyId, newUserId]
+          );
+        } else if (role === 'Landlord') {
+          await pool.execute(
+            'INSERT INTO tblLandlordProperties (LandlordUserID, PropertyID, ActiveFrom, IsPrimary) VALUES (?, ?, CURDATE(), 1)',
+            [newUserId, propertyId]
+          );
+        }
+      } catch (e) {
+        console.error('Error creating/reusing property at register:', e);
+      }
+    }
 
     const { ip, userAgent } = getClientInfo(req);
-    
     try {
       await logAudit({
-        actorUserId: result.insertId,
-        targetUserId: result.insertId,
+        actorUserId: newUserId,
+        targetUserId: newUserId,
         action: 'register',
-        metadata: { 
+        metadata: {
           role,
           email,
           status: 'Inactive',
-          pendingApproval: true 
+          pendingApproval: true
         },
         ip,
         userAgent
@@ -136,9 +270,8 @@ router.post('/register', authRateLimit, async (req, res) => {
       console.warn('Audit log failure (register):', e?.message || e);
     }
 
-    // Return success without session cookies - user needs staff approval
     return res.status(201).json({
-      user: { userId: result.insertId, email, fullName, role, status: 'Inactive' },
+      user: { userId: newUserId, email, fullName, role, status: 'Inactive' },
       message: 'Registration successful! Your account is pending approval by staff.',
       requiresApproval: true
     });
@@ -149,7 +282,7 @@ router.post('/register', authRateLimit, async (req, res) => {
   }
 });
 
-// GET /me - Get current user
+// GET /me
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.execute(
@@ -175,19 +308,16 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-// POST /refresh - rotate refresh + access cookies
+// POST /refresh
 router.post('/refresh', async (req, res) => {
   try {
     const { ip, userAgent } = getClientInfo(req);
 
     const result = await rotateRefreshToken({ req, res, userAgent, ip });
     if (result?.error) {
-      // rotation rejected (invalid, expired, or reuse detected)
       clearAuthCookies(res);
       return res.status(result.status || 401).json({ message: result.error });
     }
-
-    // cookies are already set; return minimal ok
     return res.json({ ok: true });
   } catch (err) {
     clearAuthCookies(res);
@@ -195,20 +325,18 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// POST /logout - revoke current access JTI; best-effort revoke presented refresh; clear cookies
+// POST /logout
 router.post('/logout', requireAuth, async (req, res) => {
   try {
-    // 1) Revoke current access token JTI in DB until its exp
     if (req.user?.jti && req.user?.userId && req.auth?.exp) {
       await addRevokedAccessJti({
         jti: req.user.jti,
         userId: req.user.userId,
-        exp: req.auth.exp, // seconds since epoch
+        exp: req.auth.exp,
         reason: 'logout',
       });
     }
 
-    // 2) Best-effort revoke the *presented* refresh cookie row (if any)
     const rawRefresh = req.cookies?.refresh;
     if (rawRefresh) {
       const hash = crypto.createHash('sha256').update(rawRefresh, 'utf8').digest('hex');
@@ -217,16 +345,15 @@ router.post('/logout', requireAuth, async (req, res) => {
         [hash]
       );
     }
-  } catch (err) {
-    // swallow errors on logout
+  } catch {
+    // swallow
   } finally {
-    // 3) Clear cookies regardless
     clearAuthCookies(res);
     return res.json({ message: 'Logged out' });
   }
 });
 
-// GET /sessions - list this user's sessions (refresh tokens)
+// GET /sessions
 router.get('/sessions', requireAuth, async (req, res) => {
   try {
     const raw = req.cookies?.refresh || null;
@@ -262,13 +389,12 @@ router.get('/sessions', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /sessions/:id - revoke a specific session by TokenID (if it belongs to the user)
+// DELETE /sessions/:id
 router.delete('/sessions/:id', requireAuth, async (req, res) => {
   try {
     const tokenId = parseInt(req.params.id, 10);
     if (!Number.isFinite(tokenId)) return res.status(400).json({ message: 'Invalid session id' });
 
-    // is this the current refresh?
     const raw = req.cookies?.refresh || null;
     const currentHash = raw
       ? crypto.createHash('sha256').update(raw, 'utf8').digest('hex')
@@ -288,7 +414,6 @@ router.delete('/sessions/:id', requireAuth, async (req, res) => {
       [tokenId]
     );
 
-    // If user deleted their current session, clear cookies
     if (currentHash && rows[0].TokenHash === currentHash) {
       clearAuthCookies(res);
     }
@@ -300,10 +425,9 @@ router.delete('/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /sessions - revoke ALL sessions for this user (logout-all)
+// DELETE /sessions
 router.delete('/sessions', requireAuth, async (req, res) => {
   try {
-    // blacklist current access JTI until its exp (best-effort)
     if (req.user?.jti && req.auth?.exp) {
       await addRevokedAccessJti({
         jti: req.user.jti,
@@ -326,7 +450,7 @@ router.delete('/sessions', requireAuth, async (req, res) => {
   }
 });
 
-// POST /logout-all - alias of DELETE /sessions (Just incase)
+// POST /logout-all
 router.post('/logout-all', requireAuth, async (req, res) => {
   try {
     if (req.user?.jti && req.auth?.exp) {
@@ -348,6 +472,5 @@ router.post('/logout-all', requireAuth, async (req, res) => {
     return res.status(500).json({ message: 'Failed to revoke all sessions' });
   }
 });
-
 
 export default router;

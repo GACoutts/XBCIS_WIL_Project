@@ -1,71 +1,69 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./context/AuthContext.jsx";
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from "react-router-dom";
 import "./styles/logticket.css";
 
 function Ticket() {
-  const { user } = useAuth(); // get logged-in user
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [urgency, setUrgency] = useState("Low");
-  const [file, setFile] = useState(null); // file state
+  const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
-  const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    document.body.style.setProperty("overflow", "hidden", "important");
-
-    return () => {
-      document.body.style.setProperty("overflow", "auto", "important");
-    };
+    document.body.style.setProperty("overflow", "important");
+    return () => document.body.style.setProperty("overflow", "auto", "important");
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
-
     if (!user?.userId) {
       setMessage("User not logged in.");
       return;
     }
 
     try {
-      // Create the ticket first
+      setSubmitting(true);
+
+      // Create ticket
       const resTicket = await fetch("/api/tickets", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description,
-          urgencyLevel: urgency
-        }),
+        body: JSON.stringify({ description, urgencyLevel: urgency }),
       });
-
       const dataTicket = await resTicket.json();
       if (!resTicket.ok) throw new Error(dataTicket?.message || "Error submitting ticket");
 
-      // Upload file if selected
+      // Upload file if exists
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
-
         const resFile = await fetch(`/api/tickets/${dataTicket.ticketId}/media`, {
           method: "POST",
           body: formData,
-          credentials: "include"
+          credentials: "include",
         });
-
         const dataFile = await resFile.json();
         if (!resFile.ok) throw new Error(dataFile?.message || "Error uploading file");
       }
 
-      setDone(true);
+      // Show confirmation message and redirect after 5 seconds
+      setMessage("Ticket submitted successfully! Redirecting...");
       setTitle("");
       setDescription("");
       setUrgency("Low");
       setFile(null);
+
+      setTimeout(() => navigate("/"), 5000); // redirect after 5s
     } catch (err) {
       setMessage(err.message);
+      setSubmitting(false);
     }
   };
 
@@ -81,6 +79,7 @@ function Ticket() {
               <li><Link to="/">Dashboard</Link></li>
               <li><Link to="/ticket">Tickets</Link></li>
               <li><Link to="/reports">Reports</Link></li>
+              <li><Link to="/notifications">Notifications</Link></li>
               <li><Link to="/settings">Settings</Link></li>
             </ul>
           </div>
@@ -96,11 +95,23 @@ function Ticket() {
           </div>
           <p className="text">Your ticket has been logged successfully. We'll keep you updated on its status.</p>
         </div>
+  // Navbar component for reuse
+  const Navbar = () => (
+    <nav className="navbar">
+      <div className="navbar-logo">GoodLiving</div>
+      <div className="navbar-right">
+        <ul className="navbar-menu">
+          <li><Link to="/">Dashboard</Link></li>
+          <li><Link to="/ticket">Tickets</Link></li>
+          <li><Link to="/settings">Settings</Link></li>
+        </ul>
       </div>
-    );
-  }
+      <div className="navbar-profile">
+        <img src="https://placehold.co/40" alt="profile" />
+      </div>
+    </nav>
+  );
 
-  // Original form view
   return (
     <div className="logticket">
       <nav className="navbar">
@@ -112,6 +123,7 @@ function Ticket() {
             <li><Link to="/">Dashboard</Link></li>
             <li><Link to="/ticket">Tickets</Link></li>
           {/*  <li><Link to="/reports">Reports</Link></li> */}
+            <li><Link to="/notifications">Notifications</Link></li>
             <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>
@@ -119,6 +131,7 @@ function Ticket() {
           <img src="https://placehold.co/40" alt="profile" />
         </div>
       </nav>
+      <Navbar />
 
       <div className="container">
         <div className="header">
@@ -137,6 +150,7 @@ function Ticket() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
+              disabled={submitting}
             />
           </div>
 
@@ -147,6 +161,7 @@ function Ticket() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               required
+              disabled={submitting}
             />
           </div>
 
@@ -160,6 +175,7 @@ function Ticket() {
                     value={level}
                     checked={urgency === level}
                     onChange={(e) => setUrgency(e.target.value)}
+                    disabled={submitting}
                   />
                   {level}
                 </label>
@@ -177,12 +193,16 @@ function Ticket() {
                   accept="image/*,video/*"
                   onChange={(e) => setFile(e.target.files[0])}
                   style={{ display: "none" }}
+                  disabled={submitting}
                 />
               </label>
             </div>
           </div>
+
           <div className="final-submit">
-            <button type="submit">Submit Ticket</button>
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Ticket"}
+            </button>
           </div>
         </form>
       </div>

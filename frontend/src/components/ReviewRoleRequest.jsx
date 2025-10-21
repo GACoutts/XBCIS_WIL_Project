@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
-const API = 'http://localhost:5000/api';
+// Use a relative API path so calls are proxied through the Vite dev server.
+// Hard‑coding localhost and a port breaks cookies and CORS in development and production.
+const API = '/api';
 
 export default function ReviewRoleRequests() {
   const [items, setItems] = useState([]);
@@ -97,6 +99,8 @@ export default function ReviewRoleRequests() {
             <th>Email</th>
             <th>Role</th>
             <th>Status</th>
+            <th>Address</th>
+            <th>Proof</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -109,6 +113,30 @@ export default function ReviewRoleRequests() {
                 <td>{u.Email}</td>
                 <td>{u.Role}</td>
                 <td>{u.Status}</td>
+                <td>{u.UserAddress || u.Address || '—'}</td>
+                <td>
+                  {u.ProofFile ? (() => {
+                    const raw = String(u.ProofFile || '');
+                    const clean = raw
+                      .replace(/^https?:\/\/[^/]+\/?/, '') // drop origin if present
+                      .replace(/^\//, '')                  // drop leading slash
+                      .replace(/\\/g, '/');                // ensure URL separators
+
+                    const href = `/api/admin/proofs/${encodeURI(clean)}`;
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="admin-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View
+                      </a>
+                    );
+                  })() : '—'}
+                </td>
+
                 <td>
                   <button className="admin-btn" onClick={() => handleAccept(u.UserID)}>Accept</button>
                   <button className="admin-btn" onClick={() => handleReject(u.UserID)}>Reject</button>
@@ -117,7 +145,7 @@ export default function ReviewRoleRequests() {
             ))
           ) : (
             <tr>
-              <td colSpan={5} style={{ textAlign: 'center', padding: '50px', color: '#888', fontSize: '16px' }}>No pending requests</td>
+              <td colSpan={8} style={{ textAlign: 'center', padding: '50px', color: '#888', fontSize: '16px' }}>No pending requests</td>
             </tr>
           )}
         </tbody>

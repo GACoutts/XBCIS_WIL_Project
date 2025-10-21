@@ -64,7 +64,7 @@ export default function Login() {
 
         <div className="inputs">
           <div className="input">
-            <label className="input-head" htmlFor="email">Email</label>
+            <label className="input-head" htmlFor="email">Email:</label>
             <input
               id="email"
               type="email"
@@ -78,7 +78,7 @@ export default function Login() {
           </div>
 
           <div className="input">
-            <label className="input-head" htmlFor="password">Password</label>
+            <label className="input-head" htmlFor="password">Password:</label>
             <input
               id="password"
               type="password"
@@ -101,12 +101,13 @@ export default function Login() {
         <div className="no-account">
           <div>
             <span>No account? </span>
-            <Link to="/signup">Create one</Link>
+            <Link to="/signup" className="link">Create one</Link>
           </div>
-          <div>
-            <Link to="/forgot-password">Forgot password?</Link>
+          <div className="forgot-password">
+            Forgot password? <Link to="/forgot-password" className="link">Reset here</Link>
           </div>
         </div>
+
       </form>
     </div>
   );

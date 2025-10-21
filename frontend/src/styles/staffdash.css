@@ -81,6 +81,7 @@ body {
   display: flex;
   gap: 20px;
   align-items: flex-start;
+  padding-bottom: 40px;
 }
 
 .sub-title{ 
@@ -110,29 +111,32 @@ body {
 
 .awaiting-tickets-container {
     margin: 20px 90px;
+    width: 100%;
     background: white;
     border-radius: 5px;
     overflow-y: auto;
     border: 1px solid #FBD402;
     margin-top: 1px;
-    width: 545px;
-    max-height: 250px;
+    width: calc(100% - 180px);
+    /* increase height so the list of awaiting tickets can display more rows */
+    max-height: 400px;
+    box-sizing: border-box;
 }
 
-.contractor-container {
+.contractor-table {
+    margin: 20px 90px;
     background: white;
     border-radius: 5px;
     overflow-y: auto;
     border: 1px solid #FBD402;
-    width: 430px;
-    max-height: 250px;
-    margin: 0px 20px 20px 0px;
-    display: inline-block;
-    vertical-align: top;
+    margin-top: 1px;
+    /* match width of awaiting tickets container and allow greater height */
+    width: calc(100% - 180px);
+    max-height: 400px;
 }
 
 .property-stats-container {
-    margin: 20px 90px;
+    margin: 50px 90px;
     background: white;
     border-radius: 5px;
     overflow-y: auto;
@@ -140,6 +144,7 @@ body {
     margin-top: 20px;
     width: 545px;
     max-height: 200px;
+    padding-bottom: 20px;
 }
 
 .table-header {
@@ -157,13 +162,15 @@ body {
 
 .header-grid {
     display: grid;
-    grid-template-columns: 85px 85px 85px 85px 85px;
-    gap: 17px;
+    grid-template-columns: 1fr 2fr 3fr 2fr 2fr 1fr;
+    /* increase spacing between columns to improve separation between Ticket ID and Property */
+    gap: 25px;
 }
 
 .contractor-header-grid {
     display: grid;
-    grid-template-columns: 85px 85px 85px 85px;
+    /* Allocate more space for the email column */
+    grid-template-columns: 1.5fr 2.5fr 1fr 1fr;
     gap: 17px;
     align-items: center;
 }
@@ -228,14 +235,15 @@ body {
 
 .ticket-info-grid {
     display: grid;
-    grid-template-columns: 85px 85px 85px 85px 85px;
-    gap: 15px;
+    grid-template-columns: 1fr 2fr 3fr 2fr 2fr 1fr; /* last 1fr for actions */
     align-items: center;
+    gap: 10px;
 }
 
 .contractor-info-grid {
     display: grid;
-    grid-template-columns: 85px 85px 85px 85px;
+    /* Align with the header grid; name, email, status, spacer */
+    grid-template-columns: 1.5fr 2.5fr 1fr 1fr;
     gap: 15px;
     align-items: center;
 }
@@ -409,6 +417,7 @@ body {
 .property-stats-card {
     border-bottom: 1px solid #FBD402;
     padding: 15px;
+    padding-bottom: 10px;
 }
 
 .property-stats-card:last-child {
@@ -524,11 +533,13 @@ body {
 
 .admin-table tbody,
 .review-roles-table tbody {
-  display: block; 
-  max-height: 120px; 
+  display: block;
+  /* increase height so role requests block matches awaiting tickets size */
+  min-height: 300px;
+  max-height: 300px;
   overflow-y: auto;
-  width: 100%; 
-  max-width: 100%; 
+  width: 100%;
+  max-width: 100%;
 }
 
 .admin-table thead,
@@ -662,29 +673,46 @@ body {
 }
 
 /* Specific styling for ReviewRoleRequests table */
+/*
+ * Adjust the ReviewRoleRequests table column widths to accommodate the new
+ * fields (ID, User, Email, Role, Status, Address, Proof, Actions).  The
+ * combined widths should add up to ~100% to avoid overlapping columns
+ * when the table scrolls horizontally.  Each column is assigned a
+ * relative width based on its expected content length.  If you add or
+ * remove columns in the future be sure to update these selectors
+ * accordingly.
+ */
 .review-roles-table th:nth-child(1),
 .review-roles-table td:nth-child(1) {
-  width: 15%; /* User column */
+  width: 7%;   /* ID column */
 }
 .review-roles-table th:nth-child(2),
 .review-roles-table td:nth-child(2) {
-  width: 20%; /* Email column */
+  width: 15%;  /* User column */
 }
 .review-roles-table th:nth-child(3),
 .review-roles-table td:nth-child(3) {
-  width: 15%; /* Current column */
+  width: 20%;  /* Email column */
 }
 .review-roles-table th:nth-child(4),
 .review-roles-table td:nth-child(4) {
-  width: 15%; /* Requested column */
+  width: 10%;  /* Role column */
 }
 .review-roles-table th:nth-child(5),
 .review-roles-table td:nth-child(5) {
-  width: 20%; /* Notes column */
+  width: 10%;  /* Status column */
 }
 .review-roles-table th:nth-child(6),
 .review-roles-table td:nth-child(6) {
-  width: 15%; /* Actions column */
+  width: 18%;  /* Address column */
+}
+.review-roles-table th:nth-child(7),
+.review-roles-table td:nth-child(7) {
+  width: 10%;  /* Proof column */
+}
+.review-roles-table th:nth-child(8),
+.review-roles-table td:nth-child(8) {
+  width: 10%;  /* Actions column */
 }
 
 .admin-table tr:last-child td,
@@ -694,8 +722,9 @@ body {
 
 .admin-table tbody,
 .review-roles-table tbody {
-  min-height: 120px; 
-  max-height: 120px; 
+  /* increase height so role requests block matches awaiting tickets size */
+  min-height: 300px;
+  max-height: 300px;
   overflow-y: auto;
   width: 100%;
   max-width: 100%;
@@ -854,9 +883,10 @@ body {
   gap: 15px;
   padding: 15px 90px 10px 90px; /* match dashboard padding */
   margin-top: 10px;
-  background-color: #fff;
-  border: 1px solid #FBD402;
-  border-radius: 6px;
+  /* remove border and background for a cleaner, floating appearance */
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
   align-items: center;
   font-family: Arial, sans-serif;
 }

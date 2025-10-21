@@ -22,6 +22,11 @@ function StaffDashboard() {
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedTicketDetails, setSelectedTicketDetails] = useState(null);
 
+  // Contractor management state has been moved to its own page (StaffContractors).
+  // We retain only the ability to assign a contractor to a ticket using the
+  // `activeContractors` list loaded when assigning.  The full contractor
+  // management UI is now located in `StaffContractors.jsx`.
+
   const loadActiveContractors = async () => {
     try {
       const res = await fetch("/api/admin/contractors/active", { credentials: "include" });
@@ -70,10 +75,13 @@ function StaffDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to create schedule");
 
+      // Update local ticket status to In Review (assignment moves ticket to in review)
+      const id = selectedTicketId;
+      setAllTickets(prev => prev.map(t => t.TicketID === id ? { ...t, CurrentStatus: 'In Review' } : t));
       setShowContractorModal(false);
       setChosenContractorId(null);
       setSelectedTicketId(null);
-      alert("Contractor Assigned successfully!");
+      alert("Contractor assigned successfully!");
     } catch (err) {
       console.error(err);
       alert(err.message);
@@ -109,24 +117,59 @@ function StaffDashboard() {
   };
 
   const getStatusColor = (status) => {
+    // Map various ticket states to CSS classes.  If you add new statuses
+    // on the backend, update this mapping accordingly.  Unrecognised
+    // statuses fall back to no additional styling.
     switch (status) {
-      case 'Awaiting Appointment': return 'status-awaiting';
-      case 'Approved': return 'status-approved';
-      case 'Rejected': return 'status-rejected';
-      case 'Closed': return 'status-closed';
-      default: return '';
+      case 'New':
+      case 'In Review':
+      case 'Quoting':
+      case 'Awaiting Landlord Approval':
+      case 'Awaiting Approval':
+      case 'Awaiting Appointment':
+      case 'Scheduled':
+        return 'status-awaiting';
+      case 'Approved':
+        return 'status-approved';
+      case 'Rejected':
+        return 'status-rejected';
+      case 'Completed':
+      case 'Closed':
+        return 'status-closed';
+      default:
+        return '';
     }
   };
 
   const getDisplayStatus = (ticket) => {
-    if (!ticket.CurrentStatus) return "";
-    if (ticket.CurrentStatus === "New" && ticket.CreatedAt) {
+    const status = ticket.CurrentStatus;
+    if (!status) return "";
+    // Show "New" only for the first 31 days
+    if (status === 'New' && ticket.CreatedAt) {
       const createdDate = new Date(ticket.CreatedAt);
       const now = new Date();
       const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-      return diffDays <= 31 ? "New" : "";
+      if (diffDays > 31) return '';
+      return 'New';
     }
-    return ticket.CurrentStatus;
+    switch (status) {
+      case 'In Review':
+        return 'In Review';
+      case 'Quoting':
+        return 'Quoting';
+      case 'Awaiting Landlord Approval':
+        return 'Awaiting Approval';
+      case 'Awaiting Appointment':
+        return 'Awaiting Appointment';
+      case 'Approved':
+        return 'Approved';
+      case 'Scheduled':
+        return 'Scheduled';
+      case 'Completed':
+        return 'Closed';
+      default:
+        return status;
+    }
   };
 
   const totalOpenTickets = allTickets.filter(t => getDisplayStatus(t) !== "Closed").length;
@@ -146,6 +189,10 @@ function StaffDashboard() {
     }
     fetchTickets();
   }, []);
+
+  // The contractor management functions (fetching, adding, removing) have
+  // moved to the separate StaffContractors component.  Only the
+  // ticket-assignment flows remain here.
 
   // Ticket detail modal
   const handleOpenTicketModal = async (ticketId) => {
@@ -168,11 +215,15 @@ function StaffDashboard() {
         method: "POST",
         credentials: "include",
       });
+      const data = await res.json();
       if (res.ok) {
-        setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: "Closed" } : t));
+        // Backend sets CurrentStatus to 'Completed'; update local list accordingly
+        setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: 'Completed' } : t));
         alert("Ticket closed!");
         setShowTicketModal(false);
-      } else throw new Error("Failed to close ticket");
+      } else {
+        throw new Error(data?.message || "Failed to close ticket");
+      }
     } catch (err) {
       console.error(err);
     }
@@ -249,24 +300,23 @@ function StaffDashboard() {
     return (totalDays / resolvedTickets.length).toFixed(1); // days
   }, [allTickets]);
 
-  // Prepare Bar Chart data (tickets by role)
-  const ticketsByRoleData = [
-    { role: "Client", count: allTickets.filter(t => t.Role === "Client").length },
-    { role: "Landlord", count: allTickets.filter(t => t.Role === "Landlord").length },
-    { role: "Contractor", count: allTickets.filter(t => t.Role === "Contractor").length }
-  ];
-
-  // Dummy contractor & property stats data
-  const contractorsData = [
-    { name: "John Doe", currentJobs: 3, assignedJob: "Yes", hasGearIcon: true, status: "Awaiting Appointment" },
-    { name: "Jane Smith", currentJobs: 0, assignedJob: "-", hasGearIcon: false, status: "None" },
-    { name: "Bob Brown", currentJobs: 1, assignedJob: "Yes", hasGearIcon: true, status: "Awaiting Quote" }
-  ];
-
-  const propertyStatsData = [
-    { property: "23 Apple Road", landlord: "John Doe", tenant: "John Doe", ticketsLogged: { total: 5, done: 3, inProgress: 2 }, totalSpend: "R4000" },
-    { property: "42 Orange Street", landlord: "Jane Smith", tenant: "John Smith", ticketsLogged: { total: 0, done: 0, inProgress: 0 }, totalSpend: "R0" }
-  ];
+  // Prepare Bar Chart data (tickets by urgency).  Group tickets by their urgency
+  const ticketsByUrgencyData = React.useMemo(() => {
+    const counts = { Low: 0, Medium: 0, High: 0, Critical: 0 };
+    allTickets.forEach(t => {
+      const urgency = (t.UrgencyLevel || '').toLowerCase();
+      if (urgency === 'low') counts.Low += 1;
+      else if (urgency === 'medium') counts.Medium += 1;
+      else if (urgency === 'high') counts.High += 1;
+      else if (urgency === 'critical') counts.Critical += 1;
+    });
+    return [
+      { urgency: 'Low', count: counts.Low },
+      { urgency: 'Medium', count: counts.Medium },
+      { urgency: 'High', count: counts.High },
+      { urgency: 'Critical', count: counts.Critical },
+    ];
+  }, [allTickets]);
 
   return (
     <>
@@ -276,8 +326,8 @@ function StaffDashboard() {
           <ul className="navbar-menu">
             <li><Link to="/staff">Dashboard</Link></li>
             <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/quotes">Quotes</Link></li>
             <li><Link to="/contractors">Contractors</Link></li>
+            <li><Link to="/notifications">Notifications</Link></li>
             <li><Link to="/settings">Settings</Link></li>
           </ul>
         </div>
@@ -295,128 +345,87 @@ function StaffDashboard() {
 
       <div className="staffdashboard-title"><h1>Dashboard</h1></div>
 
+      <div className="sub-titles-container">
+        <div className="sub-title"><h2>Awaiting Tickets</h2></div>
+      </div>
+
+      <div className="awaiting-tickets-container">
+        <div className="table-header">
+          <div className="header-content">
+            <div className="header-grid">
+              <div className="header-item">Ticket ID</div>
+              <div className="header-item">Property</div>
+              <div className="header-item">Issue</div>
+              <div className="header-item">Submitted</div>
+              <div className="header-status">Urgency/Status</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ticket filters */}
+        <div className="ticket-filters">
+          <label>
+            Status:
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">All</option>
+              <option value="New">New</option>
+              <option value="In Review">In Review</option>
+              <option value="Quoting">Quoting</option>
+              <option value="Awaiting Appointment">Awaiting Appointment</option>
+              <option value="Awaiting Approval">Awaiting Approval</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </label>
+          <label>
+            Submitted After:
+            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+          </label>
+        </div>
+
+        {filteredTickets.length > 0 ? (
+          filteredTickets.map((ticket, index) => (
+            <div key={ticket.TicketID || index} className="ticket-card">
+              <div className="ticket-layout">
+                <div className="ticket-info-grid">
+                  <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
+                  <div className="info-value">{ticket.PropertyAddress || ticket.property || '—'}</div>
+                  <div className="info-value issue-cell">
+                    <span>{ticket.Description || ticket.issue}</span>
+                    <img src={gearIcon} alt="Settings" className="gear-icon" />
+                  </div>
+                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+                  <div className="urgency-status-column">
+                    <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
+                      {ticket.UrgencyLevel || ticket.urgency}
+                    </span>
+                    <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
+                      {getDisplayStatus(ticket) || ticket.status}
+                    </span>
+                  </div>
+                  <div className="action-buttons">
+                    <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
+                      Assign Contractor
+                    </button>
+                    <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="empty-state">No tickets available</p>
+        )}
+      </div>
+
       <section className="staff-admin-panel">
         <h2 className="section-title">Role Requests</h2>
         <ReviewRoleRequests />
       </section>
-
-      <div className="sub-titles-container">
-        <div className="sub-title"><h2>Awaiting Tickets</h2></div>
-        <div className="contractor-sub-title"><h2>Contractor Management</h2></div>
-      </div>
-
-      {/* Ticket filters */}
-      <div className="ticket-filters">
-        <label>
-          Status:
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="">All</option>
-            <option value="New">New</option>
-            <option value="Awaiting Appointment">Awaiting Appointment</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Closed">Closed</option>
-          </select>
-        </label>
-        <label>
-          Submitted After:
-          <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-        </label>
-      </div>
-
-      <div className="cards-wrapper">
-        <div className="awaiting-tickets-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="header-grid">
-                <div className="header-item">Ticket ID</div>
-                <div className="header-item">Property</div>
-                <div className="header-item">Issue</div>
-                <div className="header-item">Submitted</div>
-                <div className="header-status">Urgency/Status</div>
-              </div>
-            </div>
-          </div>
-
-          {filteredTickets.length > 0 ? (
-            filteredTickets.map((ticket, index) => (
-              <div key={ticket.TicketID || index} className="ticket-card">
-                <div className="ticket-layout">
-                  <div className="ticket-info-grid">
-                    <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-                    <div className="info-value">{ticket.PropertyAddress || ticket.property}</div>
-                    <div className="info-value issue-cell">
-                      <span>{ticket.Description || ticket.issue}</span>
-                      <img src={gearIcon} alt="Settings" className="gear-icon" />
-                    </div>
-                    <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-                    <div className="urgency-status-column">
-                      <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
-                        {ticket.UrgencyLevel || ticket.urgency}
-                      </span>
-                      <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
-                        {getDisplayStatus(ticket) || ticket.status}
-                      </span>
-                    </div>
-                    <div className="action-buttons">
-                      <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                        Assign Contractor
-                      </button>
-                      <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="empty-state">No tickets available</p>
-          )}
-        </div>
-
-        {/* Contractors Table */}
-        <div className="contractor-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="contractor-header-grid">
-                <div className="header-item">Name</div>
-                <div className="header-item">Current Jobs</div>
-                <div className="header-item">Assigned Job</div>
-                <div className="header-status">Status</div>
-              </div>
-            </div>
-          </div>
-
-          {contractorsData.map((contractor, index) => (
-            <div key={index} className="contractor-card">
-              <div className="contractor-layout">
-                <div className="contractor-content">
-                  <div className="contractor-info-grid">
-                    <div className="info-item"><div className="info-value">{contractor.name}</div></div>
-                    <div className="info-item"><div className="info-value">{contractor.currentJobs}</div></div>
-                    <div className="info-item">
-                      <div className="assigned-job-cell">
-                        <span className="info-value">{contractor.assignedJob}</span>
-                        {contractor.hasGearIcon && <img src={gearIcon} alt="Settings" className="gear-icon" />}
-                      </div>
-                    </div>
-                    <div className="info-item">
-                      <div className="contractor-status-column">
-                        <div className={`status-badge ${contractor.status.toLowerCase().replace(/\s+/g, '-')}`}>{contractor.status}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="action-buttons">
-                    <button className="action-btn" onClick={() => console.log("Assign job to contractor", contractor.name)}>Assign Contractor</button>
-                    <button className="action-btn" onClick={() => console.log("View contractor quote", contractor.name)}>View Quote</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Assign Contractor Modal */}
       {showContractorModal && (
@@ -476,46 +485,8 @@ function StaffDashboard() {
         </div>
       )}
 
-      <div className="sub-title2">
-        <h2>Property Stats</h2>
-      </div>
-      <div className="property-stats-container">
-        <div className="table-header">
-          <div className="header-content">
-            <div className="property-stats-header-grid">
-              <div className="header-item">Property</div>
-              <div className="header-item">Landlord</div>
-              <div className="header-item">Tenant</div>
-              <div className="header-item">Tickets Logged</div>
-              <div className="header-item">Total Spend</div>
-            </div>
-          </div>
-        </div>
 
-        {propertyStatsData.map((property, index) => (
-          <div key={index} className="property-stats-card">
-            <div className="property-stats-layout">
-              <div className="property-stats-content">
-                <div className="property-stats-info-grid">
-                  <div className="info-item"><div className="info-value">{property.property}</div></div>
-                  <div className="info-item"><div className="info-value">{property.landlord}</div></div>
-                  <div className="info-item"><div className="info-value">{property.tenant}</div></div>
-                  <div className="info-item">
-                    <div className="tickets-logged-cell">
-                      <div className="tickets-summary">
-                        <div className="total-tickets">Total: {property.ticketsLogged.total}</div>
-                        <div className="done-tickets">Done: {property.ticketsLogged.done}</div>
-                        <div className="progress-tickets">In Progress: {property.ticketsLogged.inProgress}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="info-item"><div className="info-value total-spend">{property.totalSpend}</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* The contractor management section has been moved to its own page.  */}
 
       <div className="analytics-panel">
         <h2>Analytics</h2>
@@ -542,14 +513,14 @@ function StaffDashboard() {
           </div>
 
           <div className="chart-wrapper">
-            <h3>Tickets by Role</h3>
-            <BarChart width={400} height={300} data={ticketsByRoleData}>
+            <h3>Tickets by Urgency</h3>
+            <BarChart width={400} height={300} data={ticketsByUrgencyData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="role" />
+              <XAxis dataKey="urgency" />
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="count" fill="#8884d8" />
+              <Bar dataKey="count" name="Count" fill="#8884d8" />
             </BarChart>
           </div>
         </div>

@@ -4,14 +4,23 @@
   background: white;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  height: 100vh;   
-  margin-top: 25px;
+  align-items: center;        
+  height: 100%;          
+  margin-top: 0;
   font-family: Arial, sans-serif;
   position: relative;
+  overflow-x: hidden; 
 }
 
 /* The yellow card */
+/*
+ * The signup container scales up to give the form a prominent card look.
+ * Previously the height was fixed to 450px which caused fields added for
+ * landlords and tenants (address + proof) to overflow.  Setting
+ * `height: auto` with a minimum height allows the card to grow as
+ * additional form fields appear.  The scale transform remains to keep
+ * the design consistent.
+ */
 .signup-page-container .signup-container {
   background: #FBD402;
   border: 1px solid black;
@@ -20,8 +29,9 @@
   margin: 5px auto;
   text-align: center;
   width: 350px;
-  height: 450px;
-  position: relative;
+  /* Allow the card to expand with content while enforcing a minimum height */
+  min-height: 450px;
+  height: auto;
   transform: scale(1.25);
   transform-origin: center center;
 }
@@ -67,7 +77,7 @@
 .signup-page-container .input-head {
   text-align: left;
   margin-bottom: 1px;
-  font-size: 13px;
+  font-size: 12px;
 }
 .signup-page-container .input input {
   padding: 3px;
@@ -155,17 +165,88 @@
   min-width: 16px;            /* belt & suspenders */
   min-height: 16px;
   flex: 0 0 16px; 
-  border: 2px solid black;
-  border-radius: 50%;
+  border: 1px solid black;
+  border-radius: 100%;
   background: white;
   cursor: pointer;
   display: inline-block;
+  transform: scale(0.7);
 }
 .signup-page-container .role-circle.active { background: black; }
 
 .signup-page-container .link {
   text-decoration: none;  
-  color: black;           
+  color: black;    
+  transition: color .15s ease;       
+}
+
+.signup-page-container .link:hover {
+  color: #0b5fff;              
+  text-decoration: underline;
+}
+
+.signup-page-container .input input[type="text"],
+.signup-page-container .input input[type="email"],
+.signup-page-container .input input[type="tel"],
+.signup-page-container .input input[type="password"] {
+  padding: 6px 8px;
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #000;       /* slim black */
+  border-radius: 5px;           /* rounder corners */
+  background: #fff;
+  outline: none;
+}
+
+.signup-page-container .file-trigger:hover,
+.signup-page-container .file-trigger:focus {
+  box-shadow: 0 0 0 2px rgba(11,95,255,.15);
+}
+
+/* Keep the row layout but let controls share the same visual width */
+.signup-page-container .input-row input,
+.signup-page-container .input-row .file-trigger {
+  flex: 0 0 200px;             
+}
+
+/* Custom file input (hide native, use a styled trigger) */
+.signup-page-container .input input[type="file"] {
+  display: none;
+}
+
+.signup-page-container .file-trigger.placeholder { color: #777; }
+.signup-page-container .file-trigger.has-file   { color: #333; }
+
+.signup-page-container .file-trigger {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 28px;                
+  padding: 0 8px;               
+  border: 1px solid #000;   
+  border-radius: 5px;           
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  width: 100%;
+  flex: 0 0 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signup-page-container .file-trigger:hover {
+  box-shadow: 0 0 0 2px rgba(11,95,255,.15);
+}
+.signup-page-container .file-name {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;             /* keeps line tidy under 205px column */
 }
 
 .signup-page-container .input-row {
@@ -205,4 +286,51 @@
   margin: 4px auto 0 auto;
   text-align: center;
   width: 350px; /* same width as your signup box */
+}
+
+/*All input placeholders (text/email/tel/password) */
+.signup-page-container .input input::placeholder {
+  font-size: 12px;   
+  color: #777;       
+  opacity: 1;        
+}
+
+.signup-page-container .input input::-webkit-input-placeholder { font-size: 12px; color:#777; }
+.signup-page-container .input input::-moz-placeholder         { font-size: 12px; color:#777; }
+.signup-page-container .input input:-ms-input-placeholder     { font-size: 12px; color:#777; }
+.signup-page-container .input input::-ms-input-placeholder    { font-size: 12px; color:#777; }
+
+.signup-page-container .file-trigger.placeholder {
+  font-size: 12px;   
+  color: #777;
+}
+
+.signup-page-container .file-trigger.has-file {
+  font-size: 12px; 
+  color: #333;
+}
+
+.signup-page-container .input-row .address-picker-input {
+  /* width behavior */
+  flex: 0 0 200px;
+  max-width: 100%;
+
+  /* visual match */
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background: #fff;
+  outline: none;
+  height: 28px;          /* match file trigger & text inputs */
+  line-height: 16px;     /* comfortable text rendering */
+  font-size: 13px;
+}
+
+/* Selected address helper text below the row */
+.signup-page-container .input small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #333;
 }

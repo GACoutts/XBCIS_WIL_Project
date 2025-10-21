@@ -11,39 +11,40 @@ const json = async (res) => {
 
 export const authApi = {
   // session
-  me:       () => fetch('/api/auth/me',      { credentials: 'include' }).then(json),
-  refresh:  () => fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }).then(json),
+  me: () => fetch('/api/auth/me', { credentials: 'include' }).then(json),
+  refresh: () => fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' }).then(json),
 
   // auth
-  login:    ({ email, password }) =>
-              fetch('/api/auth/login', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-              }).then(json),
+  login: ({ email, password }) =>
+    fetch('/api/auth/login', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    }).then(json),
 
-  register: ({ fullName, email, phone, password, role }) =>
-              fetch('/api/auth/register', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fullName, email, phone, password, role }),
-              }).then(json),
+  register: ({ fullName, email, phone, password, role, placeId, latitude, longitude }) =>
+    fetch('/api/auth/register', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fullName, email, phone, password, role, placeId, latitude, longitude }),
+    }).then(json),
 
-  logout:   () => fetch('/api/auth/logout', {
-                method: 'POST',
-                credentials: 'include',
-              }).then(json),
+
+  logout: () => fetch('/api/auth/logout', {
+    method: 'POST',
+    credentials: 'include',
+  }).then(json),
 
   // session management
-  listSessions:  () => fetch('/api/auth/sessions', { credentials: 'include' }).then(json),
+  listSessions: () => fetch('/api/auth/sessions', { credentials: 'include' }).then(json),
   revokeSession: (id) => fetch(`/api/auth/sessions/${id}`, {
-                      method: 'DELETE',
-                      credentials: 'include',
-                    }).then(json),
-  revokeAll:     () => fetch('/api/auth/sessions', {
-                      method: 'DELETE',
-                      credentials: 'include',
-                    }).then(json),
+    method: 'DELETE',
+    credentials: 'include',
+  }).then(json),
+  revokeAll: () => fetch('/api/auth/sessions', {
+    method: 'DELETE',
+    credentials: 'include',
+  }).then(json),
 };

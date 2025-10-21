@@ -1,10 +1,10 @@
-// backend/routes/admin.js - Staff-only user and role management
 import 'dotenv/config';
 import express from 'express';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
 import { adminRateLimit } from '../middleware/rateLimiter.js';
 import { revokeAllUserRefreshTokens, logAudit } from '../utils/tokens.js';
+import { notifyUser } from '../utils/notify.js';
 
 const router = express.Router();
 
@@ -124,7 +124,8 @@ router.post('/contractor-assign', async (req, res) => {
     }
 
     if (!ProposedDate) {
-      ProposedDate = '2099-12-31'; // Placeholder far-future date
+      ProposedDate = '2099-12-31';
+
     }
 
     const connection = await pool.getConnection();
@@ -173,6 +174,30 @@ router.post('/contractor-assign', async (req, res) => {
       });
 
       await connection.commit();
+
+      // -------------------------------------------------------------------------
+      // Notify the newly assigned contractor.  This sends a WhatsApp template
+      // message (with email fallback) using the "contractor_assigned" template.
+      // If the notification fails, we log the error but do not rollback the
+      // assignment.
+      try {
+        // Look up the ticket reference number for the message template
+        const [ticketInfo] = await pool.execute(
+          'SELECT TicketRefNumber FROM tblTickets WHERE TicketID = ? LIMIT 1',
+          [TicketID]
+        );
+        const ticketRef = ticketInfo?.[0]?.TicketRefNumber || null;
+        await notifyUser({
+          userId: ContractorUserID,
+          ticketId: TicketID,
+          template: 'contractor_assigned',
+          params: { ticketRef },
+          eventKey: `contractor_assigned:${TicketID}:${ContractorUserID}`,
+          fallbackToEmail: true,
+        });
+      } catch (notifyErr) {
+        console.error('[admin/contractor-assign] notify error:', notifyErr);
+      }
       return res.json({
         message: existingRows.length > 0
           ? 'Contractor reassigned successfully and ticket moved to In Review'
@@ -476,16 +501,139 @@ router.get('/stats', async (_req, res) => {
 // GET /inactive-users - List all users with Status = 'Inactive'
 router.get('/inactive-users', async (_req, res) => {
   try {
-    const [rows] = await pool.execute(
-      `SELECT UserID, FullName, Email, Role, Status
-         FROM tblusers
-        WHERE Status = 'Inactive'
-        ORDER BY DateRegistered DESC`
-    );
+    // Ensure the proof table exists
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS tblUserProofs (
+        ProofID INT AUTO_INCREMENT PRIMARY KEY,
+        UserID INT NOT NULL,
+        FilePath VARCHAR(255) NOT NULL,
+        Address VARCHAR(255) DEFAULT NULL,
+        UploadedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_userproofs_user FOREIGN KEY (UserID) REFERENCES tblusers(UserID)
+          ON DELETE CASCADE ON UPDATE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Query inactive users along with proof & property info
+    const [rows] = await pool.query(`
+      SELECT u.UserID, u.FullName, u.Email, u.Role, u.Status,
+             lp.FilePath    AS ProofFile,
+             lp.Address     AS UserAddress,
+             p.AddressLine1 AS PropertyAddress
+        FROM tblusers u
+        LEFT JOIN (
+          SELECT up.UserID, up.FilePath, up.Address
+            FROM tblUserProofs up
+            JOIN (
+              SELECT UserID, MAX(UploadedAt) AS LatestUpload
+                FROM tblUserProofs
+               GROUP BY UserID
+            ) latest
+              ON up.UserID = latest.UserID AND up.UploadedAt = latest.LatestUpload
+        ) lp ON u.UserID = lp.UserID
+        LEFT JOIN tblTenancies t ON t.TenantUserID = u.UserID AND t.IsActive = 1
+        LEFT JOIN tblLandlordProperties lpp ON lpp.LandlordUserID = u.UserID
+             AND (lpp.ActiveTo IS NULL OR lpp.ActiveTo >= CURDATE())
+             AND lpp.IsPrimary = 1
+        LEFT JOIN tblProperties p ON p.PropertyID = COALESCE(t.PropertyID, lpp.PropertyID)
+       WHERE u.Status = 'Inactive'
+       ORDER BY u.DateRegistered DESC
+    `);
+
     return res.json({ users: rows });
   } catch (err) {
     console.error('Get inactive users error:', err);
     return res.status(500).json({ message: 'Server error retrieving inactive users' });
+  }
+});
+
+// ----- TENANCY LINKING VIA GOOGLE GEO -----
+// Requires Staff role
+
+// GET /api/admin/properties/:propertyId/candidate-tenants?radiusMeters=50
+router.get('/properties/:propertyId/candidate-tenants', async (req, res) => {
+  try {
+    const { propertyId } = req.params;
+    const radius = Number(req.query.radiusMeters || 50);
+
+    const [[prop]] = await pool.query(
+      `SELECT PlaceId, Latitude, Longitude FROM tblProperties WHERE PropertyID = ?`,
+      [propertyId]
+    );
+    if (!prop) return res.status(404).json({ message: 'Property not found' });
+
+    let candidates = [];
+    if (prop.PlaceId) {
+      const [rows] = await pool.query(
+        `SELECT UserID, FullName, Email FROM tblusers WHERE Role='Client' AND PlaceId = ?`,
+        [prop.PlaceId]
+      );
+      candidates = rows;
+    } else if (prop.Latitude != null && prop.Longitude != null) {
+      const [rows] = await pool.query(
+        `
+        SELECT u.UserID, u.FullName, u.Email,
+          (6371000 * 2 * ASIN(SQRT(
+             POWER(SIN(RADIANS(u.Latitude - ?)/2), 2) +
+             COS(RADIANS(?)) * COS(RADIANS(u.Latitude)) *
+             POWER(SIN(RADIANS(u.Longitude - ?)/2), 2)
+          ))) AS distance_m
+        FROM tblusers u
+        WHERE u.Role='Client' AND u.Latitude IS NOT NULL AND u.Longitude IS NOT NULL
+        HAVING distance_m <= ?
+        ORDER BY distance_m ASC
+        `,
+        [prop.Latitude, prop.Latitude, prop.Longitude, radius]
+      );
+      candidates = rows;
+    }
+
+    return res.json({ candidates });
+  } catch (err) {
+    console.error('admin candidates error', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/admin/tenancies { propertyId, tenantUserId, startDate }
+router.post('/tenancies', async (req, res) => {
+  try {
+    const { propertyId, tenantUserId, startDate } = req.body || {};
+    if (!propertyId || !tenantUserId || !startDate) {
+      return res.status(400).json({ message: 'Missing fields' });
+    }
+
+    await pool.query(
+      `UPDATE tblTenancies
+         SET IsActive = 0, EndDate = CURDATE()
+       WHERE PropertyID = ? AND TenantUserID = ? AND IsActive = 1`,
+      [propertyId, tenantUserId]
+    );
+
+    await pool.query(
+      `INSERT INTO tblTenancies (PropertyID, TenantUserID, StartDate, IsActive)
+       VALUES (?, ?, ?, 1)`,
+      [propertyId, tenantUserId, startDate]
+    );
+
+    // Notify tenant that their account is now linked to a property
+    try {
+      await notifyUser({
+        userId: tenantUserId,
+        ticketId: null,
+        template: 'tenancy_linked',
+        params: { propertyId },
+        eventKey: `tenancy_linked:${propertyId}:${tenantUserId}`,
+        fallbackToEmail: true,
+      });
+    } catch (notifyErr) {
+      console.error('[admin/tenancies] notify error:', notifyErr);
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('admin tenancies error', err);
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
