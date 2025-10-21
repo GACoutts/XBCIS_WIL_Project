@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./styles/signup.css";
 import { useAuth } from "./context/AuthContext";
+import AddressPicker from "./components/AddressPicker.jsx";
 
 // Map UI role keys to backend roles
 const ROLE_MAP = {
@@ -11,23 +12,22 @@ const ROLE_MAP = {
   rawson: "Staff",
 };
 
+// Keep PlaceId short and remove any "places/" prefix (defensive)
+function safePlaceId(pid) {
+  return (pid || "").replace(/^places\//, "").slice(0, 64);
+}
+
 export default function SignUpPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
 
-  // Collect registration fields.  When signing up as a tenant/client or landlord
-  // we also capture a property address and a supporting document (lease or
-  // ownership proof).  These values will be sent to the backend via a
-  // multipart/form-data request when appropriate.  The `proofFile` state is
-  // separated because file inputs cannot be directly stored on objects.
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "tenant", // UI key; will be mapped for API
-    address: "",      // property address for tenants/landlords
+    role: "tenant",
   });
   const [proofFile, setProofFile] = useState(null);
 
@@ -35,7 +35,10 @@ export default function SignUpPage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [registered, setRegistered] = useState(false); // <-- added
+  const [registered, setRegistered] = useState(false);
+
+  // Selected Google location: { address, placeId, latitude, longitude }
+  const [loc, setLoc] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -56,9 +59,6 @@ export default function SignUpPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       newErrors.email = "Enter a valid email";
 
-    // Phone optional — remove this if we want it required (cant remember):
-    // if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
-
     if (!formData.password) newErrors.password = "Password is required";
     else if (formData.password.length < 8)
       newErrors.password = "Password must be at least 8 characters";
@@ -66,17 +66,16 @@ export default function SignUpPage() {
     if (formData.password !== formData.confirmPassword)
       newErrors.confirmPassword = "Passwords do not match";
 
-    // Ensure role is one of our UI keys
     if (!Object.keys(ROLE_MAP).includes(formData.role))
       newErrors.role = "Please select a valid role";
 
-    // When the user selects the tenant or landlord role, they must provide
-    // a property address and upload a supporting proof document.  File
-    // selection is tracked in proofFile state rather than on formData.
     const apiRole = ROLE_MAP[formData.role];
-    if (apiRole === 'Client' || apiRole === 'Landlord') {
-      if (!formData.address.trim()) newErrors.address = 'Address is required';
-      if (!proofFile) newErrors.proof = 'Proof document is required';
+
+    // For Client/Landlord: require Google address + proof
+    if (apiRole === "Client" || apiRole === "Landlord") {
+      if (!loc?.placeId)
+        newErrors.google = "Please select your address from Google suggestions";
+      if (!proofFile) newErrors.proof = "Proof document is required";
     }
 
     setErrors(newErrors);
@@ -87,63 +86,74 @@ export default function SignUpPage() {
     e.preventDefault();
     setServerError("");
     setSuccessMsg("");
-
     if (!validate()) return;
 
     setSubmitting(true);
     try {
       const apiRole = ROLE_MAP[formData.role];
+      const needsProof = apiRole === "Client" || apiRole === "Landlord";
 
-      // Determine whether we need to send a multipart form.  Tenants (clients)
-      // and landlords must provide an address and supporting document.
-      const needsProof = apiRole === 'Client' || apiRole === 'Landlord';
+      const pid = safePlaceId(loc?.placeId);
+      const lat = loc?.latitude ?? null;
+      const lng = loc?.longitude ?? null;
 
       if (needsProof) {
-        // Assemble a FormData payload.  Multer on the backend will parse
-        // multipart/form-data and populate req.body and req.file accordingly.
         const fd = new FormData();
-        fd.append('fullName', formData.fullName.trim());
-        fd.append('email', formData.email.trim());
-        fd.append('phone', formData.phone.trim() || '');
-        fd.append('password', formData.password);
-        fd.append('role', apiRole);
-        fd.append('address', formData.address.trim());
-        if (proofFile) fd.append('proof', proofFile);
+        fd.append("fullName", formData.fullName.trim());
+        fd.append("email", formData.email.trim());
+        fd.append("phone", formData.phone.trim() || "");
+        fd.append("password", formData.password);
+        fd.append("role", apiRole);
 
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          credentials: 'include',
-          body: fd
+        // Address is from Google selection
+        fd.append("address", (loc?.address || "").trim());
+        fd.append("placeId", pid);
+        if (lat != null) fd.append("latitude", String(lat));
+        if (lng != null) fd.append("longitude", String(lng));
+
+        if (proofFile) fd.append("proof", proofFile);
+
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          credentials: "include",
+          body: fd,
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.message || 'Registration failed');
+        if (!res.ok) throw new Error(data?.message || "Registration failed");
 
         if (data?.requiresApproval) {
-          setSuccessMsg('Your account has been registered successfully. Please await account approval.');
-          setRegistered(true); // <-- added
+          setSuccessMsg(
+            "Your account has been registered successfully. Please await account approval."
+          );
+          setRegistered(true);
         } else {
-          setSuccessMsg('Account created successfully. You\'re in!');
-          navigate('/', { replace: true });
+          setSuccessMsg("Account created successfully. You're in!");
+          navigate("/", { replace: true });
         }
       } else {
-        // Use the existing register helper for roles that do not require proof
+        // Non-proof roles, still send Google geo if available
         const response = await register({
           fullName: formData.fullName.trim(),
           email: formData.email.trim(),
           phone: formData.phone.trim() || null,
           password: formData.password,
           role: apiRole,
+          placeId: pid || null,
+          latitude: lat,
+          longitude: lng,
         });
         if (response?.requiresApproval) {
-          setSuccessMsg('Your account has been registered successfully. Please await account approval.');
-          setRegistered(true); // <-- added
+          setSuccessMsg(
+            "Your account has been registered successfully. Please await account approval."
+          );
+          setRegistered(true);
         } else {
-          setSuccessMsg('Account created successfully. You\'re in!');
-          navigate('/', { replace: true });
+          setSuccessMsg("Account created successfully. You're in!");
+          navigate("/", { replace: true });
         }
       }
     } catch (err) {
-      setServerError(err.message || 'Registration failed');
+      setServerError(err.message || "Registration failed");
     } finally {
       setSubmitting(false);
     }
@@ -159,17 +169,17 @@ export default function SignUpPage() {
         </div>
         <hr className="underline" />
 
-        {/* Success notice (when approval is required) */}
         {registered && successMsg && (
           <div className="success" style={{ marginTop: 8 }}>
             {successMsg}
             <div style={{ marginTop: 8 }}>
-              <Link to="/login" className="submit" role="button">Go to login</Link>
+              <Link to="/login" className="submit" role="button">
+                Go to login
+              </Link>
             </div>
           </div>
         )}
 
-        {/* Show the form only if not registered yet */}
         {!registered && (
           <form className="inputs" onSubmit={handleSubmit} noValidate>
             <div className="input">
@@ -183,9 +193,9 @@ export default function SignUpPage() {
                   onChange={handleChange}
                   required
                 />
-                {errors.fullName && <span className="error">{errors.fullName}</span>}
-                {serverError && !errors.fullName && <span className="error">{serverError}</span>}
               </div>
+              {errors.fullName && <span className="error">{errors.fullName}</span>}
+              {serverError && !errors.fullName && <span className="error">{serverError}</span>}
             </div>
 
             <div className="input">
@@ -200,8 +210,8 @@ export default function SignUpPage() {
                   required
                   autoComplete="username"
                 />
-                {errors.email && <span className="error">{errors.email}</span>}
               </div>
+              {errors.email && <span className="error">{errors.email}</span>}
             </div>
 
             <div className="input">
@@ -214,50 +224,42 @@ export default function SignUpPage() {
                   value={formData.phone}
                   onChange={handleChange}
                 />
-                {errors.phone && <span className="error">{errors.phone}</span>}
               </div>
+              {errors.phone && <span className="error">{errors.phone}</span>}
             </div>
 
-            {/* Address and proof fields for tenants and landlords */}
-            {(formData.role === 'tenant' || formData.role === 'landlord') && (
-              <>
-                <div className="input">
-                  <div className="input-head">Property Address:</div>
-                  <div className="input-row">
-                    <input
-                      type="text"
-                      name="address"
-                      placeholder="Enter your property address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      required
-                    />
-                    {errors.address && <span className="error">{errors.address}</span>}
-                  </div>
+            {(formData.role === "tenant" || formData.role === "landlord") && (
+              <div className="input">
+                <div className="input-head">Proof of Occupancy/Ownership:</div>
+                <div className="input-row">
+                  <input
+                    id="proof"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setProofFile(e.target.files[0])}
+                    required
+                  />
+                  <label
+                    htmlFor="proof"
+                    className={`file-trigger ${proofFile ? "has-file" : "placeholder"}`}
+                    title={proofFile ? proofFile.name : "Choose file…"}
+                  >
+                    {proofFile ? proofFile.name : "Choose file…"}
+                  </label>
                 </div>
-                <div className="input">
-                  <div className="input-head">Proof of Occupancy/Ownership:</div>
-                  <div className="input-row">
-                    <input
-                      id="proof"
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(e) => setProofFile(e.target.files[0])}
-                      required
-                    />
-                    <label
-                      htmlFor="proof"
-                      className={`file-trigger ${proofFile ? 'has-file' : 'placeholder'}`}
-                      title={proofFile ? proofFile.name : 'Choose file…'}
-                    >
-                      {proofFile ? proofFile.name : 'Choose file…'}
-                    </label>
-                  </div>
-                  {errors.proof && <span className="error">{errors.proof}</span>}
-                </div>
-
-              </>
+                {errors.proof && <span className="error">{errors.proof}</span>}
+              </div>
             )}
+
+            {/* Google Address */}
+            <div className="input">
+              <div className="input-head">Home/Property Address (Google):</div>
+              <div className="input-row">
+                <AddressPicker onSelect={setLoc} />
+              </div>
+              {errors.google && <span className="error">{errors.google}</span>}
+              {loc?.address && <small>Selected: {loc.address}</small>}
+            </div>
 
             <div className="input">
               <div className="input-head">Password:</div>
@@ -271,8 +273,8 @@ export default function SignUpPage() {
                   required
                   autoComplete="new-password"
                 />
-                {errors.password && <span className="error">{errors.password}</span>}
               </div>
+              {errors.password && <span className="error">{errors.password}</span>}
             </div>
 
             <div className="input">
@@ -287,8 +289,10 @@ export default function SignUpPage() {
                   required
                   autoComplete="new-password"
                 />
-                {errors.confirmPassword && <span className="error">{errors.confirmPassword}</span>}
               </div>
+              {errors.confirmPassword && (
+                <span className="error">{errors.confirmPassword}</span>
+              )}
             </div>
 
             <div className="submit-container">
@@ -328,7 +332,6 @@ export default function SignUpPage() {
           ></div>
           <span>Rawson</span>
         </div>
-        {errors.role && <p className="error">{errors.role}</p>}
 
         <div className="got-account">
           Got an account? <Link to="/login" className="link">Sign in</Link>

@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 
 /**
  * Notifications page
- * Shows the authenticated user's recent notifications.  Fetches up to 100 of the
- * most recent entries from the backend and displays them in descending order.
+ * Shows the authenticated user's recent notifications.
  */
 function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -55,14 +54,17 @@ function Notifications() {
           <p>No notifications found.</p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {notifications.map(notif => (
-              <li key={notif.NotificationID} style={{ marginBottom: '15px', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                <div style={{ fontSize: '14px', marginBottom: '5px', color: '#555' }}>
-                  {new Date(notif.SentAt || notif.LastAttemptAt || Date.now()).toLocaleString()}
-                </div>
-                <div style={{ whiteSpace: 'pre-line' }}>{notif.NotificationContent}</div>
-              </li>
-            ))}
+            {notifications.map(notif => {
+              const ts = notif.SentAt || notif.LastAttemptAt || notif.CreatedAt || Date.now();
+              return (
+                <li key={notif.NotificationID} style={{ marginBottom: '15px', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}>
+                  <div style={{ fontSize: '14px', marginBottom: '5px', color: '#555' }}>
+                    {new Date(ts).toLocaleString()}
+                  </div>
+                  <div style={{ whiteSpace: 'pre-line' }}>{notif.NotificationContent}</div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

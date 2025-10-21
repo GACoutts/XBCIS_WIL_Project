@@ -1,47 +1,35 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
-import {
-  getProperties,
-  addProperty
-} from "./landlordApi";
-
+import { getProperties, addProperty } from "./landlordApi";
 import "./styles/landlorddash.css";
+import AddressPicker from "./components/AddressPicker.jsx";
 
 /**
  * LandlordProperties
  *
- * This page allows a landlord to view all of the properties currently
- * associated with their account and to add additional properties.  Each
- * property displays its address and, if applicable, the name and email
- * of the current tenant.  When adding a property the landlord must
- * supply the address fields and upload a proof document.  The proof can
- * be an image or PDF demonstrating ownership or authorization for the
- * property.
+ * View landlord properties + add new properties.
+ * Old manual address fields removed — we now rely solely on Google address.
  */
 export default function LandlordProperties() {
   const { logout } = useAuth();
-  const navigate = useNavigate();
 
   const [showLogout, setShowLogout] = useState(false);
   const [properties, setProperties] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newProperty, setNewProperty] = useState({
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    province: "",
-    postalCode: ""
-  });
+
   const [proofFile, setProofFile] = useState(null);
+
+  // Google-picked location for the property being added
+  // { address, placeId, latitude, longitude }
+  const [loc, setLoc] = useState(null);
 
   // Load properties on mount
   useEffect(() => {
     (async () => {
       try {
         const res = await getProperties();
-        if (res.success) setProperties(res.data || []);
-        else setProperties([]);
+        setProperties(res.success ? (res.data || []) : []);
       } catch (err) {
         console.error("Error loading properties", err);
         setProperties([]);
@@ -54,36 +42,39 @@ export default function LandlordProperties() {
     window.location.reload();
   };
 
-  const handleChange = (field, value) => {
-    setNewProperty((prev) => ({ ...prev, [field]: value }));
+  const resetModal = () => {
+    setShowAddModal(false);
+    setProofFile(null);
+    setLoc(null);
   };
 
   const handleAddProperty = async () => {
-    if (!newProperty.addressLine1 || !newProperty.city || !newProperty.province || !newProperty.postalCode) {
-      alert("Please fill out the required address fields (line 1, city, province, postal code).");
+    if (!loc?.placeId) {
+      alert("Please select the property from the Google address box.");
       return;
     }
     if (!proofFile) {
       alert("Please upload a proof document for this property.");
       return;
     }
+
     try {
       const fd = new FormData();
-      fd.append("addressLine1", newProperty.addressLine1);
-      fd.append("addressLine2", newProperty.addressLine2);
-      fd.append("city", newProperty.city);
-      fd.append("province", newProperty.province);
-      fd.append("postalCode", newProperty.postalCode);
+
+      // New simplified model: send single address + geo from Google
+      fd.append("address", loc.address || "");
+      fd.append("placeId", String(loc.placeId));
+      if (typeof loc.latitude === "number") fd.append("latitude", String(loc.latitude));
+      if (typeof loc.longitude === "number") fd.append("longitude", String(loc.longitude));
+
       fd.append("proof", proofFile);
+
       const res = await addProperty(fd);
       if (res.success) {
-        // Reload property list
+        // Reload list after successful add
         const listRes = await getProperties();
         setProperties(listRes.success ? listRes.data || [] : []);
-        // Reset modal
-        setShowAddModal(false);
-        setNewProperty({ addressLine1: "", addressLine2: "", city: "", province: "", postalCode: "" });
-        setProofFile(null);
+        resetModal();
         alert("Property added successfully.");
       } else {
         alert(res.message || "Failed to add property.");
@@ -137,34 +128,57 @@ export default function LandlordProperties() {
       <div style={{ padding: "80px 90px 40px" }}>
         <h1 style={{ marginBottom: "20px" }}>My Properties</h1>
         <button
-          style={{ backgroundColor: "#FBD402", color: "black", border: "none", borderRadius: "5px", padding: "8px 16px", fontWeight: 600, cursor: "pointer", marginBottom: "20px" }}
+          style={{
+            backgroundColor: "#FBD402",
+            color: "black",
+            border: "none",
+            borderRadius: "5px",
+            padding: "8px 16px",
+            fontWeight: 600,
+            cursor: "pointer",
+            marginBottom: "20px",
+          }}
           onClick={() => setShowAddModal(true)}
         >
           Add Property
         </button>
+
         {properties.length ? (
           <div style={{ display: "grid", gap: "15px" }}>
             {properties.map((p) => (
               <div
-                key={p.PropertyID}
-                style={{ border: "1px solid #FBD402", borderRadius: 6, padding: 16, background: "white" }}
+                key={p.PropertyID || p.propertyId || `${p.PlaceId || p.placeId || "addr"}-${Math.random()}`}
+                style={{
+                  border: "1px solid #FBD402",
+                  borderRadius: 6,
+                  padding: 16,
+                  background: "white",
+                }}
               >
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                  Property ID: {p.PropertyID}
+                  Property ID: {p.PropertyID || p.propertyId || "—"}
                 </div>
+
+                {/* Try to display a friendly address from either the old structure
+                    (AddressLine1..PostalCode) or a single `Address` field */}
                 <div style={{ marginBottom: 4 }}>
-                  <strong>Address:</strong> {[
-                    p.AddressLine1,
-                    p.AddressLine2,
-                    p.City,
-                    p.Province,
-                    p.PostalCode
-                  ]
-                    .filter((x) => x && x.toString().trim())
-                    .join(", ") || "—"}
+                  <strong>Address:</strong>{" "}
+                  {p.Address
+                    ? p.Address
+                    : [
+                        p.AddressLine1,
+                        p.AddressLine2,
+                        p.City,
+                        p.Province,
+                        p.PostalCode,
+                      ]
+                        .filter((x) => x && x.toString().trim())
+                        .join(", ") || "—"}
                 </div>
+
                 <div style={{ marginBottom: 4 }}>
-                  <strong>Tenant:</strong> {p.TenantName ? `${p.TenantName} (${p.TenantEmail})` : "—"}
+                  <strong>Tenant:</strong>{" "}
+                  {p.TenantName ? `${p.TenantName} (${p.TenantEmail})` : "—"}
                 </div>
               </div>
             ))}
@@ -177,40 +191,16 @@ export default function LandlordProperties() {
       {/* Add Property Modal */}
       {showAddModal && (
         <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 500 }}>
+          <div className="modal" style={{ maxWidth: 520 }}>
             <h2>Add Property</h2>
             <div className="modal-content">
-              <label>Address Line 1*</label>
-              <input
-                type="text"
-                value={newProperty.addressLine1}
-                onChange={(e) => handleChange("addressLine1", e.target.value)}
-              />
-              <label>Address Line 2</label>
-              <input
-                type="text"
-                value={newProperty.addressLine2}
-                onChange={(e) => handleChange("addressLine2", e.target.value)}
-              />
-              <label>City*</label>
-              <input
-                type="text"
-                value={newProperty.city}
-                onChange={(e) => handleChange("city", e.target.value)}
-              />
-              <label>Province*</label>
-              <input
-                type="text"
-                value={newProperty.province}
-                onChange={(e) => handleChange("province", e.target.value)}
-              />
-              <label>Postal Code*</label>
-              <input
-                type="text"
-                value={newProperty.postalCode}
-                onChange={(e) => handleChange("postalCode", e.target.value)}
-              />
-              <label>Proof (PDF/Image)*</label>
+              <div className="field" style={{ marginTop: 10 }}>
+                <label>Property Address (Google)*</label>
+                <AddressPicker onSelect={setLoc} />
+                {loc?.address && <small>Selected: {loc.address}</small>}
+              </div>
+
+              <label style={{ marginTop: 10 }}>Proof (PDF/Image)*</label>
               <input
                 type="file"
                 accept=".pdf,image/*"
@@ -219,7 +209,7 @@ export default function LandlordProperties() {
             </div>
             <div className="modal-buttons" style={{ marginTop: 20 }}>
               <button onClick={handleAddProperty}>Add</button>
-              <button onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button onClick={resetModal}>Cancel</button>
             </div>
           </div>
         </div>

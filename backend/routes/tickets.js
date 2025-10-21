@@ -6,7 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import jwt from 'jsonwebtoken';
-import { notifyUser } from '../utils/notify.js'; // <-- added
+import { notifyUser } from '../utils/notify.js';
 
 const router = express.Router();
 
@@ -55,7 +55,7 @@ const upload = multer({
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { description, urgencyLevel } = req.body;
-    const userId = req.user.userId; // Get user ID from authenticated session
+    const userId = req.user.userId;
 
     if (!description || !urgencyLevel) {
       return res.status(400).json({
@@ -65,19 +65,14 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const ticketRefNumber = 'TCKT-' + Date.now();
 
-    // Determine the property associated with the caller.  If the user is a
-    // tenant/client with an active tenancy, use that property.  Otherwise if
-    // they are a landlord with an active property, use their primary
-    // property.  If none found, set to NULL.
+    // Figure out propertyId for this user (tenant first, else landlord primary, else null)
     let propertyId = null;
     try {
       const [[tenancy]] = await pool.query(
         'SELECT PropertyID FROM tblTenancies WHERE TenantUserID = ? AND IsActive = 1 LIMIT 1',
         [userId]
       );
-      if (tenancy && tenancy.PropertyID) {
-        propertyId = tenancy.PropertyID;
-      }
+      if (tenancy?.PropertyID) propertyId = tenancy.PropertyID;
     } catch (e) {
       console.warn('Error fetching tenancy property:', e?.message || e);
     }
@@ -87,7 +82,7 @@ router.post('/', authMiddleware, async (req, res) => {
           'SELECT PropertyID FROM tblLandlordProperties WHERE LandlordUserID = ? AND (ActiveTo IS NULL OR ActiveTo >= CURDATE()) AND IsPrimary = 1 LIMIT 1',
           [userId]
         );
-        if (lprop && lprop.PropertyID) propertyId = lprop.PropertyID;
+        if (lprop?.PropertyID) propertyId = lprop.PropertyID;
       } catch (e) {
         console.warn('Error fetching landlord property:', e?.message || e);
       }
@@ -102,7 +97,6 @@ router.post('/', authMiddleware, async (req, res) => {
     const ticketId = result.insertId;
 
     // --- Notify all Staff (WhatsApp -> Email fallback) ----------------------------
-    // Fetch client name for template (fallback to "Client" if missing)
     let clientName = 'Client';
     try {
       const [[clientRow]] = await pool.query(
@@ -138,7 +132,7 @@ router.post('/', authMiddleware, async (req, res) => {
       );
     } catch (e) {
       console.error('[tickets/create] notify staff error:', e);
-      // Do not fail the request if notifications fail
+      // Non-fatal
     }
     // ------------------------------------------------------------------------------
 
@@ -158,16 +152,16 @@ async function authorizeTicketAccess(req, res, next) {
   try {
     const { ticketId } = req.params;
     const [rows] = await pool.query('SELECT ClientUserID FROM tblTickets WHERE TicketID = ?', [ticketId]);
-    
+
     if (!rows.length) {
       return res.status(404).json({ message: 'Ticket not found' });
     }
-    
-    // Allow Staff and admins to access any ticket, but restrict Clients to their own tickets
+
+    // Allow Staff/Contractors/Landlords as per your global auth, but restrict Clients to their own tickets
     if (req.user.role === 'Client' && rows[0].ClientUserID !== req.user.userId) {
       return res.status(403).json({ message: 'Forbidden: You can only upload media to your own tickets' });
     }
-    
+
     next();
   } catch (err) {
     console.error('Authorize ticket access error:', err);
@@ -176,8 +170,7 @@ async function authorizeTicketAccess(req, res, next) {
 }
 
 // -------------------------------------------------------------------------------------
-// Upload media for a ticket
-// Field name must be "file"
+// Upload media for a ticket (field: file)
 // -------------------------------------------------------------------------------------
 router.post('/:ticketId/media', authMiddleware, authorizeTicketAccess, upload.single('file'), async (req, res) => {
   try {
@@ -190,8 +183,8 @@ router.post('/:ticketId/media', authMiddleware, authorizeTicketAccess, upload.si
     const mediaType = file.mimetype.startsWith('video/')
       ? 'Video'
       : file.mimetype.startsWith('image/')
-      ? 'Image'
-      : 'Other';
+        ? 'Image'
+        : 'Other';
 
     await pool.execute(
       `INSERT INTO tblTicketMedia (TicketID, MediaType, MediaURL)
@@ -215,7 +208,7 @@ router.post('/:ticketId/media', authMiddleware, authorizeTicketAccess, upload.si
 });
 
 // -------------------------------------------------------------------------------------
-// Auth middleware
+// Legacy JWT middleware (kept for compatibility; current routes use authMiddleware)
 // -------------------------------------------------------------------------------------
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
@@ -243,15 +236,26 @@ router.get('/', authMiddleware, async (req, res) => {
 
     if (role === 'Client') {
       // Clients see only their own tickets
-      query = 'SELECT t.*\n              FROM tblTickets t\n             WHERE t.ClientUserID = ?\n             ORDER BY t.TicketID DESC';
+      query = `SELECT t.*
+                 FROM tblTickets t
+                WHERE t.ClientUserID = ?
+                ORDER BY t.TicketID DESC`;
       params.push(userId);
     } else if (role === 'Landlord') {
       // Landlords can view tickets associated with their properties
-      query = `SELECT t.*, p.AddressLine1 AS PropertyAddress\n               FROM tblTickets t\n               LEFT JOIN tblProperties p ON t.PropertyID = p.PropertyID\n               LEFT JOIN tblLandlordProperties lp ON lp.PropertyID = t.PropertyID AND lp.LandlordUserID = ?\n              WHERE lp.LandlordPropertyID IS NOT NULL\n              ORDER BY t.TicketID DESC`;
+      query = `SELECT t.*, p.AddressLine1 AS PropertyAddress
+                 FROM tblTickets t
+                 LEFT JOIN tblProperties p ON t.PropertyID = p.PropertyID
+                 LEFT JOIN tblLandlordProperties lp ON lp.PropertyID = t.PropertyID AND lp.LandlordUserID = ?
+                WHERE lp.LandlordPropertyID IS NOT NULL
+                ORDER BY t.TicketID DESC`;
       params.push(userId);
     } else {
       // Staff and Contractors see all tickets; include property address for staff
-      query = `SELECT t.*, p.AddressLine1 AS PropertyAddress\n               FROM tblTickets t\n               LEFT JOIN tblProperties p ON t.PropertyID = p.PropertyID\n              ORDER BY t.TicketID DESC`;
+      query = `SELECT t.*, p.AddressLine1 AS PropertyAddress
+                 FROM tblTickets t
+                 LEFT JOIN tblProperties p ON t.PropertyID = p.PropertyID
+                ORDER BY t.TicketID DESC`;
     }
 
     const [rows] = await pool.query(query, params);
@@ -293,14 +297,14 @@ router.get('/:ticketId', authMiddleware, async (req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
-// Get ticket status history (timeline)
+// Get ticket status history (timeline) – resilient to missing Notes / varying timestamp cols
 // -------------------------------------------------------------------------------------
 router.get('/:ticketId/history', authMiddleware, async (req, res) => {
   try {
     const { userId, role } = req.user;
     const { ticketId } = req.params;
 
-    // Load ticket and basic access control (clients can only see their own ticket)
+    // Load ticket and basic access control
     const [tickets] = await pool.query('SELECT * FROM tblTickets WHERE TicketID = ?', [ticketId]);
     if (!tickets.length) return res.status(404).json({ message: 'Ticket not found' });
 
@@ -309,27 +313,36 @@ router.get('/:ticketId/history', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    // Pull the timeline from history table
+    // Do NOT select Notes directly (may not exist). Provide an empty alias.
     const [history] = await pool.query(
-      `SELECT TicketID, Status, Notes, UpdatedByUserID, UpdatedAt
-       FROM tblTicketStatusHistory
-       WHERE TicketID = ?
-       ORDER BY UpdatedAt ASC`,
+      `SELECT TicketID,
+              Status,
+              '' AS Notes,
+              COALESCE(UpdatedByUserID, ChangedBy, CreatedBy) AS UpdatedByUserID,
+              COALESCE(UpdatedAt, ChangedAt, CreatedAt, NOW()) AS UpdatedAt
+         FROM tblTicketStatusHistory
+        WHERE TicketID = ?
+        ORDER BY UpdatedAt ASC`,
       [ticketId]
     );
 
-    // (Optional) include created event if you don’t already log it into tblTicketStatusHistory
-    const createdEvent = {
-      TicketID: t.TicketID,
-      Status: 'Created',
-      Notes: t.Description || null,
-      UpdatedByUserID: t.ClientUserID,
-      UpdatedAt: t.CreatedAt || t.SubmittedAt || t.CreatedOn || t.CreatedDate || null
-    };
+    // (Optional) include created event if not logged into history
+    const createdAt =
+      t.CreatedAt || t.SubmittedAt || t.CreatedOn || t.CreatedDate || null;
 
-    const withCreated = createdEvent.UpdatedAt ? [createdEvent, ...history] : history;
+    const createdEvent = createdAt
+      ? {
+        TicketID: t.TicketID,
+        Status: 'Created',
+        Notes: t.Description || null,
+        UpdatedByUserID: t.ClientUserID,
+        UpdatedAt: createdAt
+      }
+      : null;
 
-    res.json({ ticketId: ticketId, timeline: withCreated });
+    const timeline = createdEvent ? [createdEvent, ...history] : history;
+
+    res.json({ ticketId: ticketId, timeline });
   } catch (err) {
     console.error('Error fetching history:', err);
     res.status(500).json({ message: 'Error fetching history' });
@@ -337,7 +350,7 @@ router.get('/:ticketId/history', authMiddleware, async (req, res) => {
 });
 
 // -------------------------------------------------------------------------------------
-// Get ticket appointments (if you have tblAppointments)
+// Get ticket appointments (confirmed only)
 // -------------------------------------------------------------------------------------
 router.get('/:ticketId/appointments', authMiddleware, async (req, res) => {
   try {
@@ -370,7 +383,6 @@ router.get('/:ticketId/appointments', authMiddleware, async (req, res) => {
       [ticketId]
     );
 
-    // Normalize into a stable shape
     const appointments = rows.map(r => ({
       AppointmentID: r.AppointmentID,
       TicketID: r.TicketID,
@@ -378,7 +390,7 @@ router.get('/:ticketId/appointments', authMiddleware, async (req, res) => {
       ScheduledAt: r.ScheduledAt,
       ScheduledEndAt: r.ScheduledEndAt,
       Notes: r.Notes,
-      Status: 'Scheduled',          // consistent with your POST semantics
+      Status: 'Scheduled',
       ClientConfirmed: !!r.ClientConfirmed,
       CreatedAt: r.CreatedAt,
       UpdatedAt: r.UpdatedAt
@@ -391,19 +403,9 @@ router.get('/:ticketId/appointments', authMiddleware, async (req, res) => {
   }
 });
 
-
-
 // -------------------------------------------------------------------------------------
 // Create (finalize) an appointment for a ticket
-// This allows authorized users (staff, landlords or assigned contractors) to
-// directly create a confirmed appointment. Contractors must already have an
-// approved quote for the ticket. The request body should contain a
-// `scheduledAt` ISO date/time string and optionally a `contractorUserId` if
-// the caller is not a contractor. A `notes` field is accepted but ignored
-// currently since tblContractorSchedules does not store notes. Upon success
-// the ticket status is set to "Scheduled" and history is logged. Notifications
-// are dispatched to the client and contractor to inform them of the scheduled
-// appointment.
+// -------------------------------------------------------------------------------------
 router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
   try {
     const { ticketId } = req.params;
@@ -411,7 +413,6 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
     const callerId = req.user.userId;
     const callerRole = req.user.role;
 
-    // Validate required fields
     if (!scheduledAt) {
       return res.status(400).json({ message: 'scheduledAt is required' });
     }
@@ -423,7 +424,7 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Appointment time must be in the future' });
     }
 
-    // Determine the contractor responsible for this appointment
+    // Determine contractor
     let contractorId = null;
     if (callerRole === 'Contractor') {
       contractorId = callerId;
@@ -434,7 +435,7 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'contractorUserId must be provided for non-contractors' });
     }
 
-    // Fetch ticket to ensure it exists and gather owner for notifications
+    // Fetch ticket
     const [[ticket]] = await pool.query(
       'SELECT TicketID, ClientUserID, TicketRefNumber, CurrentStatus FROM tblTickets WHERE TicketID = ? LIMIT 1',
       [ticketId]
@@ -443,22 +444,23 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Ticket not found' });
     }
 
-    // Authorization checks
-    // Contractors can only schedule appointments for tickets they are assigned (have an approved quote)
+    // Authorization
     if (callerRole === 'Contractor') {
       const [authCheck] = await pool.execute(
         `SELECT t.TicketID
-         FROM tblTickets t
-         INNER JOIN tblQuotes q ON q.TicketID = t.TicketID AND q.ContractorUserID = ? AND q.QuoteStatus = 'Approved'
-         WHERE t.TicketID = ?
-         LIMIT 1`,
+           FROM tblTickets t
+           INNER JOIN tblQuotes q
+                   ON q.TicketID = t.TicketID
+                  AND q.ContractorUserID = ?
+                  AND q.QuoteStatus = 'Approved'
+          WHERE t.TicketID = ?
+          LIMIT 1`,
         [callerId, ticketId]
       );
       if (!authCheck.length) {
         return res.status(403).json({ message: 'You are not authorized to schedule an appointment for this ticket' });
       }
     } else if (callerRole === 'Client') {
-      // Clients cannot create new appointments directly
       return res.status(403).json({ message: 'Clients are not permitted to create appointments' });
     }
 
@@ -466,7 +468,7 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
     try {
       await connection.beginTransaction();
 
-      // Insert confirmed appointment into schedules table (notes/end date supported)
+      // Insert appointment (confirmed)
       const [ins] = await connection.execute(
         `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate, ProposedEndDate, Notes, ClientConfirmed)
          VALUES (?, ?, ?, ?, ?, TRUE)`,
@@ -474,7 +476,7 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
       );
       const appointmentId = ins.insertId;
 
-      // Update ticket status to Scheduled
+      // Update ticket status
       await connection.execute(
         `UPDATE tblTickets SET CurrentStatus = 'Scheduled' WHERE TicketID = ?`,
         [ticketId]
@@ -491,7 +493,6 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
 
       // Notifications
       try {
-        // Fetch client and contractor names for templates
         const [[clientRow]] = await pool.query(
           'SELECT FullName FROM tblusers WHERE UserID = ? LIMIT 1',
           [ticket.ClientUserID]
@@ -505,7 +506,7 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
 
         const eventKey = `appointment_scheduled:${ticketId}`;
         const dateStr = proposedDate.toISOString().split('T')[0];
-        const timeStr = proposedDate.toISOString().split('T')[1]?.substring(0,5) || '';
+        const timeStr = proposedDate.toISOString().split('T')[1]?.substring(0, 5) || '';
         const params = { ticketRef: ticket.TicketRefNumber, date: dateStr, time: timeStr, contractorName, clientName };
 
         // Notify client
@@ -558,22 +559,17 @@ router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
 
 // -------------------------------------------------------------------------------------
 // Mark a ticket/job as completed
-// This endpoint allows a contractor or staff member to mark a job as finished. It
-// updates the ticket status to "Completed", logs the event in history, and
-// dispatches notifications to stakeholders. Contractors must be assigned via an
-// approved quote to perform this action.
+// -------------------------------------------------------------------------------------
 router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
   try {
     const { ticketId } = req.params;
     const callerId = req.user.userId;
     const callerRole = req.user.role;
 
-    // Authorization: only Contractors or Staff can mark complete
     if (!(callerRole === 'Contractor' || callerRole === 'Staff')) {
       return res.status(403).json({ message: 'Only contractors or staff can complete a ticket' });
     }
 
-    // Verify ticket exists and fetch details
     const [[ticket]] = await pool.query(
       'SELECT TicketID, ClientUserID, TicketRefNumber, CurrentStatus FROM tblTickets WHERE TicketID = ? LIMIT 1',
       [ticketId]
@@ -582,14 +578,16 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'Ticket not found' });
     }
 
-    // Contractors: ensure they have an approved quote for this ticket
     if (callerRole === 'Contractor') {
       const [authCheck] = await pool.execute(
         `SELECT t.TicketID
-         FROM tblTickets t
-         INNER JOIN tblQuotes q ON q.TicketID = t.TicketID AND q.ContractorUserID = ? AND q.QuoteStatus = 'Approved'
-         WHERE t.TicketID = ?
-         LIMIT 1`,
+           FROM tblTickets t
+           INNER JOIN tblQuotes q
+                   ON q.TicketID = t.TicketID
+                  AND q.ContractorUserID = ?
+                  AND q.QuoteStatus = 'Approved'
+          WHERE t.TicketID = ?
+          LIMIT 1`,
         [callerId, ticketId]
       );
       if (!authCheck.length) {
@@ -601,13 +599,11 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
     try {
       await connection.beginTransaction();
 
-      // Update ticket status to Completed
       await connection.execute(
         `UPDATE tblTickets SET CurrentStatus = 'Completed' WHERE TicketID = ?`,
         [ticketId]
       );
 
-      // Log status history
       await connection.execute(
         `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID)
          VALUES (?, 'Completed', ?)`,
@@ -618,13 +614,12 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
 
       // Notifications
       try {
-        // Fetch names
         const [[clientRow]] = await pool.query(
           'SELECT FullName FROM tblusers WHERE UserID = ? LIMIT 1',
           [ticket.ClientUserID]
         );
         const clientName = clientRow?.FullName || '';
-        // Determine assigned contractor (the caller if a contractor, otherwise fetch the approved contractor)
+
         let contractorName = '';
         let contractorUserId = null;
         if (callerRole === 'Contractor') {
@@ -635,13 +630,12 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
           );
           contractorName = cRow?.FullName || '';
         } else {
-          // Fetch approved contractor for this ticket
           const [[cRow]] = await pool.query(
             `SELECT u.UserID, u.FullName
-             FROM tblQuotes q
-             JOIN tblusers u ON u.UserID = q.ContractorUserID
-             WHERE q.TicketID = ? AND q.QuoteStatus = 'Approved'
-             LIMIT 1`,
+               FROM tblQuotes q
+               JOIN tblusers u ON u.UserID = q.ContractorUserID
+              WHERE q.TicketID = ? AND q.QuoteStatus = 'Approved'
+              LIMIT 1`,
             [ticketId]
           );
           if (cRow) {
@@ -653,7 +647,6 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
         const eventKey = `job_completed:${ticketId}`;
         const params = { ticketRef: ticket.TicketRefNumber, contractorName };
 
-        // Notify client
         await notifyUser({
           userId: ticket.ClientUserID,
           ticketId: ticketId,
@@ -662,7 +655,7 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
           eventKey,
           fallbackToEmail: true
         });
-        // Notify assigned contractor if the caller was not the contractor and a contractor exists
+
         if (contractorUserId && contractorUserId !== callerId) {
           await notifyUser({
             userId: contractorUserId,
@@ -673,13 +666,14 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
             fallbackToEmail: true
           });
         }
-        // Notify landlord(s) if applicable: find all landlords who own this ticket
+
         try {
           const [landlords] = await pool.query(
-            `SELECT LandlordUserID FROM tblLandlordProperties lp
-             JOIN tblTickets t ON t.PropertyID = lp.PropertyID
-             WHERE t.TicketID = ?
-               AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())`,
+            `SELECT LandlordUserID
+               FROM tblLandlordProperties lp
+               JOIN tblTickets t ON t.PropertyID = lp.PropertyID
+              WHERE t.TicketID = ?
+                AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())`,
             [ticketId]
           );
           for (const row of landlords) {
@@ -712,27 +706,16 @@ router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
   }
 });
 
-export default router;
-
 // -------------------------------------------------------------------------------------
 // Additional helper routes
 // -------------------------------------------------------------------------------------
 
-/**
- * GET /client/tickets
- * Convenience endpoint used by the client dashboard to list tickets for the
- * currently authenticated client. This simply proxies to the existing
- * `/api/tickets` handler and filters based on the authenticated user. It
- * enforces that the caller has the `Client` role to avoid exposing other
- * users' data. If you already fetch tickets via `/api/tickets`, you do
- * not need to use this route.
- */
+// List tickets for the authenticated client
 router.get('/client/tickets', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'Client') {
       return res.status(403).json({ message: 'Only clients can access their own tickets' });
     }
-    // Reuse the logic from the main GET handler: select tickets for this user
     const [rows] = await pool.query(
       'SELECT * FROM tblTickets WHERE ClientUserID = ? ORDER BY TicketID DESC',
       [req.user.userId]
@@ -744,34 +727,23 @@ router.get('/client/tickets', authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * GET /:ticketId/contractor
- * Returns the currently assigned contractor (if any) for a given ticket. The
- * assignment is stored in tblContractorSchedules. If no contractor is
- * assigned, the response contains `{ contractor: null }`. Only authenticated
- * users may access this endpoint. Clients will only receive the contractor
- * information for their own tickets. Staff and landlords can access any
- * ticket.
- */
+// Current assigned contractor for ticket (most recent schedule)
 router.get('/:ticketId/contractor', authMiddleware, async (req, res) => {
   try {
     const { ticketId } = req.params;
     const ticketIdNum = parseInt(ticketId, 10);
     if (!Number.isFinite(ticketIdNum)) return res.status(400).json({ message: 'Invalid ticketId' });
 
-    // Fetch the ticket row to enforce ownership for clients
     const [[ticket]] = await pool.query(
       'SELECT TicketID, ClientUserID FROM tblTickets WHERE TicketID = ? LIMIT 1',
       [ticketIdNum]
     );
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
-    // Clients may only view their own tickets
     if (req.user.role === 'Client' && ticket.ClientUserID !== req.user.userId) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    // Look up the most recent contractor assignment for this ticket
     const [rows] = await pool.query(
       `SELECT cs.ContractorUserID, u.FullName, u.Email, u.Phone
          FROM tblContractorSchedules cs
@@ -795,30 +767,19 @@ router.get('/:ticketId/contractor', authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * POST /:ticketId/close
- * Allows a client or staff member to close a ticket prematurely. When
- * invoked, the ticket's current status is set to 'Completed' and a
- * corresponding history entry is recorded. Clients may only close their own
- * tickets. Staff can close any ticket. Contractors and landlords are not
- * permitted to close tickets. If the ticket is already completed
- * nothing happens and a success response is returned. This endpoint does
- * not delete the ticket or its media.
- */
+// Close a ticket (client or staff)
 router.post('/:ticketId/close', authMiddleware, async (req, res) => {
   try {
     const { ticketId } = req.params;
     const id = parseInt(ticketId, 10);
     if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid ticketId' });
 
-    // Verify ticket exists and fetch client ID and current status
     const [[ticket]] = await pool.query(
       'SELECT TicketID, ClientUserID, CurrentStatus FROM tblTickets WHERE TicketID = ? LIMIT 1',
       [id]
     );
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
-    // Authorization: only client owner or staff may close
     if (req.user.role === 'Client' && ticket.ClientUserID !== req.user.userId) {
       return res.status(403).json({ message: 'You may only close your own tickets' });
     }
@@ -826,7 +787,6 @@ router.post('/:ticketId/close', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Only clients or staff may close tickets' });
     }
 
-    // If already completed, no change
     if (ticket.CurrentStatus === 'Completed') {
       return res.json({ message: 'Ticket already completed', success: true });
     }
@@ -834,16 +794,17 @@ router.post('/:ticketId/close', authMiddleware, async (req, res) => {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
-      // Set status to Completed (treated as closed in UI)
+
       await connection.execute(
         'UPDATE tblTickets SET CurrentStatus = ? WHERE TicketID = ?',
         ['Completed', id]
       );
-      // Log status history
+
       await connection.execute(
         'INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)',
         [id, 'Completed', req.user.userId]
       );
+
       await connection.commit();
     } catch (err) {
       await connection.rollback();
@@ -858,3 +819,5 @@ router.post('/:ticketId/close', authMiddleware, async (req, res) => {
     return res.status(500).json({ message: 'Error closing ticket' });
   }
 });
+
+export default router;

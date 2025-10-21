@@ -36,7 +36,7 @@ function UserDashboard() {
         // Fetch the currently authenticated client's tickets.  The backend
         // returns an array of ticket objects with `CurrentStatus` and other
         // properties.  If you modify the API endpoint, update this path.
-        const res = await fetch("/api/client/tickets", { credentials: "include" });
+        const res = await fetch("/api/tickets/client/tickets", { credentials: "include" });
         const data = await res.json();
         if (res.ok) setTickets(Array.isArray(data.tickets) ? data.tickets : []);
         else console.error("Failed to fetch tickets:", data);

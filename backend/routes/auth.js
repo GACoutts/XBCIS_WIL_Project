@@ -17,14 +17,12 @@ import {
   clearAuthCookies,
   logAudit
 } from '../utils/tokens.js';
+import { normalizePlaceId } from '../utils/geo.js';
 
 const router = express.Router();
 
 // -----------------------------------------------------------------------------
 // File upload setup for registration proof documents
-// We reuse the backend/uploads directory used by other uploads.  Files are
-// written with a "proof_" prefix and a sanitized basename.  Only image and
-// PDF files up to 10MB are accepted.
 const uploadsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -82,7 +80,6 @@ router.post('/login', authRateLimit, async (req, res) => {
     const user = rows[0];
     if (user.Status !== 'Active') return res.status(403).json({ message: `Account status is ${user.Status}` });
 
-
     if (!user.PasswordHash || !user.PasswordHash.startsWith('$2')) {
       console.error('Login error: invalid PasswordHash for user', user.UserID);
       return res.status(500).json({ message: 'Server error during login' });
@@ -129,17 +126,26 @@ router.post('/login', authRateLimit, async (req, res) => {
 });
 
 // POST /register
-// This route accepts both JSON bodies and multipart/form-data.  For tenants
-// (role "Client") and landlords (role "Landlord"), clients must submit a
-// property address along with a proof document (image or PDF).  For other
-// roles (Contractor, Staff), the JSON body is sufficient.
 router.post('/register', authRateLimit, proofUpload.single('proof'), async (req, res) => {
   try {
-    // In a multipart request, multer populates req.body with string values and
-    // req.file contains the uploaded file.  For JSON requests, req.file will be
-    // undefined and req.body will contain the JSON payload.
-    const { fullName, email, password, phone, role, address } = req.body;
+    // include geo fields from Google Autocomplete
+    const b = req.body || {};
+    const fullName = (b.fullName || '').trim();
+    const email = (b.email || '').trim().toLowerCase();
+    const password = b.password || '';
+    const phone = (b.phone || '').trim() || null;
+    const role = (b.role || '').trim(); // Client / Landlord / Contractor / Staff
+    const address = (b.address || '').trim();
     const proofFile = req.file;
+
+    // Accept either casing; clamp safely for DB
+    const safePlaceId = normalizePlaceId(b.placeId || b.PlaceId || null);
+
+    // Lat/lng as nullable floats
+    const latNum =
+      b.latitude !== undefined && b.latitude !== null && `${b.latitude}`.trim() !== '' ? Number(b.latitude) : null;
+    const lngNum =
+      b.longitude !== undefined && b.longitude !== null && `${b.longitude}`.trim() !== '' ? Number(b.longitude) : null;
 
     if (!fullName || !email || !password || !role) {
       return res.status(400).json({ message: 'Missing required fields: fullName, email, password, role' });
@@ -148,28 +154,34 @@ router.post('/register', authRateLimit, proofUpload.single('proof'), async (req,
     const validRoles = ['Client', 'Landlord', 'Contractor', 'Staff'];
     if (!validRoles.includes(role)) return res.status(400).json({ message: 'Invalid role' });
 
-    // For tenants and landlords, ensure address and proof were supplied
     if ((role === 'Client' || role === 'Landlord')) {
-      if (!address || !address.trim()) {
-        return res.status(400).json({ message: 'Address is required for Clients and Landlords' });
-      }
-      if (!proofFile) {
-        return res.status(400).json({ message: 'Proof document is required for Clients and Landlords' });
-      }
+      if (!address) return res.status(400).json({ message: 'Address is required for Clients and Landlords' });
+      if (!proofFile) return res.status(400).json({ message: 'Proof document is required for Clients and Landlords' });
     }
 
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const hash = await bcrypt.hash(password, rounds);
 
-    // Create user with Inactive status - requires staff approval
+    // Create user with Inactive status - requires staff approval (your current policy)
     const [result] = await pool.execute(
-      'INSERT INTO tblusers (FullName, Email, PasswordHash, Phone, Role, Status) VALUES (?, ?, ?, ?, ?, ?)',
-      [fullName, email, hash, phone || null, role, 'Inactive']
+      `INSERT INTO tblusers
+       (FullName, Email, PasswordHash, Phone, Role, Status, PlaceId, Latitude, Longitude)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        fullName,
+        email,
+        hash,
+        phone,
+        role,
+        'Inactive',
+        safePlaceId || null,
+        Number.isFinite(latNum) ? latNum : null,
+        Number.isFinite(lngNum) ? lngNum : null
+      ]
     );
     const newUserId = result.insertId;
 
-    // If address and proof are provided, record them into tblUserProofs and
-    // create a property and mapping.  Ensure tblUserProofs exists.
+    // Proofs + property creation/mapping
     if ((role === 'Client' || role === 'Landlord') && address && proofFile) {
       try {
         await pool.execute(`CREATE TABLE IF NOT EXISTS tblUserProofs (
@@ -184,6 +196,7 @@ router.post('/register', authRateLimit, proofUpload.single('proof'), async (req,
       } catch (e) {
         console.error('Error ensuring tblUserProofs exists:', e);
       }
+
       const filePath = `/uploads/${proofFile.filename}`;
       try {
         await pool.execute(
@@ -193,16 +206,36 @@ router.post('/register', authRateLimit, proofUpload.single('proof'), async (req,
       } catch (e) {
         console.error('Error inserting into tblUserProofs:', e);
       }
-      // Create property record
+
+      // Create or reuse a property record by PlaceId
       try {
-        const propertyRef = 'PROP-' + Date.now();
-        const [propRes] = await pool.execute(
-          'INSERT INTO tblProperties (PropertyRef, AddressLine1) VALUES (?, ?)',
-          [propertyRef, address]
-        );
-        const propertyId = propRes.insertId;
+        let propertyId = null;
+
+        if (safePlaceId) {
+          const [exists] = await pool.execute(
+            'SELECT PropertyID FROM tblProperties WHERE PlaceId = ? LIMIT 1',
+            [safePlaceId]
+          );
+          if (exists.length) propertyId = exists[0].PropertyID;
+        }
+
+        if (!propertyId) {
+          const [propRes] = await pool.execute(
+            `INSERT INTO tblProperties
+             (PropertyRef, AddressLine1, PlaceId, Latitude, Longitude)
+             VALUES (?, ?, ?, ?, ?)`,
+            [
+              'PROP-' + Date.now(),
+              address,
+              safePlaceId || null,
+              Number.isFinite(latNum) ? latNum : null,
+              Number.isFinite(lngNum) ? lngNum : null,
+            ]
+          );
+          propertyId = propRes.insertId;
+        }
+
         if (role === 'Client') {
-          // Insert into tenancies table
           await pool.execute(
             'INSERT INTO tblTenancies (PropertyID, TenantUserID, StartDate, IsActive) VALUES (?, ?, CURDATE(), 1)',
             [propertyId, newUserId]
@@ -214,7 +247,7 @@ router.post('/register', authRateLimit, proofUpload.single('proof'), async (req,
           );
         }
       } catch (e) {
-        console.error('Error creating property and mapping:', e);
+        console.error('Error creating/reusing property at register:', e);
       }
     }
 
@@ -237,8 +270,6 @@ router.post('/register', authRateLimit, proofUpload.single('proof'), async (req,
       console.warn('Audit log failure (register):', e?.message || e);
     }
 
-    // Always return success with requiresApproval = true.  At the moment all
-    // roles require staff activation prior to login.
     return res.status(201).json({
       user: { userId: newUserId, email, fullName, role, status: 'Inactive' },
       message: 'Registration successful! Your account is pending approval by staff.',
@@ -251,7 +282,7 @@ router.post('/register', authRateLimit, proofUpload.single('proof'), async (req,
   }
 });
 
-// GET /me - Get current user
+// GET /me
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.execute(
@@ -277,19 +308,16 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-// POST /refresh - rotate refresh + access cookies
+// POST /refresh
 router.post('/refresh', async (req, res) => {
   try {
     const { ip, userAgent } = getClientInfo(req);
 
     const result = await rotateRefreshToken({ req, res, userAgent, ip });
     if (result?.error) {
-      // rotation rejected (invalid, expired, or reuse detected)
       clearAuthCookies(res);
       return res.status(result.status || 401).json({ message: result.error });
     }
-
-    // cookies are already set; return minimal ok
     return res.json({ ok: true });
   } catch (err) {
     clearAuthCookies(res);
@@ -297,20 +325,18 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// POST /logout - revoke current access JTI; best-effort revoke presented refresh; clear cookies
+// POST /logout
 router.post('/logout', requireAuth, async (req, res) => {
   try {
-    // 1) Revoke current access token JTI in DB until its exp
     if (req.user?.jti && req.user?.userId && req.auth?.exp) {
       await addRevokedAccessJti({
         jti: req.user.jti,
         userId: req.user.userId,
-        exp: req.auth.exp, // seconds since epoch
+        exp: req.auth.exp,
         reason: 'logout',
       });
     }
 
-    // 2) Best-effort revoke the *presented* refresh cookie row (if any)
     const rawRefresh = req.cookies?.refresh;
     if (rawRefresh) {
       const hash = crypto.createHash('sha256').update(rawRefresh, 'utf8').digest('hex');
@@ -319,16 +345,15 @@ router.post('/logout', requireAuth, async (req, res) => {
         [hash]
       );
     }
-  } catch (err) {
-    // swallow errors on logout
+  } catch {
+    // swallow
   } finally {
-    // 3) Clear cookies regardless
     clearAuthCookies(res);
     return res.json({ message: 'Logged out' });
   }
 });
 
-// GET /sessions - list this user's sessions (refresh tokens)
+// GET /sessions
 router.get('/sessions', requireAuth, async (req, res) => {
   try {
     const raw = req.cookies?.refresh || null;
@@ -364,13 +389,12 @@ router.get('/sessions', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /sessions/:id - revoke a specific session by TokenID (if it belongs to the user)
+// DELETE /sessions/:id
 router.delete('/sessions/:id', requireAuth, async (req, res) => {
   try {
     const tokenId = parseInt(req.params.id, 10);
     if (!Number.isFinite(tokenId)) return res.status(400).json({ message: 'Invalid session id' });
 
-    // is this the current refresh?
     const raw = req.cookies?.refresh || null;
     const currentHash = raw
       ? crypto.createHash('sha256').update(raw, 'utf8').digest('hex')
@@ -390,7 +414,6 @@ router.delete('/sessions/:id', requireAuth, async (req, res) => {
       [tokenId]
     );
 
-    // If user deleted their current session, clear cookies
     if (currentHash && rows[0].TokenHash === currentHash) {
       clearAuthCookies(res);
     }
@@ -402,10 +425,9 @@ router.delete('/sessions/:id', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /sessions - revoke ALL sessions for this user (logout-all)
+// DELETE /sessions
 router.delete('/sessions', requireAuth, async (req, res) => {
   try {
-    // blacklist current access JTI until its exp (best-effort)
     if (req.user?.jti && req.auth?.exp) {
       await addRevokedAccessJti({
         jti: req.user.jti,
@@ -428,7 +450,7 @@ router.delete('/sessions', requireAuth, async (req, res) => {
   }
 });
 
-// POST /logout-all - alias of DELETE /sessions (Just incase)
+// POST /logout-all
 router.post('/logout-all', requireAuth, async (req, res) => {
   try {
     if (req.user?.jti && req.auth?.exp) {
@@ -450,6 +472,5 @@ router.post('/logout-all', requireAuth, async (req, res) => {
     return res.status(500).json({ message: 'Failed to revoke all sessions' });
   }
 });
-
 
 export default router;
