@@ -7,21 +7,26 @@ function Ticket() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(""); // UI-only, backend ignores for now
   const [description, setDescription] = useState("");
   const [urgency, setUrgency] = useState("Low");
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    document.body.style.setProperty("overflow", "important");
-    return () => document.body.style.setProperty("overflow", "auto", "important");
+    // Keep page scroll normal
+    document.body.style.overflow = "auto";
+    return () => {
+      document.body.style.overflow = "auto";
+    };
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+
     if (!user?.userId) {
       setMessage("User not logged in.");
       return;
@@ -30,7 +35,7 @@ function Ticket() {
     try {
       setSubmitting(true);
 
-      // Create ticket
+      // Create ticket – backend expects { description, urgencyLevel }
       const resTicket = await fetch("/api/tickets", {
         method: "POST",
         credentials: "include",
@@ -40,7 +45,7 @@ function Ticket() {
       const dataTicket = await resTicket.json();
       if (!resTicket.ok) throw new Error(dataTicket?.message || "Error submitting ticket");
 
-      // Upload file if exists
+      // Upload single file (optional) – field name must be "file"
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
@@ -53,56 +58,31 @@ function Ticket() {
         if (!resFile.ok) throw new Error(dataFile?.message || "Error uploading file");
       }
 
-      // Show confirmation message and redirect after 5 seconds
+      // Success UI
       setMessage("Ticket submitted successfully! Redirecting...");
       setTitle("");
       setDescription("");
       setUrgency("Low");
       setFile(null);
+      setDone(true);
 
-      setTimeout(() => navigate("/"), 5000); // redirect after 5s
+      // Redirect after a short delay
+      setTimeout(() => navigate("/"), 5000);
     } catch (err) {
-      setMessage(err.message);
+      setMessage(err.message || "Something went wrong");
       setSubmitting(false);
     }
   };
 
-  if (done) {
-    return (
-      <div className="logticket">
-        <nav className="navbar">
-          <div className="navbar-logo">
-            <img src="https://placehold.co/120x40" alt="logo" />
-          </div>
-          <div className="navbar-right">
-            <ul className="navbar-menu">
-              <li><Link to="/">Dashboard</Link></li>
-              <li><Link to="/ticket">Tickets</Link></li>
-              <li><Link to="/reports">Reports</Link></li>
-              <li><Link to="/notifications">Notifications</Link></li>
-              <li><Link to="/settings">Settings</Link></li>
-            </ul>
-          </div>
-          <div className="navbar-profile">
-            <img src="https://placehold.co/40" alt="profile" />
-          </div>
-        </nav>
-
-        <div className="container-confirmation">
-          <div className="header">
-            <div className="text"><h2>Ticket Submitted</h2></div>
-            <hr className="underline" />
-          </div>
-          <p className="text">Your ticket has been logged successfully. We'll keep you updated on its status.</p>
-        </div>
-  // Navbar component for reuse
+  // Tenant navbar (keep consistent within tenant pages)
   const Navbar = () => (
     <nav className="navbar">
-      <div className="navbar-logo">GoodLiving</div>
+      <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
       <div className="navbar-right">
         <ul className="navbar-menu">
           <li><Link to="/">Dashboard</Link></li>
           <li><Link to="/ticket">Tickets</Link></li>
+          <li><Link to="/notifications">Notifications</Link></li>
           <li><Link to="/settings">Settings</Link></li>
         </ul>
       </div>
@@ -112,25 +92,26 @@ function Ticket() {
     </nav>
   );
 
+  if (done) {
+    return (
+      <div className="logticket">
+        <Navbar />
+        <div className="container-confirmation">
+          <div className="header">
+            <div className="text"><h2>Ticket Submitted</h2></div>
+            <hr className="underline" />
+          </div>
+          <p className="text">
+            Your ticket has been logged successfully. We’ll keep you updated on its status.
+            You’ll be redirected to your dashboard shortly.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="logticket">
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <div className="logo-placeholder">GoodLiving</div>
-        </div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/">Dashboard</Link></li>
-            <li><Link to="/ticket">Tickets</Link></li>
-          {/*  <li><Link to="/reports">Reports</Link></li> */}
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <img src="https://placehold.co/40" alt="profile" />
-        </div>
-      </nav>
       <Navbar />
 
       <div className="container">
@@ -168,7 +149,7 @@ function Ticket() {
           <div className="urgency-container">
             <label>Urgency Selection</label>
             <div className="urgency-options">
-              {["Low", "Medium", "High", "Critical"].map((level) => (
+              {["Low", "Medium", "High"].map((level) => (
                 <label key={level}>
                   <input
                     type="radio"

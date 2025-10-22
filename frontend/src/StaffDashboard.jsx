@@ -63,21 +63,18 @@ function StaffDashboard() {
     if (!chosenContractorId) return alert("Select contractor");
 
     try {
-      const res = await fetch("/api/admin/contractor-assign", {
+      const res = await fetch(`/api/staff/tickets/${selectedTicketId}/assign`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          TicketID: selectedTicketId,
-          ContractorUserID: chosenContractorId,
-        }),
+        body: JSON.stringify({ contractorUserId: chosenContractorId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to create schedule");
 
       // Update local ticket status to In Review (assignment moves ticket to in review)
       const id = selectedTicketId;
-      setAllTickets(prev => prev.map(t => t.TicketID === id ? { ...t, CurrentStatus: 'In Review' } : t));
+      setAllTickets(prev => prev.map(t => t.TicketID === id ? { ...t, CurrentStatus: 'Quoting' } : t));
       setShowContractorModal(false);
       setChosenContractorId(null);
       setSelectedTicketId(null);

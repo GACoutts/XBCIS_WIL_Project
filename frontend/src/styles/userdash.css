@@ -184,6 +184,46 @@
 
 .dashboard-page .settings-icon { width: 24px; height: 24px; cursor: pointer; }
 
+/* Appointment booking & contact actions inside ticket modal */
+.modal-footer .appointment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.modal-footer .appointment-actions .book-appointment-btn,
+.modal-footer .appointment-actions .schedule-submit-btn,
+.modal-footer .appointment-actions .schedule-cancel-btn,
+.modal-footer .appointment-actions .whatsapp-btn {
+  background-color: #FBD402;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  color: black;
+}
+
+.modal-footer .appointment-actions .schedule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-footer .appointment-actions .schedule-input {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* WhatsApp button variant */
+.modal-footer .appointment-actions .whatsapp-btn {
+  background-color: #25D366;
+  color: white;
+}
+
 .dashboard-page .ticket-image {
   background: #FBD402;
   width: 100px; height: 100px;
