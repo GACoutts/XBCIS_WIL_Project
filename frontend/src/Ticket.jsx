@@ -7,7 +7,7 @@ function Ticket() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(""); // UI-only, backend ignores for now
   const [description, setDescription] = useState("");
   const [urgency, setUrgency] = useState("Low");
   const [file, setFile] = useState(null);
@@ -16,6 +16,7 @@ function Ticket() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    // Keep page scroll normal
     document.body.style.overflow = "auto";
     return () => {
       document.body.style.overflow = "auto";
@@ -34,35 +35,30 @@ function Ticket() {
     try {
       setSubmitting(true);
 
-      // Create ticket
+      // Create ticket – backend expects { description, urgencyLevel }
       const resTicket = await fetch("/api/tickets", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, urgencyLevel: urgency }),
+        body: JSON.stringify({ description, urgencyLevel: urgency }),
       });
-
       const dataTicket = await resTicket.json();
-      if (!resTicket.ok)
-        throw new Error(dataTicket?.message || "Error submitting ticket");
+      if (!resTicket.ok) throw new Error(dataTicket?.message || "Error submitting ticket");
 
-      // Upload file if exists
+      // Upload single file (optional) – field name must be "file"
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
-
         const resFile = await fetch(`/api/tickets/${dataTicket.ticketId}/media`, {
           method: "POST",
           body: formData,
           credentials: "include",
         });
-
         const dataFile = await resFile.json();
-        if (!resFile.ok)
-          throw new Error(dataFile?.message || "Error uploading file");
+        if (!resFile.ok) throw new Error(dataFile?.message || "Error uploading file");
       }
 
-      // Show confirmation message and redirect
+      // Success UI
       setMessage("Ticket submitted successfully! Redirecting...");
       setTitle("");
       setDescription("");
@@ -70,21 +66,23 @@ function Ticket() {
       setFile(null);
       setDone(true);
 
+      // Redirect after a short delay
       setTimeout(() => navigate("/"), 5000);
     } catch (err) {
-      setMessage(err.message);
+      setMessage(err.message || "Something went wrong");
       setSubmitting(false);
     }
   };
 
-  // Navbar component for reuse
+  // Tenant navbar (keep consistent within tenant pages)
   const Navbar = () => (
     <nav className="navbar">
-      <div className="navbar-logo">GoodLiving</div>
+      <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
       <div className="navbar-right">
         <ul className="navbar-menu">
           <li><Link to="/">Dashboard</Link></li>
           <li><Link to="/ticket">Tickets</Link></li>
+          <li><Link to="/notifications">Notifications</Link></li>
           <li><Link to="/settings">Settings</Link></li>
         </ul>
       </div>
@@ -104,7 +102,8 @@ function Ticket() {
             <hr className="underline" />
           </div>
           <p className="text">
-            Your ticket has been logged successfully. We'll keep you updated on its status.
+            Your ticket has been logged successfully. We’ll keep you updated on its status.
+            You’ll be redirected to your dashboard shortly.
           </p>
         </div>
       </div>
