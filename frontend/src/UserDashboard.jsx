@@ -36,7 +36,9 @@ function UserDashboard() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [openPage, setOpenPage] = useState(1);
+const [closedPage, setClosedPage] = useState(1);
+
   const itemsPerPage = 6;
 
   // Priority order
@@ -173,31 +175,44 @@ function UserDashboard() {
     }
   };
 
+  // Filter, search, paginate & sort, Filtering logic (shared for both)
   const filteredTickets = tickets.filter(ticket => {
-    const dispStatus = statusLabel(ticket.CurrentStatus);
-    const matchesStatus = filterStatus ? dispStatus === filterStatus : true;
-    const matchesDate = filterDate ? (ticket.CreatedAt?.split('T')[0] === filterDate) : true;
-    const matchesSearch = searchTerm
-      ? (ticket.Description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ticket.TicketRefNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
-      : true;
-    return matchesStatus && matchesDate && matchesSearch;
-  });
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    setCurrentPage(1); // reset page whenever tab changes
-  };
+  const dispStatus = statusLabel(ticket.CurrentStatus);
+  const matchesPriority = filterStatus ? ticket.UrgencyLevel === filterStatus : true;
+  const matchesDate = filterDate ? (ticket.CreatedAt?.split("T")[0] === filterDate) : true;
+  const matchesSearch = searchTerm
+    ? (ticket.Description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ticket.TicketRefNumber || "").toLowerCase().includes(searchTerm.toLowerCase())
+    : true;
+  return matchesPriority && matchesDate && matchesSearch;
+});
 
+// Split into open/closed
+const openTickets = filteredTickets.filter(
+  t => statusLabel(t.CurrentStatus) !== "Closed"
+);
+const closedTickets = filteredTickets.filter(
+  t => statusLabel(t.CurrentStatus) === "Closed"
+);
 
-  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedTickets = filteredTickets.slice(startIndex, startIndex + itemsPerPage);
-  const sortedTickets = [...paginatedTickets].sort((a, b) => priorityOrder[a.UrgencyLevel] - priorityOrder[b.UrgencyLevel]);
-  const displayedTickets = sortedTickets.filter(ticket =>
-    activeTab === "open"
-      ? statusLabel(ticket.CurrentStatus) !== "Closed"
-      : statusLabel(ticket.CurrentStatus) === "Closed"
-  );
+// Paginate separately
+const openTotalPages = Math.ceil(openTickets.length / itemsPerPage);
+const closedTotalPages = Math.ceil(closedTickets.length / itemsPerPage);
+
+const openStart = (openPage - 1) * itemsPerPage;
+const closedStart = (closedPage - 1) * itemsPerPage;
+
+const paginatedOpen = openTickets.slice(openStart, openStart + itemsPerPage);
+const paginatedClosed = closedTickets.slice(closedStart, closedStart + itemsPerPage);
+
+// Sort by priority (High → Low)
+const sortedOpen = [...paginatedOpen].sort((a, b) => priorityOrder[a.UrgencyLevel] - priorityOrder[b.UrgencyLevel]);
+const sortedClosed = [...paginatedClosed].sort((a, b) => priorityOrder[a.UrgencyLevel] - priorityOrder[b.UrgencyLevel]);
+
+const displayedTickets = activeTab === "open" ? sortedOpen : sortedClosed;
+const currentPage = activeTab === "open" ? openPage : closedPage;
+const totalPages = activeTab === "open" ? openTotalPages : closedTotalPages;
+
 
   return (
     <>
@@ -251,13 +266,14 @@ function UserDashboard() {
               <option value="">All Statuses</option>
               {activeTab === "open" ? (
                 <>
-                  <option value="New">New</option>
-                  <option value="In Review">In Review</option>
-                  <option value="Quoting">Quoting</option>
-                  <option value="Awaiting Approval">Awaiting Approval</option>
-                  <option value="Awaiting Appointment">Awaiting Appointment</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Scheduled">Scheduled</option>
+        
+  <option value="">All Priorities</option>
+  <option value="Low">Low</option>
+  <option value="Medium">Medium</option>
+  <option value="High">High</option>
+  <option value="Critical">Critical</option>
+
+
                 </>
               ) : (
                 <option value="Closed">Closed</option>
@@ -338,13 +354,41 @@ function UserDashboard() {
                 })}
               </div>
 
-              {totalPages > 1 && (
-                <div className="pagination-controls">
-                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Prev</button>
-                  <span>Page {currentPage} of {totalPages}</span>
-                  <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</button>
-                </div>
-              )}
+     {totalPages > 1 && (
+  <div className="pagination-controls">
+    <button
+      disabled={(activeTab === "open" ? openPage : closedPage) === 1}
+      onClick={() => {
+        if (activeTab === "open") {
+          setOpenPage(p => Math.max(1, p - 1));
+        } else {
+          setClosedPage(p => Math.max(1, p - 1));
+        }
+      }}
+    >
+      Prev
+    </button>
+
+    <span>
+      Page {activeTab === "open" ? openPage : closedPage} of {totalPages}
+    </span>
+
+    <button
+      disabled={(activeTab === "open" ? openPage : closedPage) >= totalPages}
+      onClick={() => {
+        if (activeTab === "open") {
+          setOpenPage(p => Math.min(totalPages, p + 1));
+        } else {
+          setClosedPage(p => Math.min(totalPages, p + 1));
+        }
+      }}
+    >
+      Next
+    </button>
+  </div>
+)}
+
+
             </div>
           )}
 
