@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import RoleNavbar from './components/RoleNavbar.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import gearIcon from './assets/settings.png';
 import './styles/staffdash.css';
+import './styles/responsive-cards.css';
 
 /*
  * StaffTickets
@@ -90,16 +92,17 @@ export default function StaffTickets() {
   const handleConfirmSchedule = async () => {
     if (!chosenContractorId) return alert('Select contractor');
     try {
-      const res = await fetch(`/api/staff/tickets/${selectedTicketId}/assign`, {
+     const res = await fetch(`/api/staff/tickets/${selectedTicketId}/assign`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contractorUserId: chosenContractorId })
+       body: JSON.stringify({ contractorUserId: chosenContractorId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to assign contractor');
       // Update local ticket status to In Review
-      setAllTickets((prev) => prev.map((t) => (t.TicketID === selectedTicketId ? { ...t, CurrentStatus: 'Quoting' } : t))); setShowContractorModal(false);
+      setAllTickets((prev) => prev.map((t) => (t.TicketID === selectedTicketId ? { ...t, CurrentStatus: 'Quoting' } : t)));
+      setShowContractorModal(false);
       setChosenContractorId(null);
       setSelectedTicketId(null);
       alert('Contractor assigned successfully!');
@@ -245,24 +248,8 @@ export default function StaffTickets() {
 
   return (
     <>
-      <nav className="navbar">
-        <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/staff">Dashboard</Link></li>
-            <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/quotes">Quotes</Link></li>
-            <li><Link to="/contractors">Contractors</Link></li>
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button className="profile-btn" onClick={() => handleLogout()}>
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-        </div>
-      </nav>
+      {/* Navbar */}
+      <RoleNavbar />
 
       <div className="staffdashboard-title"><h1>Tickets</h1></div>
 

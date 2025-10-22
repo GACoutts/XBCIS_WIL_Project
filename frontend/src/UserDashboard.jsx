@@ -2,30 +2,35 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import gearIcon from "./assets/settings.png";
+import WhatsAppStarter from './components/WhatsAppStarter.jsx';
+import RoleNavbar from './components/RoleNavbar.jsx';
 import "./styles/userdash.css";
+import "./styles/responsive-cards.css";
 
 function UserDashboard() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   // State
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showLogout, setShowLogout] = useState(false);
+  // Note: logout UI is handled via RoleNavbar; no local logout state needed.
 
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [ticketHistory, setTicketHistory] = useState([]);
   const [ticketMedia, setTicketMedia] = useState([]);
-  const [contractorResponses, setContractorResponses] = useState([]); // placeholder for future use
-  const [landlordApprovals, setLandlordApprovals] = useState([]);     // placeholder for future use
+  const [contractorResponses, setContractorResponses] = useState([]);
+  const [landlordApprovals, setLandlordApprovals] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState("open"); // "open" | "closed"
+  const [activeTab, setActiveTab] = useState("open"); // "open" or "closed"
 
-  // Appointment & contractor state (client can book after quote approved)
+  // Appointment & contractor state
   const [approvedContractor, setApprovedContractor] = useState(null);
-  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleDate, setScheduleDate] = useState('');
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [booking, setBooking] = useState(false);
+
+
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("");
@@ -34,12 +39,16 @@ function UserDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // Priority order
   const priorityOrder = { High: 1, Medium: 2, Low: 3 };
 
   // Fetch tickets
   useEffect(() => {
     const fetchTickets = async () => {
       try {
+        // Fetch the currently authenticated client's tickets.  The backend
+        // returns an array of ticket objects with `CurrentStatus` and other
+        // properties.  If you modify the API endpoint, update this path.
         const res = await fetch("/api/tickets/client/tickets", { credentials: "include" });
         const data = await res.json();
         if (res.ok) setTickets(Array.isArray(data.tickets) ? data.tickets : []);
@@ -53,28 +62,10 @@ function UserDashboard() {
     fetchTickets();
   }, []);
 
-  // Logout
-  const handleLogout = async () => {
-    await logout();
-    window.location.reload();
-  };
+  // Logout handler
+  // No custom handleLogout here; RoleNavbar provides logout functionality.
 
-  // Helpers
-  const statusLabel = (status) => {
-    switch (status) {
-      case "New": return "New";
-      case "In Review": return "In Review";
-      case "Quoting": return "Quoting";
-      case "Awaiting Landlord Approval": return "Awaiting Approval";
-      case "Awaiting Appointment": return "Awaiting Appointment";
-      case "Approved": return "Approved";
-      case "Scheduled": return "Scheduled";
-      case "Completed": return "Closed";
-      default: return status || "";
-    }
-  };
-
-  // Open modal & fetch details
+  // Open ticket modal & fetch details
   const openTicketModal = async (ticket) => {
     setSelectedTicket(ticket);
     setModalLoading(true);
@@ -82,8 +73,10 @@ function UserDashboard() {
     setTicketMedia([]);
     setContractorResponses([]);
     setLandlordApprovals([]);
+
+    // reset appointment state
     setApprovedContractor(null);
-    setScheduleDate("");
+    setScheduleDate('');
     setShowScheduleForm(false);
 
     try {
@@ -95,13 +88,17 @@ function UserDashboard() {
       const mediaData = await mediaRes.json();
       if (mediaRes.ok) setTicketMedia(mediaData.media || []);
 
-      // Approved contractor (booking allowed only after quote approved)
+      // Fetch approved contractor for appointment booking
       try {
-        const contractorRes = await fetch(`/api/tickets/${ticket.TicketID}/approved-contractor`, { credentials: "include" });
+        const contractorRes = await fetch(`/api/tickets/${ticket.TicketID}/approved-contractor`, { credentials: 'include' });
         const contractorData = await contractorRes.json();
-        setApprovedContractor(contractorRes.ok ? contractorData.contractor || null : null);
-      } catch (e) {
-        console.error("Error fetching approved contractor:", e);
+        if (contractorRes.ok && contractorData.contractor) {
+          setApprovedContractor(contractorData.contractor);
+        } else {
+          setApprovedContractor(null);
+        }
+      } catch (err) {
+        console.error('Error fetching approved contractor:', err);
         setApprovedContractor(null);
       }
     } catch (err) {
@@ -118,8 +115,10 @@ function UserDashboard() {
     setTicketMedia([]);
     setContractorResponses([]);
     setLandlordApprovals([]);
+
+    // Reset appointment state on modal close
     setApprovedContractor(null);
-    setScheduleDate("");
+    setScheduleDate('');
     setShowScheduleForm(false);
   };
 
@@ -133,10 +132,12 @@ function UserDashboard() {
       });
       const data = await res.json();
       if (res.ok) {
+        // Update the local list and modal with the new Completed status.  The UI
+        // displays Completed as "Closed" via the statusLabel helper above.
         setTickets(prev =>
           prev.map(t => t.TicketID === selectedTicket.TicketID ? { ...t, CurrentStatus: "Completed" } : t)
         );
-        setSelectedTicket(prev => prev ? { ...prev, CurrentStatus: "Completed" } : null);
+        setSelectedTicket(prev => ({ ...prev, CurrentStatus: "Completed" }));
       } else {
         console.error("Failed to close ticket", data);
       }
@@ -145,23 +146,48 @@ function UserDashboard() {
     }
   };
 
-  // Tabs
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    setCurrentPage(1);
+
+  // Filter, search, paginate & sort tickets
+  // Normalize backend status values into display-friendly labels.  If you
+  // introduce new statuses on the backend, update this map accordingly.
+  const statusLabel = (status) => {
+    switch (status) {
+      case 'New':
+        return 'New';
+      case 'In Review':
+        return 'In Review';
+      case 'Quoting':
+        return 'Quoting';
+      case 'Awaiting Landlord Approval':
+        return 'Awaiting Approval';
+      case 'Awaiting Appointment':
+        return 'Awaiting Appointment';
+      case 'Approved':
+        return 'Approved';
+      case 'Scheduled':
+        return 'Scheduled';
+      case 'Completed':
+        return 'Closed';
+      default:
+        return status || '';
+    }
   };
 
-  // Filter, search, paginate & sort
   const filteredTickets = tickets.filter(ticket => {
     const dispStatus = statusLabel(ticket.CurrentStatus);
     const matchesStatus = filterStatus ? dispStatus === filterStatus : true;
-    const matchesDate = filterDate ? (ticket.CreatedAt?.split("T")[0] === filterDate) : true;
+    const matchesDate = filterDate ? (ticket.CreatedAt?.split('T')[0] === filterDate) : true;
     const matchesSearch = searchTerm
-      ? (ticket.Description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ticket.TicketRefNumber || "").toLowerCase().includes(searchTerm.toLowerCase())
+      ? (ticket.Description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ticket.TicketRefNumber || '').toLowerCase().includes(searchTerm.toLowerCase())
       : true;
     return matchesStatus && matchesDate && matchesSearch;
   });
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setCurrentPage(1); // reset page whenever tab changes
+  };
+
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -176,28 +202,8 @@ function UserDashboard() {
   return (
     <>
       <div className="dashboard-page">
-        {/* Navbar (tenant) */}
-        <nav className="navbar">
-          <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
-          <div className="navbar-right">
-            <ul className="navbar-menu">
-              <li><Link to="/">Dashboard</Link></li>
-              <li><Link to="/ticket">Tickets</Link></li>
-              <li><Link to="/notifications">Notifications</Link></li>
-              <li><Link to="/settings">Settings</Link></li>
-            </ul>
-          </div>
-          <div className="navbar-profile">
-            <button className="profile-btn" onClick={() => setShowLogout(!showLogout)}>
-              <img src="https://placehold.co/40" alt="profile" />
-            </button>
-            {showLogout && (
-              <div className="logout-popup">
-                <button onClick={handleLogout}>Log Out</button>
-              </div>
-            )}
-          </div>
-        </nav>
+        {/* Navbar */}
+        <RoleNavbar />
 
         {/* Content */}
         <div className="content">
@@ -219,18 +225,28 @@ function UserDashboard() {
             </button>
           </div>
 
+
+
           {/* Filters + Search */}
           <div className="ticket-filters">
+            {/* Search Input */}
             <input
               type="text"
               placeholder="Search tickets..."
               value={searchTerm}
-              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              onChange={e => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // reset pagination
+              }}
             />
 
+            {/* Status Filter */}
             <select
               value={filterStatus}
-              onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+              onChange={e => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1); // reset pagination
+              }}
             >
               <option value="">All Statuses</option>
               {activeTab === "open" ? (
@@ -248,10 +264,14 @@ function UserDashboard() {
               )}
             </select>
 
+            {/* Date Filter */}
             <input
               type="date"
               value={filterDate}
-              onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }}
+              onChange={e => {
+                setFilterDate(e.target.value);
+                setCurrentPage(1); // reset pagination
+              }}
             />
           </div>
 
@@ -259,6 +279,8 @@ function UserDashboard() {
           <div className="dash-submit-container">
             <Link to="/ticket" className="dash-submit">Log a New Ticket</Link>
           </div>
+
+
 
           {/* Ticket List */}
           {loading ? (
@@ -281,14 +303,12 @@ function UserDashboard() {
                         <p>Ticket Ref: {ticket.TicketRefNumber}</p>
                         <p>Logged: {ticketDate.toLocaleDateString()}</p>
                         <p>
-                          Priority:{" "}
-                          <span className={`priority-badge priority-${(ticket.UrgencyLevel || "").toLowerCase()}`}>
+                          Priority: <span className={`priority-badge priority-${ticket.UrgencyLevel.toLowerCase()}`}>
                             {ticket.UrgencyLevel}{isOld ? " • Old" : ""}
                           </span>
                         </p>
                         <p>
-                          Status:{" "}
-                          <span className={`status-badge status-${statusLabel(ticket.CurrentStatus).toLowerCase()}`}>
+                          Status: <span className={`status-badge status-${statusLabel(ticket.CurrentStatus).toLowerCase()}`}>
                             {statusLabel(ticket.CurrentStatus)}
                           </span>
                         </p>
@@ -327,6 +347,9 @@ function UserDashboard() {
               )}
             </div>
           )}
+
+
+
         </div>
       </div>
 
@@ -340,12 +363,7 @@ function UserDashboard() {
             <div className="modal-section">
               <p><strong>Submitted:</strong> {new Date(selectedTicket.CreatedAt).toLocaleString()}</p>
               <p><strong>Description:</strong> {selectedTicket.Description}</p>
-              <p>
-                <strong>Status:</strong>{" "}
-                <span className={`status-badge status-${statusLabel(selectedTicket.CurrentStatus).toLowerCase()}`}>
-                  {statusLabel(selectedTicket.CurrentStatus)}
-                </span>
-              </p>
+              <p><strong>Status:</strong> <span className={`status-badge status-${statusLabel(selectedTicket.CurrentStatus).toLowerCase()}`}>{statusLabel(selectedTicket.CurrentStatus)}</span></p>
             </div>
 
             {/* Media */}
@@ -357,7 +375,7 @@ function UserDashboard() {
                 <div className="media-gallery-grid">
                   {ticketMedia.map((m, idx) => (
                     <div key={idx} className="media-card">
-                      {m.MediaURL && (m.MediaType?.startsWith("image") || m.MediaURL.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
+                      {m.MediaURL && (m.MediaType?.startsWith("image") || /\.(jpg|jpeg|png|gif)$/i.test(m.MediaURL)) ? (
                         <img
                           src={m.MediaURL}
                           alt={`Media ${idx}`}
@@ -389,7 +407,7 @@ function UserDashboard() {
                     label: h.Status,
                     date: h.UpdatedAt,
                     user: h.UpdatedByUserID || "System"
-                  })), 
+                  })),
                   ...contractorResponses.map(r => ({
                     type: "update",
                     label: "Contractor Update",
@@ -397,26 +415,28 @@ function UserDashboard() {
                     user: r.contractorName || "Contractor",
                     message: r.message
                   }))].sort((a, b) => new Date(a.date) - new Date(b.date))
-                   .map((entry, idx) => (
-                    <li key={idx} className="timeline-entry">
-                      <div className={`timeline-icon ${entry.type}`} />
-                      <div className="timeline-content">
-                        <strong>{entry.label}</strong>
-                        <p className="timeline-meta">
-                          {new Date(entry.date).toLocaleString()} — {entry.user}
-                        </p>
-                        {entry.message && <p>{entry.message}</p>}
-                      </div>
-                    </li>
-                  ))}
+                    .map((entry, idx) => (
+                      <li key={idx} className="timeline-entry">
+                        <div className={`timeline-icon ${entry.type}`} />
+                        <div className="timeline-content">
+                          <strong>{entry.label}</strong>
+                          <p className="timeline-meta">
+                            {new Date(entry.date).toLocaleString()} — {entry.user}
+                          </p>
+                          {entry.message && <p>{entry.message}</p>}
+                        </div>
+                      </li>
+                    ))}
                 </ul>
               )}
             </div>
 
-            {/* Landlord Approvals (placeholder list – populate when you add API) */}
-            {landlordApprovals?.length > 0 && (
-              <div className="modal-section">
-                <h3>Landlord Approvals</h3>
+            {/* Landlord Approvals */}
+            <div className="modal-section">
+              <h3>Landlord Approvals</h3>
+              {landlordApprovals.length === 0 ? (
+                <p className="empty-text">No approvals yet.</p>
+              ) : (
                 <ul className="updates-list">
                   {landlordApprovals.map((a, i) => (
                     <li key={i}>
@@ -427,108 +447,91 @@ function UserDashboard() {
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Footer actions */}
+            {/* Footer */}
             <div className="modal-footer">
               {statusLabel(selectedTicket.CurrentStatus) !== "Closed" && (
-                <button
-                  className="close-ticket-btn"
-                  onClick={() => setShowConfirm(true)}
-                >
+                <button className="close-ticket-btn" onClick={() => setShowConfirm(true)}>
                   Close Ticket
                 </button>
               )}
 
-              {/* Client appointment booking + WhatsApp (after quote approved) */}
-              {(selectedTicket.CurrentStatus === "Approved" ||
-                selectedTicket.CurrentStatus === "Awaiting Appointment") &&
-                approvedContractor && (
-                  <div className="appointment-actions">
-                    {showScheduleForm ? (
-                      <div className="schedule-form">
-                        <input
-                          type="datetime-local"
-                          className="schedule-input"
-                          value={scheduleDate}
-                          onChange={e => setScheduleDate(e.target.value)}
-                          min={new Date().toISOString().slice(0, 16)}
-                        />
-                        <button
-                          className="schedule-submit-btn"
-                          disabled={!scheduleDate || booking}
-                          onClick={async () => {
-                            if (!scheduleDate) return;
-                            try {
-                              setBooking(true);
-                              const proposedDate = new Date(scheduleDate);
-                              if (!scheduleDate.includes("T")) {
-                                proposedDate.setHours(12, 0, 0, 0);
-                              }
-                              const res = await fetch(`/api/tickets/${selectedTicket.TicketID}/appointments`, {
-                                method: "POST",
-                                credentials: "include",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ scheduledAt: proposedDate.toISOString() })
-                              });
-                              const data = await res.json();
-                              if (!res.ok) throw new Error(data?.message || "Failed to book appointment");
-
-                              // Update status locally
-                              setTickets(prev => prev.map(t =>
-                                t.TicketID === selectedTicket.TicketID ? { ...t, CurrentStatus: "Scheduled" } : t
-                              ));
-                              setSelectedTicket(prev => prev ? { ...prev, CurrentStatus: "Scheduled" } : null);
-                              setShowScheduleForm(false);
-                              setScheduleDate("");
-                              alert("Appointment booked successfully");
-                            } catch (err) {
-                              console.error(err);
-                              alert(err.message || "Failed to book appointment");
-                            } finally {
-                              setBooking(false);
-                            }
-                          }}
-                        >
-                          Confirm
-                        </button>
-                        <button
-                          className="schedule-cancel-btn"
-                          onClick={() => { setShowScheduleForm(false); setScheduleDate(""); }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
+              {(selectedTicket.CurrentStatus === 'Approved' || selectedTicket.CurrentStatus === 'Awaiting Appointment') && approvedContractor && (
+                <div className="appointment-actions">
+                  {showScheduleForm ? (
+                    <div className="schedule-form">
+                      <input
+                        type="datetime-local"
+                        className="schedule-input"
+                        value={scheduleDate}
+                        onChange={e => setScheduleDate(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                      />
                       <button
-                        className="book-appointment-btn"
-                        onClick={() => setShowScheduleForm(true)}
-                      >
-                        Book Appointment
-                      </button>
-                    )}
-
-                    {/* WhatsApp contact */}
-                    {approvedContractor?.phone && (
-                      <button
-                        className="whatsapp-btn"
-                        onClick={() => {
-                          const phone = approvedContractor.phone.replace(/[^\d]/g, "");
-                          window.open(`https://wa.me/${phone}`, "_blank");
+                        className="schedule-submit-btn"
+                        disabled={!scheduleDate || booking}
+                        onClick={async () => {
+                          if (!scheduleDate) return;
+                          try {
+                            setBooking(true);
+                            const proposedDate = new Date(scheduleDate);
+                            if (!scheduleDate.includes('T')) proposedDate.setHours(12, 0, 0, 0);
+                            const res = await fetch(`/api/tickets/${selectedTicket.TicketID}/appointments`, {
+                              method: 'POST',
+                              credentials: 'include',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ scheduledAt: proposedDate.toISOString() })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data?.message || 'Failed to book appointment');
+                            setTickets(prev => prev.map(t => t.TicketID === selectedTicket.TicketID ? { ...t, CurrentStatus: 'Scheduled' } : t));
+                            setSelectedTicket(prev => prev ? { ...prev, CurrentStatus: 'Scheduled' } : null);
+                            setShowScheduleForm(false);
+                            setScheduleDate('');
+                            alert('Appointment booked successfully');
+                          } catch (err) {
+                            console.error(err);
+                            alert(err.message || 'Failed to book appointment');
+                          } finally {
+                            setBooking(false);
+                          }
                         }}
                       >
-                        Message Contractor
+                        Confirm
                       </button>
-                    )}
-                  </div>
-                )}
+                      <button
+                        className="schedule-cancel-btn"
+                        onClick={() => {
+                          setShowScheduleForm(false);
+                          setScheduleDate('');
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="book-appointment-btn" onClick={() => setShowScheduleForm(true)}>
+                      Book Appointment
+                    </button>
+                  )}
+
+                  {/* WhatsApp */}
+                  <WhatsAppStarter
+                    context={{ ticketRef: selectedTicket.TicketRefNumber, tenantName: user?.fullName || '' }}
+                    contacts={{ contractor: approvedContractor }}
+                    className="whatsapp-btn"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Confirm Close Ticket Modal */}
+
+      {/* --- Confirm Close Ticket Modal --- */}
       {showConfirm && (
         <div className="modal-overlay">
           <div className="confirm-modal">
@@ -543,7 +546,7 @@ function UserDashboard() {
                 onClick={() => {
                   closeTicket();
                   setShowConfirm(false);
-                  closeModal();
+                  closeModal(); // close the modal
                 }}
               >
                 Confirm

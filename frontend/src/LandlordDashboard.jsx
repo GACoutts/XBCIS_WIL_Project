@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
+import RoleNavbar from './components/RoleNavbar.jsx';
 import {
   ResponsiveContainer,
   BarChart,
@@ -32,14 +33,6 @@ function LandlordDashboard() {
   const [properties, setProperties] = useState([]);
   const [rangeMonths, setRangeMonths] = useState(3);
   const [filterPropertyId, setFilterPropertyId] = useState("");
-  const { logout } = useAuth();
-  const [showLogout, setShowLogout] = useState(false);
-
-    const handleLogout = async () => {
-    await logout();
-    window.location.reload(); // redirect to login or refresh
-  };
-
 
   // Load properties for filter on mount
   useEffect(() => {
@@ -182,34 +175,7 @@ function LandlordDashboard() {
   return (
     <>
       {/* Navbar */}
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <div className="logo-placeholder">GoodLiving</div>
-        </div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/landlord">Dashboard</Link></li>
-            <li><Link to="/landlord/tickets">Tickets</Link></li>
-            <li><Link to="/landlord/properties">Properties</Link></li>
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/landlord/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button
-            className="profile-btn"
-            onClick={() => setShowLogout(!showLogout)}
-          >
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-          {showLogout && (
-            <div className="logout-popup">
-              <button onClick={handleLogout}>Log Out</button>
-            </div>
-          )}
-        </div>
-      </nav>
-
+      <RoleNavbar />
       {/* Dashboard Title */}
       <div className="dashboard-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 0' }}>
         <h1 style={{ margin: 0 }}>Dashboard</h1>
@@ -235,7 +201,7 @@ function LandlordDashboard() {
                   <div className="cell issue">{t.description || '—'}</div>
                   <div className="cell submitted">{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : ''}</div>
                   <div className="cell actions" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                    <button className="btn btn-approve" onClick={() => approveTicket(t.ticketId).then(() => setTickets((prev) => prev.map((tk) => tk.ticketId === t.ticketId ? { ...tk, status: 'New' } : tk)))}>Approve</button>
+                    <button className="btn btn-approve" onClick={() => approveTicket(t.ticketId).then(() => setTickets((prev) => prev.map((tk) => tk.ticketId === t.ticketId ? { ...tk, status: 'Awaiting Staff Assignment' } : tk)))}>Approve</button>
                     <button className="btn btn-reject" onClick={() => {
                       const reason = prompt('Reason for rejection (optional):', '');
                       rejectTicket(t.ticketId, reason).then(() => setTickets((prev) => prev.map((tk) => tk.ticketId === t.ticketId ? { ...tk, status: 'Rejected' } : tk)));

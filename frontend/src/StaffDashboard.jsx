@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import gearIcon from "./assets/settings.png";
+import RoleNavbar from './components/RoleNavbar.jsx';
 import "./styles/staffdash.css";
 import ReviewRoleRequests from './components/ReviewRoleRequest.jsx';
-import { Link } from 'react-router-dom';
 import { useAuth } from "./context/AuthContext.jsx";
 import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
@@ -70,11 +70,13 @@ function StaffDashboard() {
         body: JSON.stringify({ contractorUserId: chosenContractorId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to create schedule");
+      if (!res.ok) throw new Error(data?.message || "Failed to assign contractor");
 
-      // Update local ticket status to In Review (assignment moves ticket to in review)
+      // Backend moves status to 'Quoting'
       const id = selectedTicketId;
-      setAllTickets(prev => prev.map(t => t.TicketID === id ? { ...t, CurrentStatus: 'Quoting' } : t));
+      setAllTickets(prev =>
+        prev.map(t => t.TicketID === id ? { ...t, CurrentStatus: 'Quoting' } : t)
+      );
       setShowContractorModal(false);
       setChosenContractorId(null);
       setSelectedTicketId(null);
@@ -84,6 +86,7 @@ function StaffDashboard() {
       alert(err.message);
     }
   };
+
 
   const handleLogout = async () => {
     await logout();
@@ -317,28 +320,8 @@ function StaffDashboard() {
 
   return (
     <>
-      <nav className="navbar">
-        <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/staff">Dashboard</Link></li>
-            <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/contractors">Contractors</Link></li>
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button className="profile-btn" onClick={() => setShowLogout(!showLogout)}>
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-          {showLogout && (
-            <div className="logout-popup">
-              <button onClick={handleLogout}>Log Out</button>
-            </div>
-          )}
-        </div>
-      </nav>
+      {/* Navbar */}
+      <RoleNavbar />
 
       <div className="staffdashboard-title"><h1>Dashboard</h1></div>
 

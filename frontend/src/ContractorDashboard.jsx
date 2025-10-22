@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from "./context/AuthContext.jsx";
 import { Link } from 'react-router-dom';
 import './styles/ContractorDashboard.css';
+import RoleNavbar from './components/RoleNavbar.jsx';
 import {
   getJobs,
   postJobSchedule,
@@ -16,8 +17,6 @@ import {
  * tickets as completed.  Completed jobs are shown in a separate tab.
  */
 function CDashboard() {
-  const { logout } = useAuth();
-  const [showLogout, setShowLogout] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('assigned');
@@ -48,12 +47,6 @@ function CDashboard() {
     loadJobs();
   }, []);
 
-  // Logout handler
-  const handleLogout = async () => {
-    await logout();
-    window.location.reload();
-  };
-
   // Derived lists for assigned vs completed jobs
   const assignedJobs = jobs.filter(j => j.status !== 'Completed');
   const completedJobs = jobs.filter(j => j.status === 'Completed');
@@ -82,8 +75,13 @@ function CDashboard() {
       const formData = new FormData();
       formData.append('files', file);
       const quoteAmount = prompt('Enter quote amount (numeric):');
+      const amt = Number.parseFloat(quoteAmount);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        alert('Please enter a valid positive amount.');
+        return;
+      }
       const quoteDescription = prompt('Enter quote description:');
-      formData.append('quoteAmount', quoteAmount || '0');
+      formData.append('quoteAmount', String(amt));
       formData.append('quoteDescription', quoteDescription || '');
       try {
         setUploadingQuote(true);
@@ -169,56 +167,7 @@ function CDashboard() {
 
   return (
     <div className="contractor-dashboard">
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <div className="logo-placeholder">GoodLiving</div>
-        </div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li>
-              <a
-                href="#"
-                className={activeTab === 'assigned' ? 'active' : ''}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveTab('assigned');
-                }}
-              >
-                Assigned Jobs
-              </a>
-            </li>
-            <li>
-              <a
-                href="#"
-                className={activeTab === 'completed' ? 'active' : ''}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveTab('completed');
-                }}
-              >
-                Completed Jobs
-              </a>
-            </li>
-            <li>
-              <Link to="/notifications">Notifications</Link>
-            </li>
-            <li>
-              <Link to="/contractor/settings">Settings</Link>
-            </li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button className="profile-btn" onClick={() => setShowLogout(!showLogout)}>
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-          {showLogout && (
-            <div className="logout-popup">
-              <button onClick={handleLogout}>Log Out</button>
-            </div>
-          )}
-        </div>
-      </nav>
-
+      <RoleNavbar />
       <div className="contractor-content">
         <div className="contractordashboard-title">
           <h1>Dashboard</h1>
@@ -335,7 +284,7 @@ function CDashboard() {
                 type="datetime-local"
                 value={appointmentDate}
                 onChange={e => setAppointmentDate(e.target.value)}
-                min={new Date().toISOString().slice(0,16)}
+                min={new Date().toISOString().slice(0, 16)}
               />
               <div className="modal-buttons">
                 <button onClick={() => handleBookAppointment(modalJob)}>Submit</button>

@@ -1,0 +1,12 @@
+.app-navbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between; background: #fff; border-bottom: 1px solid #eee; padding: 10px 14px; }
+.brand { font-weight: 700; text-decoration: none; color: #222; }
+.nav-list { display: flex; gap: 16px; list-style: none; margin: 0; padding: 0; }
+.nav-list a { text-decoration: none; color: #333; }
+.nav-list .active a { font-weight: 700; }
+.hamburger { display: none; background: transparent; border: 0; font-size: 20px; }
+.navbar-right .profile-btn { padding: 8px 10px; border-radius: 8px; border: 1px solid #e5e5e5; }
+@media (max-width: 720px) {
+  .hamburger { display: inline-block; }
+  .nav-list { position: absolute; top: 56px; left: 0; right: 0; background: #fff; display: none; flex-direction: column; padding: 8px 12px; border-bottom: 1px solid #eee; }
+  .nav-list.open { display: flex; }
+}

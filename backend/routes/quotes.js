@@ -51,6 +51,14 @@ router.post(
     try {
       const { ticketId } = req.params;
       const { quoteAmount, quoteDescription } = req.body;
+      const amount = Number.parseFloat(quoteAmount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Quote amount must be a positive number"
+        });
+      }
+
       const contractorId = req.user.userId;
       const uploadedFiles = req.files || [];
 
@@ -69,7 +77,7 @@ router.post(
         return res.status(404).json({ success: false, message: "Ticket not found" });
       }
 
-      const allowed = ["Quoting", "Awaiting Landlord Quote Approval"];
+      const allowed = ["Quoting", "Awaiting Landlord Approval"];
       if (!allowed.includes(ticketRow.CurrentStatus)) {
         return res.status(400).json({
           success: false,
@@ -96,7 +104,7 @@ router.post(
           `INSERT INTO tblQuotes
              (TicketID, ContractorUserID, QuoteAmount, QuoteDescription, QuoteStatus, SubmittedAt)
            VALUES (?, ?, ?, ?, 'Pending', NOW())`,
-          [ticketId, contractorId, quoteAmount, quoteDescription]
+          [ticketId, contractorId, amount, quoteDescription]
         );
         const quoteId = result.insertId;
 
@@ -112,21 +120,20 @@ router.post(
           );
         }
 
-        // History: Quote Submitted
-        await connection.query(
-          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Quote Submitted', ?)",
-          [ticketId, contractorId]
-        );
-
         // Advance ticket to landlord review (only when previously in 'Quoting')
         if (shouldAdvance) {
-          await db.query("UPDATE tblTickets SET CurrentStatus = 'Approved' WHERE TicketID = ?", [ticketId]);
-          await db.query(
-            "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Approved', ?)",
-            [ticketId, userId]
+          await connection.query(
+            "UPDATE tblTickets SET CurrentStatus = 'Awaiting Landlord Approval' WHERE TicketID = ?",
+            [ticketId]
           );
           await connection.query(
-            "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Awaiting Landlord Quote Approval', ?)",
+            "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Awaiting Landlord Approval', ?)",
+            [ticketId, contractorId]
+          );
+        } else {
+          // Ticket was already in landlord review; optionally log a safe status
+          await connection.query(
+            "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Awaiting Landlord Approval', ?)",
             [ticketId, contractorId]
           );
         }
@@ -220,6 +227,29 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
     );
     if (!quoteRow) return res.status(404).json({ message: "Quote not found" });
 
+    // Ensure this landlord is tied to the ticket's property
+    const [[auth]] = await db.query(
+      `
+  SELECT 1
+    FROM tblLandlordProperties lp
+    JOIN tblTickets t  ON t.PropertyID = lp.PropertyID
+    JOIN tblQuotes  q  ON q.TicketID = t.TicketID
+   WHERE q.QuoteID = ?
+     AND lp.LandlordUserID = ?
+     AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+   LIMIT 1
+  `,
+      [quoteId, landlordId]
+    );
+
+    if (!auth) {
+      return res.status(403).json({
+        message:
+          "You are not authorized to approve quotes for this ticket. (No active landlord link to this property.)",
+      });
+    }
+
+
     const ticketId = quoteRow.TicketID;
     const contractorId = quoteRow.ContractorUserID;
 
@@ -237,44 +267,51 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
     try {
       await connection.beginTransaction();
 
-      // Reject all other quotes
-      + await db.query(
-        "UPDATE tblTickets SET CurrentStatus = 'Quoting' WHERE TicketID = (SELECT TicketID FROM tblQuotes WHERE QuoteID = ? LIMIT 1)",
-        [quoteId]
+      // Reject all other quotes for this ticket
+      await connection.query(
+        `UPDATE tblQuotes 
+      SET QuoteStatus = 'Rejected'
+    WHERE TicketID = ?
+      AND QuoteID <> ?`,
+        [ticketId, quoteId]
       );
 
       // Approve selected quote
-      await connection.query(`UPDATE tblQuotes SET QuoteStatus = 'Approved' WHERE QuoteID = ?`, [
-        quoteId,
-      ]);
-
-      // Record landlord approval (idempotent insert)
       await connection.query(
-        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus)
-         VALUES (?, ?, 'Approved')`,
-        [quoteId, landlordId]
+        `UPDATE tblQuotes SET QuoteStatus = 'Approved' WHERE QuoteID = ?`,
+        [quoteId]
       );
 
-      // Move ticket to Approved and assign contractor
+      try {
+        await connection.query(
+          `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
+   VALUES (?, ?, 'Approved', NOW())
+   ON DUPLICATE KEY UPDATE ApprovalStatus='Approved', ApprovedAt=NOW()`,
+          [quoteId, landlordId]
+        );
+
+      } catch (apprErr) {
+        // Log and continue; this table varies across installs
+        console.error('[quotes/approve] landlord approvals write skipped:', apprErr?.message || apprErr);
+      }
+
+      // Continue with ticket updates
       await connection.query(
         `UPDATE tblTickets
-            SET CurrentStatus = 'Approved',
-                AssignedContractorID = ?
-          WHERE TicketID = ?`,
+     SET CurrentStatus = 'Approved',
+         AssignedContractorID = ?
+   WHERE TicketID = ?`,
         [contractorId, ticketId]
       );
 
-      // History
-      await connection.query(
-        "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Quote Approved', ?)",
-        [ticketId, landlordId]
-      );
       await connection.query(
         "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Approved', ?)",
         [ticketId, landlordId]
       );
 
+
       await connection.commit();
+
     } catch (e) {
       await connection.rollback();
       throw e;
@@ -331,10 +368,14 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
 
     res.json({ message: "Quote approved" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error('[quotes/approve] error:', err);
+    return res.status(500).json({
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? (err.sqlMessage || err.message) : undefined
+    });
   }
 });
+
 
 // -------------------------------------------------------------------------------------
 // Landlord rejects a quote
@@ -342,13 +383,44 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
 router.post("/:quoteId/reject", requireAuth, permitRoles("Landlord"), async (req, res) => {
   try {
     const { quoteId } = req.params;
+
+    // Ensure this landlord is tied to the ticket's property
+    const [[auth]] = await db.query(
+      `
+  SELECT 1
+    FROM tblLandlordProperties lp
+    JOIN tblTickets t  ON t.PropertyID = lp.PropertyID
+    JOIN tblQuotes  q  ON q.TicketID = t.TicketID
+   WHERE q.QuoteID = ?
+     AND lp.LandlordUserID = ?
+     AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+   LIMIT 1
+  `,
+      [quoteId, landlordId]
+    );
+
+    if (!auth) {
+      return res.status(403).json({
+        message:
+          "You are not authorized to reject quotes for this ticket. (No active landlord link to this property.)",
+      });
+    }
+
+
     const landlordId = req.user.userId;
 
     await db.query("UPDATE tblQuotes SET QuoteStatus = 'Rejected' WHERE QuoteID = ?", [quoteId]);
-    await db.query(
-      "INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus) VALUES (?, ?, 'Rejected')",
-      [quoteId, landlordId]
-    );
+
+    try {
+      await db.query(
+        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus)
+     VALUES (?, ?, 'Rejected')
+     ON DUPLICATE KEY UPDATE ApprovalStatus='Rejected'`,
+        [quoteId, landlordId]
+      );
+    } catch (apprErr) {
+      console.error('[quotes/reject] landlord approvals write skipped:', apprErr?.sqlMessage || apprErr?.message || apprErr);
+    }
 
     try {
       const [[ctx]] = await db.query(
@@ -367,7 +439,7 @@ router.post("/:quoteId/reject", requireAuth, permitRoles("Landlord"), async (req
         const ticketId = ctx.TicketID;
 
         await db.query(
-          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Quote Rejected', ?)",
+          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Rejected', ?)",
           [ticketId, landlordId]
         );
 
@@ -441,12 +513,33 @@ router.get("/ticket/:ticketId", requireAuth, permitRoles("Staff"), async (req, r
 router.get("/ticket/:ticketId/landlord", requireAuth, permitRoles("Landlord"), async (req, res) => {
   try {
     const { ticketId } = req.params;
+    const landlordId = req.user.userId;
 
     const [ticketRows] = await db.query(
+      
       "SELECT TicketID FROM tblTickets WHERE TicketID = ? LIMIT 1",
       [ticketId]
     );
     if (!ticketRows.length) return res.status(404).json({ message: "Ticket not found" });
+
+    
+    const [[viewAuth]] = await db.query(
+      `
+  SELECT 1
+    FROM tblLandlordProperties lp
+    JOIN tblTickets t ON t.PropertyID = lp.PropertyID
+   WHERE t.TicketID = ?
+     AND lp.LandlordUserID = ?
+     AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+   LIMIT 1
+  `,
+      [ticketId, landlordId]
+    );
+
+    if (!viewAuth) {
+      return res.status(403).json({ message: "Forbidden: not a landlord on this property." });
+    }
+
 
     const [quotes] = await db.query(
       `SELECT q.QuoteID, q.QuoteAmount, q.QuoteDescription, q.QuoteStatus, q.SubmittedAt,

@@ -4,14 +4,18 @@ import multer from 'multer';
 import path from 'path';
 import pool from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
+import fs from 'fs';
 
 const router = express.Router();
+
+const proofsDir = path.join('uploads', 'property-proofs');
+fs.mkdirSync(proofsDir, { recursive: true });
 
 // -------------------------------------------------------------------------------------
 // Multer for property proofs (PDF + images)
 // -------------------------------------------------------------------------------------
 const propertyProofStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, path.join('uploads', 'property-proofs')),
+  destination: (_req, _file, cb) => cb(null, proofsDir),
   filename: (_req, file, cb) => {
     const timestamp = Date.now();
     const ext = path.extname(file.originalname);
@@ -286,7 +290,7 @@ router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord
         a.TicketID,
         a.ProposedDate AS Date,
         a.Notes,
-        a.ClientConfirmed AS Status
+        a.ClientConfirmed AS ClientConfirmed
       FROM tblContractorSchedules a
       WHERE a.TicketID = ?
       ORDER BY a.ProposedDate ASC;
@@ -322,7 +326,7 @@ router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), a
           h.Status                                               AS Status,
           COALESCE(h.ChangedAt, h.UpdatedAt, h.CreatedAt, NOW()) AS ChangedAt,
           COALESCE(h.ChangedBy, h.UpdatedByUserID)               AS ChangedBy
-        FROM tblticketstatushistory h
+        FROM tblTicketStatusHistory h
         WHERE h.TicketID = ?
         ORDER BY ChangedAt ASC;
         `,

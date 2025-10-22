@@ -1,109 +1,94 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "./context/AuthContext.jsx";
-import { Link, useNavigate } from "react-router-dom";
-import "./styles/logticket.css";
+import React, { useState } from 'react';
+import { useAuth } from './context/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
+import RoleNavbar from './components/RoleNavbar.jsx';
+import './styles/logticket.css';
 
+/**
+ * Ticket
+ *
+ * Allows a client (tenant) to log a new maintenance ticket.  Only the
+ * description and urgency are sent to the backend; a title is collected
+ * for user context but not persisted by the API.  An optional image or
+ * video can be attached.  After submission, the form resets and a
+ * confirmation message is shown briefly before redirecting back to the
+ * dashboard.  The component uses RoleNavbar for a consistent header.
+ */
 function Ticket() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState(""); // UI-only, backend ignores for now
-  const [description, setDescription] = useState("");
-  const [urgency, setUrgency] = useState("Low");
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [urgency, setUrgency] = useState('Low');
   const [file, setFile] = useState(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    // Keep page scroll normal
-    document.body.style.overflow = "auto";
-    return () => {
-      document.body.style.overflow = "auto";
-    };
-  }, []);
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
-
+    setMessage('');
     if (!user?.userId) {
-      setMessage("User not logged in.");
+      setMessage('User not logged in.');
       return;
     }
 
     try {
       setSubmitting(true);
 
-      // Create ticket – backend expects { description, urgencyLevel }
-      const resTicket = await fetch("/api/tickets", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+      // Send ticket to backend (description & urgency only)
+      const resTicket = await fetch('/api/tickets', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description, urgencyLevel: urgency }),
       });
       const dataTicket = await resTicket.json();
-      if (!resTicket.ok) throw new Error(dataTicket?.message || "Error submitting ticket");
+      if (!resTicket.ok) throw new Error(dataTicket?.message || 'Error submitting ticket');
 
-      // Upload single file (optional) – field name must be "file"
+      // If a file is attached, upload it separately
       if (file) {
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append('file', file);
         const resFile = await fetch(`/api/tickets/${dataTicket.ticketId}/media`, {
-          method: "POST",
+          method: 'POST',
           body: formData,
-          credentials: "include",
+          credentials: 'include',
         });
         const dataFile = await resFile.json();
-        if (!resFile.ok) throw new Error(dataFile?.message || "Error uploading file");
+        if (!resFile.ok) throw new Error(dataFile?.message || 'Error uploading file');
       }
 
-      // Success UI
-      setMessage("Ticket submitted successfully! Redirecting...");
-      setTitle("");
-      setDescription("");
-      setUrgency("Low");
+      // Success: reset form and show confirmation
+      setMessage('Ticket submitted successfully! Redirecting...');
+      setTitle('');
+      setDescription('');
+      setUrgency('Low');
       setFile(null);
-      setDone(true);
+      setSubmitted(true);
+      setSubmitting(false);
 
-      // Redirect after a short delay
-      setTimeout(() => navigate("/"), 5000);
+      // Redirect to dashboard after a short delay
+      setTimeout(() => navigate('/client'), 5000);
     } catch (err) {
-      setMessage(err.message || "Something went wrong");
+      setMessage(err.message || 'Something went wrong');
       setSubmitting(false);
     }
   };
 
-  // Tenant navbar (keep consistent within tenant pages)
-  const Navbar = () => (
-    <nav className="navbar">
-      <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
-      <div className="navbar-right">
-        <ul className="navbar-menu">
-          <li><Link to="/">Dashboard</Link></li>
-          <li><Link to="/ticket">Tickets</Link></li>
-          <li><Link to="/notifications">Notifications</Link></li>
-          <li><Link to="/settings">Settings</Link></li>
-        </ul>
-      </div>
-      <div className="navbar-profile">
-        <img src="https://placehold.co/40" alt="profile" />
-      </div>
-    </nav>
-  );
-
-  if (done) {
+  // Confirmation state
+  if (submitted) {
     return (
       <div className="logticket">
-        <Navbar />
+        <RoleNavbar />
         <div className="container-confirmation">
           <div className="header">
             <div className="text"><h2>Ticket Submitted</h2></div>
             <hr className="underline" />
           </div>
           <p className="text">
-            Your ticket has been logged successfully. We’ll keep you updated on its status.
-            You’ll be redirected to your dashboard shortly.
+            Your ticket has been logged successfully. We'll keep you updated on its status.
           </p>
         </div>
       </div>
@@ -112,8 +97,7 @@ function Ticket() {
 
   return (
     <div className="logticket">
-      <Navbar />
-
+      <RoleNavbar />
       <div className="container">
         <div className="header">
           <div className="text"><h2>Log a New Ticket</h2></div>
@@ -149,7 +133,7 @@ function Ticket() {
           <div className="urgency-container">
             <label>Urgency Selection</label>
             <div className="urgency-options">
-              {["Low", "Medium", "High"].map((level) => (
+              {['Low', 'Medium', 'High'].map((level) => (
                 <label key={level}>
                   <input
                     type="radio"
@@ -168,12 +152,12 @@ function Ticket() {
             <label className="input-head attach-label">Attach Image/Video (optional)</label>
             <div className="submit-container">
               <label className="submit">
-                {file ? file.name : "+ Add Photo/Video"}
+                {file ? file.name : '+ Add Photo/Video'}
                 <input
                   type="file"
                   accept="image/*,video/*"
                   onChange={(e) => setFile(e.target.files[0])}
-                  style={{ display: "none" }}
+                  style={{ display: 'none' }}
                   disabled={submitting}
                 />
               </label>
@@ -182,7 +166,7 @@ function Ticket() {
 
           <div className="final-submit">
             <button type="submit" disabled={submitting}>
-              {submitting ? "Submitting..." : "Submit Ticket"}
+              {submitting ? 'Submitting...' : 'Submit Ticket'}
             </button>
           </div>
         </form>

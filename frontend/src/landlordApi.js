@@ -19,12 +19,12 @@ export async function getQuotesForTicketLandlord(ticketId) {
 }
 
 export async function approveQuote(quoteId) {
-  const res = await fetch(`${API_BASE}/quotes/${quoteId}/approve`, { method: 'POST', credentials: 'include' });
+  const res = await fetch(`/api/quotes/${quoteId}/approve`, { method: 'POST', credentials: 'include' });
   return res.json();
 }
 
 export async function rejectQuote(quoteId) {
-  const res = await fetch(`${API_BASE}/quotes/${quoteId}/reject`, { method: 'POST', credentials: 'include' });
+  const res = await fetch(`/api/quotes/${quoteId}/reject`, { method: 'POST', credentials: 'include' });
   return res.json();
 }
 
@@ -48,9 +48,8 @@ export async function getTicketsFiltered(params = {}) {
 }
 
 /**
- * Approve a newly logged ticket.  This moves the ticket from the
- * landlord's awaiting approvals list to staff review by updating its
- * CurrentStatus to 'New'.
+  * Approve a newly logged ticket. Moves the ticket to staff review by updating its
+ * CurrentStatus to 'Awaiting Staff Assignment'.
  * @param {number} ticketId
  */
 export async function approveTicket(ticketId) {

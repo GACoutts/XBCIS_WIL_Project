@@ -63,7 +63,7 @@ export async function postJobUpdate(ticketId, { notes, photos }) {
     }
 
     const formData = new FormData();
-    
+
     // Add notes if provided
     if (notes) {
       formData.append('notes', notes);
@@ -79,12 +79,12 @@ export async function postJobUpdate(ticketId, { notes, photos }) {
           if (!photo.type.startsWith('image/')) {
             throw new Error(`File ${photo.name} is not an image`);
           }
-          
+
           // Validate file size (10MB limit)
           if (photo.size > 10 * 1024 * 1024) {
             throw new Error(`File ${photo.name} exceeds 10MB limit`);
           }
-          
+
           formData.append('photos', photo);
         }
       });
@@ -125,7 +125,7 @@ export async function postJobSchedule(ticketId, { proposedStart, proposedEnd, no
     // Validate that start time is in the future
     const startTime = new Date(proposedStart);
     const now = new Date();
-    
+
     if (startTime <= now) {
       throw new Error('Proposed start time must be in the future');
     }
@@ -139,7 +139,7 @@ export async function postJobSchedule(ticketId, { proposedStart, proposedEnd, no
     }
 
     const requestBody = {
-      proposedStart: startTime.toISOString(),
+      scheduledAt: startTime.toISOString(),
       ...(proposedEnd && { proposedEnd: new Date(proposedEnd).toISOString() }),
       ...(notes && { notes })
     };
@@ -169,7 +169,7 @@ export async function getJobDetails(ticketId) {
       throw new Error('Ticket ID is required');
     }
 
-    const response = await fetch(`${API_BASE}/jobs/${ticketId}`, {
+    const response = await fetch(`/api/tickets/${ticketId}`, {
       method: 'GET',
       credentials: 'include',
       headers: createHeaders()

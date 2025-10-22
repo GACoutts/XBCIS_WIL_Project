@@ -29,5 +29,18 @@ ALTER TABLE tblTickets
   ADD COLUMN AssignedContractorID INT NULL AFTER CurrentStatus,
   ADD INDEX idx_tickets_assigned_contractor (AssignedContractorID);
 
+ALTER TABLE tblTickets
+  MODIFY CurrentStatus ENUM(
+    'New',
+    'In Review',
+    'Quoting',
+    'Awaiting Landlord Approval',
+    'Approved',
+    'Scheduled',
+    'Completed',
+    'Rejected',
+    'Cancelled'
+  ) NOT NULL DEFAULT 'In Review';
+
 -- Verify table structure
 DESCRIBE tblTickets;
