@@ -18,6 +18,16 @@ function UserDashboard() {
   const [contractorResponses, setContractorResponses] = useState([]);
   const [landlordApprovals, setLandlordApprovals] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState("open"); // "open" or "closed"
+
+  // Appointment & contractor state
+  const [approvedContractor, setApprovedContractor] = useState(null);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [booking, setBooking] = useState(false);
+
+
 
   // Filters
   const [filterStatus, setFilterStatus] = useState("");
@@ -64,6 +74,11 @@ const openTicketModal = async (ticket) => {
   setContractorResponses([]);
   setLandlordApprovals([]);
 
+  // reset appointment state
+  setApprovedContractor(null);
+  setScheduleDate('');
+  setShowScheduleForm(false);
+
   try {
     const historyRes = await fetch(`/api/tickets/${ticket.TicketID}/history`, { credentials: "include" });
     const historyData = await historyRes.json();
@@ -72,6 +87,20 @@ const openTicketModal = async (ticket) => {
     const mediaRes = await fetch(`/api/tickets/${ticket.TicketID}`, { credentials: "include" });
     const mediaData = await mediaRes.json();
     if (mediaRes.ok) setTicketMedia(mediaData.media || []);
+
+    // Fetch approved contractor for appointment booking
+    try {
+      const contractorRes = await fetch(`/api/tickets/${ticket.TicketID}/approved-contractor`, { credentials: 'include' });
+      const contractorData = await contractorRes.json();
+      if (contractorRes.ok && contractorData.contractor) {
+        setApprovedContractor(contractorData.contractor);
+      } else {
+        setApprovedContractor(null);
+      }
+    } catch (err) {
+      console.error('Error fetching approved contractor:', err);
+      setApprovedContractor(null);
+    }
   } catch (err) {
     console.error("Error fetching ticket details:", err);
   } finally {
@@ -86,6 +115,11 @@ const closeModal = () => {
   setTicketMedia([]);
   setContractorResponses([]);
   setLandlordApprovals([]);
+
+  // Reset appointment state on modal close
+  setApprovedContractor(null);
+  setScheduleDate('');
+  setShowScheduleForm(false);
 };
 
 // Close ticket
@@ -149,11 +183,21 @@ const closeTicket = async () => {
       : true;
     return matchesStatus && matchesDate && matchesSearch;
   });
+  const handleTabChange = (tab) => {
+  setActiveTab(tab);
+  setCurrentPage(1); // reset page whenever tab changes
+};
+
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTickets = filteredTickets.slice(startIndex, startIndex + itemsPerPage);
   const sortedTickets = [...paginatedTickets].sort((a, b) => priorityOrder[a.UrgencyLevel] - priorityOrder[b.UrgencyLevel]);
+const displayedTickets = sortedTickets.filter(ticket => 
+  activeTab === "open"
+    ? statusLabel(ticket.CurrentStatus) !== "Closed"
+    : statusLabel(ticket.CurrentStatus) === "Closed"
+);
 
   return (
     <>
@@ -186,70 +230,146 @@ const closeTicket = async () => {
           <div className="clientdashboard-title"><h1>Dashboard</h1></div>
           <div className="sub-title"><h2>My Tickets</h2></div>
 
-          {/* Filters + Search */}
-          <div className="ticket-filters">
-            <input type="text" placeholder="Search tickets..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
-            <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}>
-              <option value="">All Statuses</option>
-              <option value="New">New</option>
-              <option value="In Review">In Review</option>
-              <option value="Quoting">Quoting</option>
-              <option value="Awaiting Approval">Awaiting Approval</option>
-              <option value="Awaiting Appointment">Awaiting Appointment</option>
-              <option value="Approved">Approved</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Closed">Closed</option>
-            </select>
-            <input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }} />
-          </div>
+          <div className="ticket-tabs">
+  <button
+    className={`tab-btn ${activeTab === "open" ? "active" : ""}`}
+    onClick={() => handleTabChange("open")}
+  >
+    Open Tickets
+  </button>
+  <button
+    className={`tab-btn ${activeTab === "closed" ? "active" : ""}`}
+    onClick={() => handleTabChange("closed")}
+  >
+    Closed Tickets
+  </button>
+</div>
 
-          <div className="dash-submit-container">
-            <Link to="/ticket" className="dash-submit">Log a New Ticket</Link>
-          </div>
 
-          {/* Ticket List */}
-          {loading ? (
-            <p className="empty-tickets">Loading tickets...</p>
-          ) : sortedTickets.length === 0 ? (
-            <div className="empty-tickets">No tickets logged yet.</div>
-          ) : (
-            <div className="tickets-container">
-              <div className="tickets-grid">
-                {sortedTickets.map(ticket => {
-                  const ticketDate = new Date(ticket.CreatedAt);
-                  const isOld = ticketDate <= new Date(Date.now() - 30*24*60*60*1000);
 
-                  return (
-                    <div key={ticket.TicketID} className="ticket-card">
-                      <div className="ticket-info">
-                        <h3>{ticket.Description}</h3>
-                        <p>Ticket Ref: {ticket.TicketRefNumber}</p>
-                        <p>Logged: {ticketDate.toLocaleDateString()}</p>
-                        <p>
-                          Priority: <span className={`priority-badge priority-${ticket.UrgencyLevel.toLowerCase()}`}>
-                            {ticket.UrgencyLevel}{isOld ? " • Old" : ""}
-                          </span>
-                        </p>
-                        <p>Status: <span className={`status-badge status-${statusLabel(ticket.CurrentStatus).toLowerCase()}`}>{statusLabel(ticket.CurrentStatus)}</span></p>
-                        <div className="ticket-actions">
-                          <button className="view-details" onClick={() => openTicketModal(ticket)}>View Details</button>
-                          <img src={gearIcon} alt="settings" className="settings-icon" />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+         {/* Filters + Search */}
+<div className="ticket-filters">
+  {/* Search Input */}
+  <input
+    type="text"
+    placeholder="Search tickets..."
+    value={searchTerm}
+    onChange={e => {
+      setSearchTerm(e.target.value);
+      setCurrentPage(1); // reset pagination
+    }}
+  />
+
+  {/* Status Filter */}
+  <select
+    value={filterStatus}
+    onChange={e => {
+      setFilterStatus(e.target.value);
+      setCurrentPage(1); // reset pagination
+    }}
+  >
+    <option value="">All Statuses</option>
+    {activeTab === "open" ? (
+      <>
+        <option value="New">New</option>
+        <option value="In Review">In Review</option>
+        <option value="Quoting">Quoting</option>
+        <option value="Awaiting Approval">Awaiting Approval</option>
+        <option value="Awaiting Appointment">Awaiting Appointment</option>
+        <option value="Approved">Approved</option>
+        <option value="Scheduled">Scheduled</option>
+      </>
+    ) : (
+      <option value="Closed">Closed</option>
+    )}
+  </select>
+
+  {/* Date Filter */}
+  <input
+    type="date"
+    value={filterDate}
+    onChange={e => {
+      setFilterDate(e.target.value);
+      setCurrentPage(1); // reset pagination
+    }}
+  />
+</div>
+
+{/* Log New Ticket Button */}
+<div className="dash-submit-container">
+  <Link to="/ticket" className="dash-submit">Log a New Ticket</Link>
+</div>
+
+
+
+      {/* Ticket List */}
+{loading ? (
+  <p className="empty-tickets">Loading tickets...</p>
+) : displayedTickets.length === 0 ? (
+  <div className="empty-tickets">
+    {activeTab === "open" ? "No open tickets." : "No closed tickets."}
+  </div>
+) : (
+  <div className="tickets-container">
+    <div className="tickets-grid">
+      {displayedTickets.map(ticket => {
+        const ticketDate = new Date(ticket.CreatedAt);
+        const isOld = ticketDate <= new Date(Date.now() - 30*24*60*60*1000);
+
+        return (
+          <div key={ticket.TicketID} className="ticket-card">
+            <div className="ticket-info">
+              <h3>{ticket.Description}</h3>
+              <p>Ticket Ref: {ticket.TicketRefNumber}</p>
+              <p>Logged: {ticketDate.toLocaleDateString()}</p>
+              <p>
+                Priority: <span className={`priority-badge priority-${ticket.UrgencyLevel.toLowerCase()}`}>
+                  {ticket.UrgencyLevel}{isOld ? " • Old" : ""}
+                </span>
+              </p>
+              <p>
+                Status: <span className={`status-badge status-${statusLabel(ticket.CurrentStatus).toLowerCase()}`}>
+                  {statusLabel(ticket.CurrentStatus)}
+                </span>
+              </p>
+
+              <div className="ticket-actions">
+                <button className="view-details" onClick={() => openTicketModal(ticket)}>
+                  View Details
+                </button>
+
+                {statusLabel(ticket.CurrentStatus) !== "Closed" && (
+                  <button
+                    className="close-ticket-btn"
+                    onClick={() => {
+                      setSelectedTicket(ticket);
+                      setShowConfirm(true);
+                    }}
+                  >
+                    Close Ticket
+                  </button>
+                )}
+
+                <img src={gearIcon} alt="settings" className="settings-icon" />
               </div>
-
-              {totalPages > 1 && (
-                <div className="pagination-controls">
-                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Prev</button>
-                  <span>Page {currentPage} of {totalPages}</span>
-                  <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</button>
-                </div>
-              )}
             </div>
-          )}
+          </div>
+        );
+      })}
+    </div>
+
+    {totalPages > 1 && (
+      <div className="pagination-controls">
+        <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Prev</button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</button>
+      </div>
+    )}
+  </div>
+)}
+
+
+        
         </div>
       </div>
       
@@ -266,64 +386,221 @@ const closeTicket = async () => {
             <p><strong>Status:</strong> <span className={`status-badge status-${statusLabel(selectedTicket.CurrentStatus).toLowerCase()}`}>{statusLabel(selectedTicket.CurrentStatus)}</span></p>
             </div>
 
-            {/* Media Preview */}
-            <div className="modal-section">
-              <h3>Media</h3>
-              {ticketMedia.length === 0 ? (
-                <div className="media-placeholder">No media uploaded</div>
-              ) : (
-                <div className="media-gallery">
-                  {ticketMedia.map((m, idx) => (
-                    <div key={idx} className="media-item">
-                      {m.MediaURL && (m.MediaType?.startsWith("image") || m.MediaURL.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
-                        <img src={m.MediaURL} alt={`Media ${idx}`} className="media-thumb" onError={(e) => e.currentTarget.src = "https://placehold.co/150x100?text=No+Image"} onClick={() => window.open(m.MediaURL, "_blank")} />
-                      ) : m.MediaURL && m.MediaType?.startsWith("video") ? (
-                        <video controls className="media-thumb">
-                          <source src={m.MediaURL} type={m.MediaType} />
-                        </video>
-                      ) : (
-                        <div className="media-placeholder">No preview available</div>
-                      )}
-                    </div>
-                  ))}
+          {/* --- Ticket Details Modal --- */}
+{selectedTicket && (
+  <div className="modal-overlay">
+    <div className="modal-content">
+      <button className="modal-close" onClick={closeModal}>×</button>
+      <h2 className="modal-title">Ticket Details</h2>
+
+      {/* --- Media Preview --- */}
+      <div className="modal-section">
+        <h3>Media</h3>
+        {ticketMedia.length === 0 ? (
+          <p className="empty-text">No media uploaded</p>
+        ) : (
+          <div className="media-gallery-grid">
+            {ticketMedia.map((m, idx) => (
+              <div key={idx} className="media-card">
+                {m.MediaURL && (m.MediaType?.startsWith("image") || m.MediaURL.match(/\.(jpg|jpeg|png|gif)$/i)) ? (
+                  <img
+                    src={m.MediaURL}
+                    alt={`Media ${idx}`}
+                    onError={(e) => e.currentTarget.src = "https://placehold.co/150x100?text=No+Image"}
+                    onClick={() => window.open(m.MediaURL, "_blank")}
+                  />
+                ) : m.MediaURL && m.MediaType?.startsWith("video") ? (
+                  <video controls className="media-thumb">
+                    <source src={m.MediaURL} type={m.MediaType} />
+                  </video>
+                ) : (
+                  <div className="media-placeholder">No preview available</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* --- Timeline --- */}
+      <div className="modal-section">
+        <h3>Timeline</h3>
+        {modalLoading ? (
+          <p>Loading history...</p>
+        ) : (
+          <ul className="timeline-list">
+            {[...ticketHistory.map(h => ({
+              type: "status",
+              label: h.Status,
+              date: h.UpdatedAt,
+              user: h.UpdatedByUserID || "System"
+            })), 
+            ...contractorResponses.map(r => ({
+              type: "update",
+              label: "Contractor Update",
+              date: r.date,
+              user: r.contractorName || "Contractor",
+              message: r.message
+            }))]
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .map((entry, idx) => (
+              <li key={idx} className="timeline-entry">
+                <div className={`timeline-icon ${entry.type}`} />
+                <div className="timeline-content">
+                  <strong>{entry.label}</strong>
+                  <p className="timeline-meta">
+                    {new Date(entry.date).toLocaleString()} — {entry.user}
+                  </p>
+                  {entry.message && <p>{entry.message}</p>}
                 </div>
-              )}
-            </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-            {/* Combined Timeline */}
-            <div className="modal-section">
-              <h3>Timeline</h3>
-              {modalLoading ? <p>Loading history...</p> : (
-                <ul className="timeline-list">
-                  {[...ticketHistory.map(h => ({ type: "status", label: h.Status, date: h.UpdatedAt, user: h.UpdatedByUserID || "System" })), ...contractorResponses.map(r => ({ type: "update", label: "Contractor Update", date: r.date, user: r.contractorName || "Contractor", message: r.message }))].sort((a, b) => new Date(a.date) - new Date(b.date)).map((entry, idx) => (
-                    <li key={idx} className="timeline-entry">
-                      <div className={`timeline-icon ${entry.type}`} />
-                      <div className="timeline-content">
-                        <strong>{entry.label}</strong>
-                        <p className="timeline-meta">{new Date(entry.date).toLocaleString()} — {entry.user}</p>
-                        {entry.message && <p>{entry.message}</p>}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+      {/* --- Landlord Approvals --- */}
+      <div className="modal-section">
+        <h3>Landlord Approvals</h3>
+        {landlordApprovals.length === 0 ? (
+          <p className="empty-text">No approvals yet.</p>
+        ) : (
+          <ul className="updates-list">
+            {landlordApprovals.map((a, i) => (
+              <li key={i}>
+                <strong>{a.status}</strong>
+                <span className="update-date">
+                  {new Date(a.date).toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
-            {/* Landlord Approvals */}
-            <div className="modal-section">
-              <h3>Landlord Approvals</h3>
-              {landlordApprovals.length === 0 ? <p>No approvals yet.</p> : (
-                <ul>{landlordApprovals.map((a, i) => <li key={i}>{a.status} - {new Date(a.date).toLocaleString()}</li>)}</ul>
-              )}
-            </div>
+      {/* --- Footer --- */}
+      <div className="modal-footer">
+        {statusLabel(selectedTicket.CurrentStatus) !== "Closed" && (
+          <button
+            className="close-ticket-btn"
+            onClick={() => setShowConfirm(true)}
+          >
+            Close Ticket
+          </button>
+        )}
 
-            {/* Close Ticket Button */}
-            {statusLabel(selectedTicket.CurrentStatus) !== 'Closed' && (
-              <button className="close-ticket-btn" onClick={closeTicket}>Close Ticket</button>
+        {/* Appointment booking & WhatsApp contact options for approved tickets */}
+        {(selectedTicket.CurrentStatus === 'Approved' || selectedTicket.CurrentStatus === 'Awaiting Appointment') && approvedContractor && (
+          <div className="appointment-actions">
+            {showScheduleForm ? (
+              <div className="schedule-form">
+                <input
+                  type="datetime-local"
+                  className="schedule-input"
+                  value={scheduleDate}
+                  onChange={e => setScheduleDate(e.target.value)}
+                  min={new Date().toISOString().slice(0,16)}
+                />
+                <button
+                  className="schedule-submit-btn"
+                  disabled={!scheduleDate || booking}
+                  onClick={async () => {
+                    if (!scheduleDate) return;
+                    try {
+                      setBooking(true);
+                      const proposedDate = new Date(scheduleDate);
+                      // Ensure if only date selected, set noon to avoid timezone issues
+                      if (!scheduleDate.includes('T')) {
+                        proposedDate.setHours(12, 0, 0, 0);
+                      }
+                      const res = await fetch(`/api/tickets/${selectedTicket.TicketID}/appointments`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scheduledAt: proposedDate.toISOString() })
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data?.message || 'Failed to book appointment');
+                      // Update local ticket status to Scheduled
+                      setTickets(prev => prev.map(t => t.TicketID === selectedTicket.TicketID ? { ...t, CurrentStatus: 'Scheduled' } : t));
+                      setSelectedTicket(prev => prev ? { ...prev, CurrentStatus: 'Scheduled' } : null);
+                      setShowScheduleForm(false);
+                      setScheduleDate('');
+                      alert('Appointment booked successfully');
+                    } catch (err) {
+                      console.error(err);
+                      alert(err.message || 'Failed to book appointment');
+                    } finally {
+                      setBooking(false);
+                    }
+                  }}
+                >
+                  Confirm
+                </button>
+                <button
+                  className="schedule-cancel-btn"
+                  onClick={() => {
+                    setShowScheduleForm(false);
+                    setScheduleDate('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                className="book-appointment-btn"
+                onClick={() => setShowScheduleForm(true)}
+              >
+                Book Appointment
+              </button>
+            )}
+            {/* WhatsApp contact button */}
+            {approvedContractor?.phone && (
+              <button
+                className="whatsapp-btn"
+                onClick={() => {
+                  const phone = approvedContractor.phone.replace(/[^\d]/g, '');
+                  window.open(`https://wa.me/${phone}`, '_blank');
+                }}
+              >
+                Message Contractor
+              </button>
             )}
           </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* --- Confirm Close Ticket Modal --- */}
+{showConfirm && (
+  <div className="modal-overlay">
+    <div className="confirm-modal">
+      <h3>Confirm Ticket Closure</h3>
+      <p>Are you sure you want to close this ticket? This action cannot be undone.</p>
+      <div className="confirm-buttons">
+        <button className="cancel-btn" onClick={() => setShowConfirm(false)}>
+          Cancel
+        </button>
+        <button
+          className="accept-btn"
+          onClick={() => {
+            closeTicket();
+            setShowConfirm(false);
+            closeModal(); // close the modal
+          }}
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+          </div>
         </div>
-      )}
+      )}  
     </>
   );
 }

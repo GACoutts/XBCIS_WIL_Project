@@ -1,4 +1,4 @@
-// backend/routes/landlord.js  (ESM, fixed & consistent)
+// backend/routes/landlord.js  (ESM)
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -7,9 +7,9 @@ import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// -----------------------------------------------------------------------------
-// Multer configuration for property proof uploads
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
+// Multer for property proofs (PDF + images)
+// -------------------------------------------------------------------------------------
 const propertyProofStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, path.join('uploads', 'property-proofs')),
   filename: (_req, file, cb) => {
@@ -21,7 +21,7 @@ const propertyProofStorage = multer.diskStorage({
 });
 const propertyProofUpload = multer({
   storage: propertyProofStorage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // up to 20MB
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (allowed.includes(file.mimetype.toLowerCase())) return cb(null, true);
@@ -29,9 +29,9 @@ const propertyProofUpload = multer({
   }
 });
 
-// -----------------------------------------------------------------------------
-// Tickets for landlord (fixes Incorrect arguments to mysqld_stmt_execute)
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
+// Tickets list for landlord (with filters/pagination)
+// -------------------------------------------------------------------------------------
 router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const landlordId = req.user.userId;
@@ -40,7 +40,6 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100);
     const offsetNum = Math.max(parseInt(offset, 10) || 0, 0);
 
-    // Build WHERE (mapping-based auth)
     const where = [
       `EXISTS (
          SELECT 1
@@ -74,19 +73,16 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
         t.CurrentStatus,
         t.PropertyID,
 
-        -- Property information
         p.AddressLine1 AS PropertyAddressLine1,
         p.AddressLine2 AS PropertyAddressLine2,
         p.City         AS PropertyCity,
         p.Province     AS PropertyProvince,
         p.PostalCode   AS PropertyPostalCode,
 
-        -- Client information
         client.FullName AS ClientName,
         client.Email    AS ClientEmail,
         client.Phone    AS ClientPhone,
 
-        -- Preferred "latest approved" quote (approved first, else latest)
         q.QuoteID,
         q.QuoteAmount,
         q.QuoteStatus,
@@ -95,12 +91,10 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
         contractor.FullName as ContractorName,
         contractor.Email    as ContractorEmail,
 
-        -- Next scheduled appointment 
         cs.ScheduleID,
         cs.ProposedDate as AppointmentDate,
         cs.ClientConfirmed as AppointmentConfirmed,
 
-        -- Landlord approval on that quote 
         la.ApprovalStatus as LandlordApprovalStatus,
         la.ApprovedAt     as LandlordApprovedAt
 
@@ -151,7 +145,6 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
       status: r.CurrentStatus,
       createdAt: r.CreatedAt,
       propertyId: r.PropertyID,
-
       propertyAddress: [
         r.PropertyAddressLine1,
         r.PropertyAddressLine2,
@@ -160,25 +153,15 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
         r.PropertyPostalCode
       ].filter(v => v && v.toString().trim()).join(', '),
 
-      client: {
-        name: r.ClientName,
-        email: r.ClientEmail,
-        phone: r.ClientPhone
-      },
+      client: { name: r.ClientName, email: r.ClientEmail, phone: r.ClientPhone },
 
       quote: r.QuoteID ? {
         id: r.QuoteID,
         amount: Number.parseFloat(r.QuoteAmount || 0),
         status: r.QuoteStatus,
         submittedAt: r.QuoteSubmittedAt,
-        contractor: {
-          name: r.ContractorName,
-          email: r.ContractorEmail
-        },
-        landlordApproval: {
-          status: r.LandlordApprovalStatus,
-          approvedAt: r.LandlordApprovedAt
-        }
+        contractor: { name: r.ContractorName, email: r.ContractorEmail },
+        landlordApproval: { status: r.LandlordApprovalStatus, approvedAt: r.LandlordApprovedAt }
       } : null,
 
       nextAppointment: r.ScheduleID ? {
@@ -211,7 +194,9 @@ router.get('/tickets', requireAuth, permitRoles('Landlord'), async (req, res) =>
   }
 });
 
-/** helper: landlord owns ticket via mapping */
+// -------------------------------------------------------------------------------------
+// Ownership helpers
+// -------------------------------------------------------------------------------------
 async function landlordOwnsTicket(landlordId, ticketId) {
   const [rows] = await pool.execute(
     `
@@ -229,7 +214,6 @@ async function landlordOwnsTicket(landlordId, ticketId) {
   return rows.length > 0;
 }
 
-/** helper: landlord owns quote (via the quote's ticket to property mapping) */
 async function landlordOwnsQuote(landlordId, quoteId) {
   const [rows] = await pool.execute(
     `
@@ -248,10 +232,9 @@ async function landlordOwnsQuote(landlordId, quoteId) {
   return rows.length > 0;
 }
 
-/**
- * GET /api/landlord/quotes/:ticketId
- * Returns all quotes for a ticket after ownership check.
- */
+// -------------------------------------------------------------------------------------
+// Quotes list for a ticket
+// -------------------------------------------------------------------------------------
 router.get('/quotes/:ticketId', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const landlordId = req.user.userId;
@@ -284,9 +267,9 @@ router.get('/quotes/:ticketId', requireAuth, permitRoles('Landlord'), async (req
   }
 });
 
-/**
- * (Optional) appointments list
- */
+// -------------------------------------------------------------------------------------
+// Appointments list for a ticket
+// -------------------------------------------------------------------------------------
 router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const landlordId = req.user.userId;
@@ -318,10 +301,9 @@ router.get('/tickets/:ticketId/appointments', requireAuth, permitRoles('Landlord
   }
 });
 
-/**
- * GET /api/landlord/tickets/:ticketId/history
- * Returns status timeline for a ticket (ownership enforced)
- */
+// -------------------------------------------------------------------------------------
+// Ticket history
+// -------------------------------------------------------------------------------------
 router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const landlordId = req.user.userId;
@@ -331,7 +313,6 @@ router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), a
     const owns = await landlordOwnsTicket(landlordId, ticketId);
     if (!owns) return res.status(403).json({ message: 'Not allowed to access this ticket' });
 
-    // Flexible SELECT (handles schema differences) – returns [] if table missing
     let rows = [];
     try {
       const [hist] = await pool.execute(
@@ -359,153 +340,10 @@ router.get('/tickets/:ticketId/history', requireAuth, permitRoles('Landlord'), a
   }
 });
 
-/**
- * POST /api/landlord/quotes/:quoteId/approve
- */
-router.post('/quotes/:quoteId/approve', requireAuth, permitRoles('Landlord'), async (req, res) => {
-  const connection = await pool.getConnection();
-  try {
-    const landlordId = req.user.userId;
-    const quoteId = Number.parseInt(req.params.quoteId, 10);
-    if (Number.isNaN(quoteId)) return res.status(400).json({ message: 'Invalid quoteId' });
-
-    const owns = await landlordOwnsQuote(landlordId, quoteId);
-    if (!owns) return res.status(403).json({ message: 'Not allowed to approve this quote' });
-
-    await connection.beginTransaction();
-
-    const [[qrow]] = await connection.execute(
-      'SELECT TicketID FROM tblQuotes WHERE QuoteID = ? LIMIT 1',
-      [quoteId]
-    );
-    if (!qrow) {
-      await connection.rollback();
-      return res.status(404).json({ message: 'Quote not found' });
-    }
-    const ticketId = qrow.TicketID;
-
-    await connection.execute(
-      'UPDATE tblQuotes SET QuoteStatus = ? WHERE QuoteID = ?',
-      ['Approved', quoteId]
-    );
-
-    // Optional: reject all other quotes for the same ticket
-    await connection.execute(
-      `UPDATE tblQuotes
-       SET QuoteStatus = 'Rejected'
-       WHERE TicketID = ? AND QuoteID <> ?`,
-      [ticketId, quoteId]
-    );
-
-    // Advance the ticket to Approved
-    await connection.execute(
-      `UPDATE tbltickets SET CurrentStatus = 'Approved' WHERE TicketID = ?`,
-      [ticketId]
-    );
-
-    // Insert-or-update landlord approval
-    try {
-      await connection.execute(
-        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
-         VALUES (?, ?, 'Approved', NOW())`,
-        [quoteId, landlordId]
-      );
-    } catch {
-      await connection.execute(
-        `UPDATE tblLandlordApprovals
-         SET ApprovalStatus = 'Approved', ApprovedAt = NOW()
-         WHERE QuoteID = ? AND LandlordUserID = ?`,
-        [quoteId, landlordId]
-      );
-    }
-
-    // Best-effort: append ticket history
-    try {
-      await connection.execute(
-        `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
-         VALUES (?, 'Approved', ?, NOW())`,
-        [ticketId, landlordId]
-      );
-    } catch { /* ignore */ }
-
-    await connection.commit();
-    return res.json({ success: true, message: 'Quote approved successfully' });
-  } catch (err) {
-    try { await connection.rollback(); } catch { }
-    console.error('Landlord approve quote error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  } finally {
-    connection.release();
-  }
-});
-
-/**
- * POST /api/landlord/quotes/:quoteId/reject
- */
-router.post('/quotes/:quoteId/reject', requireAuth, permitRoles('Landlord'), async (req, res) => {
-  const connection = await pool.getConnection();
-  try {
-    const landlordId = req.user.userId;
-    const quoteId = Number.parseInt(req.params.quoteId, 10);
-    if (Number.isNaN(quoteId)) return res.status(400).json({ message: 'Invalid quoteId' });
-
-    const owns = await landlordOwnsQuote(landlordId, quoteId);
-    if (!owns) return res.status(403).json({ message: 'Not allowed to reject this quote' });
-
-    await connection.beginTransaction();
-
-    const [[qrow]] = await connection.execute(
-      'SELECT TicketID FROM tblQuotes WHERE QuoteID = ? LIMIT 1',
-      [quoteId]
-    );
-    if (!qrow) {
-      await connection.rollback();
-      return res.status(404).json({ message: 'Quote not found' });
-    }
-    const ticketId = qrow.TicketID;
-
-    await connection.execute(
-      'UPDATE tblQuotes SET QuoteStatus = ? WHERE QuoteID = ?',
-      ['Rejected', quoteId]
-    );
-
-    try {
-      await connection.execute(
-        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
-         VALUES (?, ?, 'Rejected', NOW())`,
-        [quoteId, landlordId]
-      );
-    } catch {
-      await connection.execute(
-        `UPDATE tblLandlordApprovals
-           SET ApprovalStatus = 'Rejected', ApprovedAt = NOW()
-         WHERE QuoteID = ? AND LandlordUserID = ?`,
-        [quoteId, landlordId]
-      );
-    }
-
-    try {
-      await connection.execute(
-        `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
-         VALUES (?, 'In Review', ?, NOW())`,
-        [ticketId, landlordId]
-      );
-    } catch { /* ignore */ }
-
-    await connection.commit();
-    return res.json({ success: true, message: 'Quote rejected successfully' });
-  } catch (err) {
-    try { await connection.rollback(); } catch { }
-    console.error('Landlord reject quote error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
-  } finally {
-    connection.release();
-  }
-});
-
-/**
- * POST /api/landlord/tickets/:ticketId/approve
- */
+// -------------------------------------------------------------------------------------
+// TICKET APPROVE -> Awaiting Staff Assignment (staff can see it now)
+// (UPSERT into tblLandlordTicketApprovals)
+// -------------------------------------------------------------------------------------
 router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -519,21 +357,24 @@ router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), 
     await connection.beginTransaction();
 
     await connection.execute(
-      `UPDATE tblLandlordTicketApprovals
-         SET ApprovalStatus = 'Approved', ApprovedAt = NOW(), Reason = NULL
-       WHERE TicketID = ? AND LandlordUserID = ?`,
+      `INSERT INTO tblLandlordTicketApprovals (TicketID, LandlordUserID, ApprovalStatus, ApprovedAt)
+       VALUES (?, ?, 'Approved', NOW())
+       ON DUPLICATE KEY UPDATE
+         ApprovalStatus = VALUES(ApprovalStatus),
+         ApprovedAt = VALUES(ApprovedAt),
+         Reason = NULL`,
       [ticketId, landlordId]
     );
 
     await connection.execute(
-      `UPDATE tblTickets SET CurrentStatus = 'New' WHERE TicketID = ?`,
+      `UPDATE tblTickets SET CurrentStatus = 'Awaiting Staff Assignment' WHERE TicketID = ?`,
       [ticketId]
     );
 
     try {
       await connection.execute(
         `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
-         VALUES (?, 'New', ?, NOW())`,
+         VALUES (?, 'Awaiting Staff Assignment', ?, NOW())`,
         [ticketId, landlordId]
       );
     } catch (_err) { /* ignore */ }
@@ -549,9 +390,9 @@ router.post('/tickets/:ticketId/approve', requireAuth, permitRoles('Landlord'), 
   }
 });
 
-/**
- * POST /api/landlord/tickets/:ticketId/reject
- */
+// -------------------------------------------------------------------------------------
+// TICKET REJECT -> Rejected (mirror approve with UPSERT)
+// -------------------------------------------------------------------------------------
 router.post('/tickets/:ticketId/reject', requireAuth, permitRoles('Landlord'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -565,11 +406,15 @@ router.post('/tickets/:ticketId/reject', requireAuth, permitRoles('Landlord'), a
 
     await connection.beginTransaction();
 
+    // 🔁 UPSERT (mirrors approve)
     await connection.execute(
-      `UPDATE tblLandlordTicketApprovals
-         SET ApprovalStatus = 'Rejected', ApprovedAt = NOW(), Reason = ?
-       WHERE TicketID = ? AND LandlordUserID = ?`,
-      [reason, ticketId, landlordId]
+      `INSERT INTO tblLandlordTicketApprovals (TicketID, LandlordUserID, ApprovalStatus, ApprovedAt, Reason)
+       VALUES (?, ?, 'Rejected', NOW(), ?)
+       ON DUPLICATE KEY UPDATE
+         ApprovalStatus = VALUES(ApprovalStatus),
+         ApprovedAt = VALUES(ApprovedAt),
+         Reason = VALUES(Reason)`,
+      [ticketId, landlordId, reason]
     );
 
     await connection.execute(
@@ -581,7 +426,7 @@ router.post('/tickets/:ticketId/reject', requireAuth, permitRoles('Landlord'), a
       await connection.execute(
         `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, ChangedAt)
          VALUES (?, 'Rejected', ?, NOW())`,
-        [ticketId, landlordId]
+      [ticketId, landlordId]
       );
     } catch { /* ignore */ }
 
@@ -596,9 +441,9 @@ router.post('/tickets/:ticketId/reject', requireAuth, permitRoles('Landlord'), a
   }
 });
 
-// -----------------------------------------------------------------------------
-// Properties (unchanged logic, but compatible with PlaceId/geo if present)
-// -----------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------
+// Properties (list + create)
+// -------------------------------------------------------------------------------------
 router.get('/properties', requireAuth, permitRoles('Landlord'), async (req, res) => {
   try {
     const landlordId = req.user.userId;
@@ -641,13 +486,11 @@ router.post('/properties', requireAuth, permitRoles('Landlord'), propertyProofUp
 
     await connection.beginTransaction();
 
-    // Optional geo
     const placeId = (req.body?.placeId || req.body?.PlaceId || null);
     const safePlaceId = placeId ? String(placeId).replace(/^places\//, '').slice(0, 64) : null;
     const latitude = req.body?.latitude != null && `${req.body.latitude}`.trim() !== '' ? Number(req.body.latitude) : null;
     const longitude = req.body?.longitude != null && `${req.body.longitude}`.trim() !== '' ? Number(req.body.longitude) : null;
 
-    // REUSE if PlaceId exists
     let propertyId = null;
     if (safePlaceId) {
       const [exists] = await connection.execute(

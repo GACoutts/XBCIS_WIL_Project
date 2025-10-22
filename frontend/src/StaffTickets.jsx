@@ -90,17 +90,16 @@ export default function StaffTickets() {
   const handleConfirmSchedule = async () => {
     if (!chosenContractorId) return alert('Select contractor');
     try {
-      const res = await fetch('/api/admin/contractor-assign', {
+      const res = await fetch(`/api/staff/tickets/${selectedTicketId}/assign`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ TicketID: selectedTicketId, ContractorUserID: chosenContractorId })
+        body: JSON.stringify({ contractorUserId: chosenContractorId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to assign contractor');
       // Update local ticket status to In Review
-      setAllTickets((prev) => prev.map((t) => (t.TicketID === selectedTicketId ? { ...t, CurrentStatus: 'In Review' } : t)));
-      setShowContractorModal(false);
+      setAllTickets((prev) => prev.map((t) => (t.TicketID === selectedTicketId ? { ...t, CurrentStatus: 'Quoting' } : t))); setShowContractorModal(false);
       setChosenContractorId(null);
       setSelectedTicketId(null);
       alert('Contractor assigned successfully!');
@@ -318,7 +317,7 @@ export default function StaffTickets() {
                     <span>{ticket.Description || ticket.issue}</span>
                     <img src={gearIcon} alt="Settings" className="gear-icon" />
                   </div>
-                    <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
                   <div className="urgency-status-column">
                     <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>{ticket.UrgencyLevel || ticket.urgency}</span>
                     <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>{getDisplayStatus(ticket) || ticket.status}</span>
@@ -363,7 +362,7 @@ export default function StaffTickets() {
                     <span>{ticket.Description || ticket.issue}</span>
                     <img src={gearIcon} alt="Settings" className="gear-icon" />
                   </div>
-                    <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
                   <div className="urgency-status-column">
                     <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>{ticket.UrgencyLevel || ticket.urgency}</span>
                     <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>{getDisplayStatus(ticket) || ticket.status}</span>

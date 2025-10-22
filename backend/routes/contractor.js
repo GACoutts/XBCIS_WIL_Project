@@ -94,9 +94,7 @@ router.get('/jobs', async (req, res) => {
       LEFT JOIN tblQuotes q ON q.TicketID = t.TicketID AND q.ContractorUserID = ?
       LEFT JOIN tblLandlordApprovals la ON q.QuoteID = la.QuoteID
       LEFT JOIN tblusers client ON t.ClientUserID = client.UserID
-      LEFT JOIN tblTenancies tny ON tny.TenantUserID = t.ClientUserID AND tny.IsActive = 1
-      LEFT JOIN tblLandlordProperties lpp ON lpp.LandlordUserID = t.ClientUserID AND (lpp.ActiveTo IS NULL OR lpp.ActiveTo >= CURDATE()) AND lpp.IsPrimary = 1
-      LEFT JOIN tblProperties p ON p.PropertyID = COALESCE(tny.PropertyID, lpp.PropertyID)
+     LEFT JOIN tblProperties p ON p.PropertyID = t.PropertyID
       WHERE 1=1 ${whereClause}
       ORDER BY COALESCE(t.UpdatedAt, t.CreatedAt) DESC
       LIMIT ? OFFSET ?
@@ -281,7 +279,7 @@ router.post('/jobs/:id/update', updatesUpload.array('photos', 5), async (req, re
 
   } catch (error) {
     console.error('Error updating job progress:', error);
-    
+
     // Handle multer file upload errors
     if (error instanceof multer.MulterError) {
       return res.status(400).json({
@@ -298,6 +296,97 @@ router.post('/jobs/:id/update', updatesUpload.array('photos', 5), async (req, re
     });
   }
 });
+
+// POST /api/contractor/jobs/:id/opt-out - Contractor declines / exits a job
+router.post('/jobs/:id/opt-out', async (req, res) => {
+  try {
+    const ticketId = Number.parseInt(req.params.id, 10);
+    const contractorId = req.user.userId;
+    const reason = (req.body?.reason || '').toString().slice(0, 500) || null;
+
+    if (!Number.isFinite(ticketId)) {
+      return res.status(400).json({ success: false, message: 'Invalid ticket ID' });
+    }
+
+    // Must be assigned or have an approved quote to opt out
+    const [[auth]] = await pool.query(
+      `
+      SELECT t.TicketID
+      FROM tblTickets t
+      LEFT JOIN tblQuotes q
+        ON q.TicketID = t.TicketID
+       AND q.ContractorUserID = ?
+       AND q.QuoteStatus = 'Approved'
+      WHERE t.TicketID = ?
+        AND (t.AssignedContractorID = ? OR q.QuoteID IS NOT NULL)
+      LIMIT 1
+      `,
+      [contractorId, ticketId, contractorId]
+    );
+    if (!auth) {
+      return res.status(403).json({ success: false, message: 'Not authorized to opt out of this ticket' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Clear assignment and return to Staff
+      await connection.execute(
+        `UPDATE tblTickets
+            SET AssignedContractorID = NULL,
+                CurrentStatus = 'Awaiting Staff Assignment'
+          WHERE TicketID = ?`,
+        [ticketId]
+      );
+
+      // Add status history
+      await connection.execute(
+        `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID, Notes, ChangedAt)
+         VALUES (?, 'Contractor Opted Out', ?, ?, NOW())`,
+        [ticketId, contractorId, reason]
+      );
+
+      await connection.commit();
+    } catch (e) {
+      try { await connection.rollback(); } catch {}
+      throw e;
+    } finally {
+      connection.release();
+    }
+
+    // Notify staff (and optionally landlords)
+    try {
+      const [[ctx]] = await pool.query(
+        `SELECT TicketRefNumber FROM tblTickets WHERE TicketID = ? LIMIT 1`,
+        [ticketId]
+      );
+      const [staff] = await pool.query(`SELECT UserID FROM tblusers WHERE Role='Staff'`);
+      await Promise.allSettled(
+        staff.map(s => notifyUser({
+          userId: s.UserID,
+          ticketId,
+          template: 'contractor_opted_out',
+          params: { ticketRef: ctx?.TicketRefNumber || String(ticketId), reason: reason || '' },
+          eventKey: `contractor_opted_out:${ticketId}:${contractorId}`,
+          fallbackToEmail: true
+        }))
+      );
+    } catch (e) {
+      console.error('[contractor/opt-out] notify error:', e);
+    }
+
+    return res.json({ success: true, message: 'You have opted out. Staff will reassign this job.' });
+  } catch (error) {
+    console.error('Error opting out:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to opt out at this time',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 
 // POST /api/contractor/jobs/:id/schedule - Propose appointment time
 router.post('/jobs/:id/schedule', async (req, res) => {
