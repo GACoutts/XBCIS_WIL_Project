@@ -7,7 +7,7 @@ function Ticket() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState(""); // UI-only, backend ignores for now
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [urgency, setUrgency] = useState("Low");
   const [file, setFile] = useState(null);
@@ -16,11 +16,8 @@ function Ticket() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Keep page scroll normal
-    document.body.style.overflow = "auto";
-    return () => {
-      document.body.style.overflow = "auto";
-    };
+    document.body.style.setProperty("overflow", "important");
+    return () => document.body.style.setProperty("overflow", "auto", "important");
   }, []);
 
   const handleSubmit = async (e) => {
@@ -35,7 +32,7 @@ function Ticket() {
     try {
       setSubmitting(true);
 
-      // Create ticket – backend expects { description, urgencyLevel }
+      // Create ticket
       const resTicket = await fetch("/api/tickets", {
         method: "POST",
         credentials: "include",
@@ -45,7 +42,7 @@ function Ticket() {
       const dataTicket = await resTicket.json();
       if (!resTicket.ok) throw new Error(dataTicket?.message || "Error submitting ticket");
 
-      // Upload single file (optional) – field name must be "file"
+      // Upload file if exists
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
@@ -58,7 +55,7 @@ function Ticket() {
         if (!resFile.ok) throw new Error(dataFile?.message || "Error uploading file");
       }
 
-      // Success UI
+      // Show confirmation message and redirect after 5 seconds
       setMessage("Ticket submitted successfully! Redirecting...");
       setTitle("");
       setDescription("");
@@ -66,18 +63,17 @@ function Ticket() {
       setFile(null);
       setDone(true);
 
-      // Redirect after a short delay
-      setTimeout(() => navigate("/"), 5000);
+      setTimeout(() => navigate("/"), 5000); // redirect after 5s
     } catch (err) {
-      setMessage(err.message || "Something went wrong");
+      setMessage(err.message);
       setSubmitting(false);
     }
   };
 
-  // Tenant navbar (keep consistent within tenant pages)
+  // Navbar component for reuse
   const Navbar = () => (
     <nav className="navbar">
-      <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
+      <div className="navbar-logo">GoodLiving</div>
       <div className="navbar-right">
         <ul className="navbar-menu">
           <li><Link to="/">Dashboard</Link></li>
