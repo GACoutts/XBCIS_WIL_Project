@@ -9,7 +9,7 @@
   margin: 0;
   padding-top: var(--navbar-height);   /* keep clear of fixed navbar */
   box-sizing: border-box;
-  overflow-y: auto;
+  overflow-y: auto;                    /* KEEP: allow scroll when needed */
   position: relative;
 }
 
@@ -40,10 +40,10 @@
 
 /* MAIN CONTAINER */
 .logticket .container {
-  background-color: #FBD402;
+  background-color: #FBD402; /* yellow */
   border: 1px solid black;
-  border-radius: 5px;
-  padding: 24px 20px;
+  border-radius: 8px;
+  padding: 30px 25px;
   width: 700px;
   text-align: left;                    /* left-align content by default */
   height: auto;
@@ -55,7 +55,7 @@
   justify-content: center;
   min-height: 200px;
   box-sizing: border-box;
-  margin: 0 auto;                     
+  margin: 0 auto;
 }
 
 /* Title/Description inputs - fill the inner width (respect container padding) */
@@ -65,10 +65,14 @@
   padding: 12px;
   font-size: 16px;
   border: 1px solid black;
-  border-radius: 4px;
+  border-radius: 6px;
   box-sizing: border-box;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
+  background-color: white;
+  color: black;
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
+
 .logticket .container textarea {
   height: 120px;
   padding: 10px;
@@ -87,7 +91,7 @@
   flex-direction: column;
   align-items: stretch;
   padding-left: 20px;
-  padding-right: 20px;               
+  padding-right: 20px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -113,7 +117,7 @@
 /* Upload row: match left/right padding with inputs */
 .logticket .submit-container {
   display: flex; justify-content: flex-start; gap: 20px; align-items: center;
-  padding-left: 20px; padding-right: 20px;   
+  padding-left: 20px; padding-right: 20px;
   margin-top: 10px; margin-bottom: 15px;
   width: 100%; max-width: 500px;
 }
@@ -124,8 +128,8 @@
 
 /* Urgency - align with everything else on the left */
 .logticket .urgency-container {
-  padding-left: 0px;                  
-  padding-right: 20px;                
+  padding-left: 0px;
+  padding-right: 20px;
   text-align: left;
   margin-top: 13px;
 }
@@ -153,6 +157,10 @@
   user-select: none; font-size: 16px; height: 42px; width: 280px;
   display: flex; align-items: center; justify-content: center; text-align: center; border: none;
 }
+.logticket .final-submit button:hover {
+  background-color: #333;
+  transform: scale(1.05);
+}
 
 html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; position: relative; }
 
@@ -163,7 +171,23 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; position: re
 }
 
 .navbar .logo-placeholder {
-  color: #FBD402 !important; padding: 0px !important; margin: 0px auto; width: 150px; text-align: center !important;
-  font-size: 23px !important; font-weight: bold; font-family: 'Arial Black', sans-serif; letter-spacing: 1px; background: none !important;
-  text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black, -1px 0 0 black, 1px 0 0 black, 0 -1px 0 black, 0 1px 0 black;
+  color: #FBD402 !important;
+  padding: 0px !important;
+  margin: 0px auto;
+  width: 150px;
+  text-align: center !important;
+  font-size: 23px !important;
+  font-weight: bold;
+  font-family: 'Arial Black', sans-serif;
+  letter-spacing: 1px;
+  background: none !important;
+  text-shadow:
+    -1px -1px 0 black,
+     1px -1px 0 black,
+    -1px  1px 0 black,
+     1px  1px 0 black,
+    -1px  0   0 black,
+     1px  0   0 black,
+     0  -1px 0 black,
+     0   1px 0 black;
 }

@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "./context/AuthContext.jsx";
-// gear icon removed
 import WhatsAppStarter from "./components/WhatsAppStarter.jsx";
 import RoleNavbar from "./components/RoleNavbar.jsx";
-
 import "./styles/userdash.css";
 
 function UserDashboard() {
@@ -39,7 +37,7 @@ function UserDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  // Priority order
+  // Priority order (for sorting)
   const priorityOrder = { High: 1, Medium: 2, Low: 3 };
 
   // Fetch tickets
@@ -213,8 +211,8 @@ function UserDashboard() {
       : true;
     const matchesSearch = searchTerm
       ? (ticket.Title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ticket.Description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ticket.TicketRefNumber || "").toLowerCase().includes(searchTerm.toLowerCase())
+        (ticket.Description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (ticket.TicketRefNumber || "").toLowerCase().includes(searchTerm.toLowerCase())
       : true;
     return matchesStatus && matchesDate && matchesSearch;
   });
@@ -232,7 +230,7 @@ function UserDashboard() {
     startIndex + itemsPerPage
   );
   const sortedTickets = [...paginatedTickets].sort(
-    (a, b) => priorityOrder[a.UrgencyLevel] - priorityOrder[b.UrgencyLevel]
+    (a, b) => (priorityOrder[a.UrgencyLevel] || 99) - (priorityOrder[b.UrgencyLevel] || 99)
   );
   const displayedTickets = sortedTickets.filter((ticket) =>
     activeTab === "open"
@@ -482,7 +480,7 @@ function UserDashboard() {
       {selectedTicket && (
         <div className="modal-overlay">
           <div className="modal-content">
-            {/* HEADER - title + icon button on the right */}
+            {/* HEADER */}
             <div className="modal-header">
               <h2 className="modal-title">Ticket Details</h2>
               <button
@@ -526,14 +524,14 @@ function UserDashboard() {
                   {ticketMedia.map((m, idx) => (
                     <div key={idx} className="media-card">
                       {m.MediaURL &&
-                        (m.MediaType?.startsWith("image") ||
-                          /\.(jpg|jpeg|png|gif)$/i.test(m.MediaURL)) ? (
+                      (m.MediaType?.startsWith("image") ||
+                        /\.(jpg|jpeg|png|gif)$/i.test(m.MediaURL)) ? (
                         <img
                           src={m.MediaURL}
                           alt={`Media ${idx}`}
                           onError={(e) =>
-                          (e.currentTarget.src =
-                            "https://placehold.co/150x100?text=No+Image")
+                            (e.currentTarget.src =
+                              "https://placehold.co/150x100?text=No+Image")
                           }
                           onClick={() => window.open(m.MediaURL, "_blank")}
                         />
@@ -697,7 +695,6 @@ function UserDashboard() {
                                   setProposedSchedule(prev =>
                                     prev ? { ...prev, ClientConfirmed: true } : prev
                                   );
-                                  // refresh the snapshot so the chip flips to Confirmed immediately
                                   await fetchLatestSchedule(selectedTicket.TicketID);
                                   alert("Appointment confirmed");
                                 } catch (err) {
@@ -757,7 +754,7 @@ function UserDashboard() {
                                         if (!res.ok)
                                           throw new Error(
                                             data?.message ||
-                                            "Failed to propose appointment"
+                                              "Failed to propose appointment"
                                           );
                                         await fetchLatestSchedule(
                                           selectedTicket.TicketID
@@ -769,7 +766,7 @@ function UserDashboard() {
                                         console.error(err);
                                         alert(
                                           err.message ||
-                                          "Failed to propose appointment"
+                                            "Failed to propose appointment"
                                         );
                                       } finally {
                                         setBooking(false);
