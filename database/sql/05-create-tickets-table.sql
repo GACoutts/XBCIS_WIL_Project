@@ -26,6 +26,9 @@ CREATE INDEX idx_tickets_created ON tblTickets (CreatedAt);
 CREATE INDEX idx_tickets_ref_number ON tblTickets (TicketRefNumber);
 
 ALTER TABLE tblTickets
+  ADD COLUMN Title VARCHAR(200) NULL AFTER Description;
+
+ALTER TABLE tblTickets
   ADD COLUMN AssignedContractorID INT NULL AFTER CurrentStatus,
   ADD INDEX idx_tickets_assigned_contractor (AssignedContractorID);
 

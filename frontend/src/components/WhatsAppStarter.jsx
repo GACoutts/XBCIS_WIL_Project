@@ -39,7 +39,7 @@ export default function WhatsAppStarter({ context = {}, contacts = {}, className
         if (context.ticketRef) parts.push(`regarding ticket ${context.ticketRef}`);
         const sender = context.senderName || context.tenantName;
         if (sender) parts.push(`from ${sender}`);
-        return encodeURIComponent(parts.join(' — '));
+        return encodeURIComponent(parts.join(' - '));
     };
 
     // Normalize phone numbers to remove spaces and punctuation.  WhatsApp

@@ -121,25 +121,18 @@
 /* Logo placeholder */
 .signup-page-container .logo-placeholder {
   color: white !important;
-  padding: 2px !important;
-  padding-right: 57px !important;
-  margin: 0px auto;
-  width: 150px;
+  margin: 0 auto;               /* center it */
+  width: auto;                   /* don't constrain */
   text-align: center !important;
-  font-size: 32px !important; 
+  font-size: 32px !important;
   font-weight: bold;
   font-family: 'Arial Black', sans-serif;
   letter-spacing: 1px;
   background: none !important;
-  text-shadow: 
-    -1px -1px 0 black, 
-    1px -1px 0 black, 
-    -1px 1px 0 black, 
-    1px 1px 0 black,
-    -1px 0 0 black,
-    1px 0 0 black,
-    0 -1px 0 black,
-    0 1px 0 black;
+  text-shadow:
+    -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black,
+    -1px 0 0 black, 1px 0 0 black, 0 -1px 0 black, 0 1px 0 black;
+  padding: 2px !important;
 }
 
 /* Role selection */
@@ -311,19 +304,16 @@
 }
 
 .signup-page-container .input-row .address-picker-input {
-  /* width behavior */
-  flex: 0 0 200px;
-  max-width: 100%;
-
-  /* visual match */
+  flex: 1 1 auto;      /* fill the row like normal inputs */
+  width: 100%;
+  max-width: none;
   padding: 6px 8px;
-  box-sizing: border-box;
   border: 1px solid #000;
   border-radius: 5px;
   background: #fff;
   outline: none;
-  height: 28px;          /* match file trigger & text inputs */
-  line-height: 16px;     /* comfortable text rendering */
+  height: 28px;
+  line-height: 16px;
   font-size: 13px;
 }
 
@@ -334,3 +324,22 @@
   font-size: 11px;
   color: #333;
 }
+
+.signup-page-container .input-row > * {
+  flex: 0 0 200px;
+  max-width: 200px;  
+}
+
+/* The actual text field inside AddressPicker */
+.signup-page-container .address-picker-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background: #fff;
+  outline: none;
+  height: 28px;
+  line-height: 16px;
+  font-size: 13px;
+}
+

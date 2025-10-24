@@ -67,10 +67,39 @@ tr:nth-child(even) {
   border-bottom: 3px solid #FBD402;
 }
 
+/*
+ * Style the GoodLiving logo consistently across all pages.  In a
+ * few components we explicitly import page‑specific CSS files which
+ * previously defined their own `.navbar .logo-placeholder` rules to
+ * colour the logo yellow with a black outline.  However, pages like
+ * Settings or Notifications that rely solely on this global stylesheet
+ * were falling back to the default black colour defined here.  To
+ * ensure a consistent look and restore the intended styling on every
+ * screen, we update the global rule below to match the page‑specific
+ * versions.  The `!important` flags ensure this rule takes priority
+ * over earlier definitions without affecting component overrides.
+ */
 .navbar-logo .logo-placeholder {
+  color: #FBD402 !important;
+  padding: 0 !important;
+  margin: 0 auto;
+  width: 150px;
+  text-align: center !important;
+  font-size: 23px !important;
   font-weight: bold;
-  font-size: 1.25rem;
-  color: #000;
+  font-family: 'Arial Black', sans-serif;
+  letter-spacing: 1px;
+  background: none !important;
+  /* Create a black outline around the yellow text */
+  text-shadow:
+    -1px -1px 0 black,
+     1px -1px 0 black,
+    -1px  1px 0 black,
+     1px  1px 0 black,
+    -1px  0   0 black,
+     1px  0   0 black,
+     0   -1px 0 black,
+     0    1px 0 black;
 }
 
 .navbar-menu {
@@ -155,6 +184,39 @@ tr:nth-child(even) {
   }
 }
 
+/*
+ * Additional responsive improvements for dashboard tables and lists.
+ * Many of the landlord/staff/contractor pages rely on grid layouts
+ * that assume ample horizontal space.  On smaller screens these
+ * structures can overflow the viewport, making content unreadable.
+ * The rules below gently reduce side paddings and enable horizontal
+ * scrolling for wide tables on screens narrower than 600px.  They
+ * complement existing page‑specific CSS without changing the desktop
+ * layout.
+ */
+@media (max-width: 600px) {
+  /* Reduce horizontal padding on wrappers to maximise available space */
+  .pendingapprovals-wrapper,
+  .maintenance-overview,
+  .tickets-container,
+  .jobs-section,
+  .tickets-grid {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Allow horizontal scroll for complex tables/grids */
+  .pendingapprovals-card,
+  .maintenance-chart-card,
+  .jobs-table,
+  .tickets-grid {
+    overflow-x: auto;
+    display: block;
+  }
+}
+
 /* Responsive tables for dashboards */
 @media (max-width: 768px) {
   .jobs-table-container,
@@ -165,4 +227,16 @@ tr:nth-child(even) {
   .tickets-table th, .tickets-table td {
     white-space: nowrap;
   }
+}
+
+/* GoodLiving wordmark style for headers on white backgrounds */
+.logo-wordmark {
+  color: #ffffff !important;     
+  font-weight: bold;
+  font-size: 23px !important;
+  font-family: 'Arial Black', sans-serif;
+  letter-spacing: 1px;
+  text-shadow:
+    -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black,
+    -1px 0 0 black, 1px 0 0 black, 0 -1px 0 black, 0 1px 0 black;
 }

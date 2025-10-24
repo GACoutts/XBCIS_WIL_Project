@@ -64,42 +64,6 @@ export default function DebugHUD() {
         maxWidth: 360,
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 6 }}>Debug HUD</div>
-      <div>
-        <div><strong>init:</strong> {String(initializing)}</div>
-        <div><strong>user:</strong> {user ? `${user.fullName} (${user.role})` : 'null'}</div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-        <button
-          onClick={doRefreshToken}
-          disabled={busy}
-          style={{ padding: '4px 8px', borderRadius: 6, background: '#2563eb', color: 'white', border: 'none' }}
-        >
-          Refresh token
-        </button>
-        <button
-          onClick={doReloadMe}
-          disabled={busy}
-          style={{ padding: '4px 8px', borderRadius: 6, background: '#10b981', color: 'white', border: 'none' }}
-        >
-          Reload /me
-        </button>
-        <Link
-          to="/sessions"
-          style={{ padding: '4px 8px', borderRadius: 6, background: '#6b7280', color: 'white', textDecoration: 'none' }}
-        >
-          Sessions
-        </Link>
-        <button
-          onClick={doLogout}
-          disabled={busy}
-          style={{ padding: '4px 8px', borderRadius: 6, background: '#ef4444', color: 'white', border: 'none' }}
-        >
-          Logout
-        </button>
-      </div>
-
       {msg && <div style={{ marginTop: 6, opacity: 0.9 }}>{msg}</div>}
     </div>
   );

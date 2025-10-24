@@ -28,14 +28,15 @@ export default function ForgotPassword() {
   }
 
   try {
-    const res = await fetch('/api/forgot-password', {
+    const res = await fetch('/api/password/forgot-password', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: trimmedEmail })
     });
     
-    const data = await res.json();
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
     
     if (!res.ok) {
       setErr(data.message || 'An error occurred. Please try again.');
@@ -83,7 +84,7 @@ const handleKeyPress = (e) => {
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               autoComplete="email"
             />
           </div>

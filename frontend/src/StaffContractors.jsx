@@ -1,33 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+// StaffContractors.jsx
+import React, { useEffect, useMemo, useState } from 'react';
+import RoleNavbar from './components/RoleNavbar.jsx';
 import { useAuth } from './context/AuthContext.jsx';
+import './styles/userdash.css';
 import './styles/staffdash.css';
 
-/*
- * StaffContractors
- *
- * This component encapsulates the contractor management functionality
- * previously embedded on the staff dashboard.  Staff can view active
- * contractors, add new ones, and remove existing contractors.  All
- * actions are performed via the admin API endpoints.  The table is
- * scrollable and includes a modal for adding contractors.  A
- * dedicated page makes contractor administration easier to find and
- * keeps the dashboard focused on ticket information.
- */
 export default function StaffContractors() {
   const { logout } = useAuth();
 
   const [contractors, setContractors] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newContractor, setNewContractor] = useState({ fullName: '', email: '', phone: '', password: '' });
+  const [newContractor, setNewContractor] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: ''
+  });
 
-  // Load active contractors on mount
+  // Filters (dashboard-style)
+  const [filterStatus, setFilterStatus] = useState(''); // All | Active | Suspended
+  const [query, setQuery] = useState('');               // name/email contains
+
   useEffect(() => {
     fetchContractors();
   }, []);
 
   const fetchContractors = async () => {
     try {
+      // Using your existing endpoint (active). If backend returns Status, filters will work client-side.
       const res = await fetch('/api/admin/contractors/active', { credentials: 'include' });
       const data = await res.json();
       if (res.ok) setContractors(data.contractors || []);
@@ -42,7 +42,6 @@ export default function StaffContractors() {
     await fetchContractors();
   };
 
-  // Remove contractor by suspending their account
   const handleRemoveContractor = async (userId) => {
     if (!window.confirm('Are you sure you want to remove this contractor?')) return;
     try {
@@ -62,7 +61,6 @@ export default function StaffContractors() {
     }
   };
 
-  // Register and activate a new contractor
   const handleAddContractor = async () => {
     const { fullName, email, phone, password } = newContractor;
     if (!fullName || !email || !password) {
@@ -78,6 +76,7 @@ export default function StaffContractors() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to register contractor');
+
       const userId = data.user?.userId || data.userId || data.UserID;
       if (userId) {
         try {
@@ -91,6 +90,7 @@ export default function StaffContractors() {
           console.warn('Could not activate new contractor', e);
         }
       }
+
       setShowAddModal(false);
       setNewContractor({ fullName: '', email: '', phone: '', password: '' });
       await reloadContractors();
@@ -105,93 +105,148 @@ export default function StaffContractors() {
     setNewContractor((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleLogout = async () => {
-    await logout();
-    window.location.reload();
+  // ===== Filters + sorting to mirror dashboard feel =====
+  const filteredContractors = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return contractors
+      .filter(c => !filterStatus || (c.Status || 'Active') === filterStatus)
+      .filter(c => {
+        if (!q) return true;
+        const name = (c.FullName || '').toLowerCase();
+        const email = (c.Email || '').toLowerCase();
+        return name.includes(q) || email.includes(q);
+      })
+      .sort((a, b) => (a.FullName || '').localeCompare(b.FullName || ''));
+  }, [contractors, filterStatus, query]);
+
+  const clearFilters = () => {
+    setFilterStatus('');
+    setQuery('');
   };
 
   return (
     <>
-      <nav className="navbar">
-        <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/staff">Dashboard</Link></li>
-            <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/quotes">Quotes</Link></li>
-            <li><Link to="/contractors">Contractors</Link></li>
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button className="profile-btn" onClick={() => handleLogout()}>
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-        </div>
-      </nav>
+      <RoleNavbar />
 
       <div className="staffdashboard-title"><h1>Contractors</h1></div>
+      <div className="sub-title"><h2>Contractor Management</h2></div>
 
-      <div className="sub-titles-container">
-        <div className="sub-title"><h2>Contractor Management</h2></div>
-        {/* Add contractor button placed beneath the heading to keep it outside of the table */}
-        <button className="action-btn" onClick={() => setShowAddModal(true)}>Add Contractor</button>
-      </div>
-
-      <div className="contractor-table">
-        <div className="contractor-container">
-          <div className="table-header">
-            <div className="header-content">
-              <div className="contractor-header-grid">
-                <div className="header-item">Name</div>
-                <div className="header-item">Email</div>
-                <div className="header-item">Status</div>
-                <div className="header-item">Actions</div>
-              </div>
-            </div>
-            {/* The add button has been moved above the table in the sub titles section */}
+      {/* Filters (dashboard-style card) */}
+      <div className="jobs-filters">
+        <div className="filter-card">
+          <div className="filter-item">
+            <label htmlFor="contractor-status">Status</label>
+            <select
+              id="contractor-status"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="Active">Active</option>
+              <option value="Suspended">Suspended</option>
+            </select>
           </div>
 
-          {contractors.length > 0 ? (
-            contractors.map((c) => (
-              <div key={c.UserID} className="contractor-card">
-                <div className="contractor-layout">
-                  <div className="contractor-content">
-                    <div className="contractor-info-grid">
-                      <div className="info-item"><div className="info-value">{c.FullName}</div></div>
-                      <div className="info-item"><div className="info-value">{c.Email}</div></div>
-                      <div className="info-item"><div className="info-value">{c.Status || 'Active'}</div></div>
-                      {/* Actions cell contains the remove button */}
-                      <div className="info-item">
-                        <div className="info-value">
-                          <button className="action-btn" onClick={() => handleRemoveContractor(c.UserID)}>Remove</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="empty-state">No contractors found</p>
-          )}
+          <div className="filter-item" style={{ minWidth: 240 }}>
+            <label htmlFor="contractor-search">Search (name/email)</label>
+            <input
+              id="contractor-search"
+              type="text"
+              placeholder="e.g. Jane Doe or jane@email.com"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+
+          <button className="filter-reset" type="button" onClick={clearFilters}>
+            Reset
+          </button>
+
+          {/* Add contractor aligned with filters for the same “block” feel */}
+          <button
+            className="action-btn"
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            style={{ marginLeft: '8px' }}
+          >
+            Add Contractor
+          </button>
         </div>
       </div>
 
+      {/* Table block (same container + scroll) */}
+      <div className="jobs-section">
+        {filteredContractors.length === 0 ? (
+          <div className="empty-tickets">No contractors found</div>
+        ) : (
+          <div className="jobs-table-container">
+            <div className="jobs-table-scroll">
+              <table className="jobs-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th className="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredContractors.map((c) => (
+                    <tr key={c.UserID}>
+                      <td>{c.FullName || '-'}</td>
+                      <td>{c.Email || '-'}</td>
+                      <td>{c.Phone ?? c.phone ?? c.Mobile ?? c.mobile ?? c.ContactNumber ?? c.contactNumber ?? '-'}</td>
+                      <td>{c.Status || 'Active'}</td>
+                      <td className="actions-col">
+                        <div className="action-buttons">
+                          <button
+                            className="action-btn"
+                            onClick={() => handleRemoveContractor(c.UserID)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add Contractor Modal */}
       {showAddModal && (
         <div className="modal-overlay">
           <div className="modal">
             <h2>Add Contractor</h2>
             <div className="modal-content">
               <label>Full Name:</label>
-              <input type="text" value={newContractor.fullName} onChange={(e) => handleNewContractorChange('fullName', e.target.value)} />
+              <input
+                type="text"
+                value={newContractor.fullName}
+                onChange={(e) => handleNewContractorChange('fullName', e.target.value)}
+              />
               <label>Email:</label>
-              <input type="email" value={newContractor.email} onChange={(e) => handleNewContractorChange('email', e.target.value)} />
+              <input
+                type="email"
+                value={newContractor.email}
+                onChange={(e) => handleNewContractorChange('email', e.target.value)}
+              />
               <label>Phone:</label>
-              <input type="tel" value={newContractor.phone} onChange={(e) => handleNewContractorChange('phone', e.target.value)} />
+              <input
+                type="tel"
+                value={newContractor.phone}
+                onChange={(e) => handleNewContractorChange('phone', e.target.value)}
+              />
               <label>Password:</label>
-              <input type="password" value={newContractor.password} onChange={(e) => handleNewContractorChange('password', e.target.value)} />
+              <input
+                type="password"
+                value={newContractor.password}
+                onChange={(e) => handleNewContractorChange('password', e.target.value)}
+              />
               <div className="modal-buttons">
                 <button onClick={handleAddContractor}>Add</button>
                 <button onClick={() => setShowAddModal(false)}>Cancel</button>
@@ -200,7 +255,8 @@ export default function StaffContractors() {
           </div>
         </div>
       )}
-      <div className="page-bottom-spacer"></div>
+
+      <div className="page-bottom-spacer" />
     </>
   );
 }

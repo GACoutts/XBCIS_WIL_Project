@@ -77,4 +77,37 @@ router.post('/tickets/:ticketId/assign', requireAuth, permitRoles('Staff'), asyn
   }
 });
 
+// GET /api/staff/tickets/:id/media  (staff-visible media list)
+router.get('/tickets/:id/media', requireAuth, permitRoles('Staff'), async (req, res) => {
+  try {
+    const ticketId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(ticketId)) {
+      return res.status(400).json({ success: false, message: 'Valid ticket ID is required' });
+    }
+
+    const [rows] = await db.query(
+      `
+        SELECT MediaID, TicketID, MediaType, MediaURL, UploadedAt
+          FROM tblTicketMedia
+         WHERE TicketID = ?
+         ORDER BY COALESCE(UploadedAt, MediaID) DESC
+      `,
+      [ticketId]
+    );
+
+    const host = `${req.protocol}://${req.get('host')}`;
+    const media = rows.map(r => {
+      const absolute = r.MediaURL?.startsWith('http')
+        ? r.MediaURL
+        : `${host}${r.MediaURL?.startsWith('/') ? '' : '/'}${r.MediaURL || ''}`;
+      return { ...r, MediaURL: absolute };
+    });
+
+    return res.json({ success: true, data: media });
+  } catch (err) {
+    console.error('[staff/tickets/:id/media] error:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 export default router;

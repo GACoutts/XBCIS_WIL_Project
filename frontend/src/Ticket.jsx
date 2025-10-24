@@ -34,33 +34,51 @@ function Ticket() {
       return;
     }
 
+    // inside handleSubmit in Ticket.jsx
     try {
       setSubmitting(true);
 
-      // Send ticket to backend (description & urgency only)
+      // --- 1) Create ticket with timeout
+      const createCtrl = new AbortController();
+      const createTimeout = setTimeout(() => createCtrl.abort(), 15000); // 15s
       const resTicket = await fetch('/api/tickets', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description, urgencyLevel: urgency }),
+        body: JSON.stringify({ title, description, urgencyLevel: urgency }),
+        signal: createCtrl.signal,
+      }).catch(err => {
+        if (err.name === 'AbortError') throw new Error('Request timed out. Please try again.');
+        throw err;
       });
+      clearTimeout(createTimeout);
+
       const dataTicket = await resTicket.json();
       if (!resTicket.ok) throw new Error(dataTicket?.message || 'Error submitting ticket');
 
-      // If a file is attached, upload it separately
+      // --- 2) Optional upload (longer timeout; big files)
       if (file) {
         const formData = new FormData();
         formData.append('file', file);
+
+        const uploadCtrl = new AbortController();
+        const uploadTimeout = setTimeout(() => uploadCtrl.abort(), 60000); // 60s for media
         const resFile = await fetch(`/api/tickets/${dataTicket.ticketId}/media`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
+          signal: uploadCtrl.signal,
+        }).catch(err => {
+          if (err.name === 'AbortError') throw new Error('Upload timed out. Please try again.');
+          throw err;
         });
+        clearTimeout(uploadTimeout);
+
         const dataFile = await resFile.json();
         if (!resFile.ok) throw new Error(dataFile?.message || 'Error uploading file');
       }
 
-      // Success: reset form and show confirmation
+      // Success UI
       setMessage('Ticket submitted successfully! Redirecting...');
       setTitle('');
       setDescription('');
@@ -68,13 +86,12 @@ function Ticket() {
       setFile(null);
       setSubmitted(true);
       setSubmitting(false);
-
-      // Redirect to dashboard after a short delay
-      setTimeout(() => navigate('/client'), 5000);
+      setTimeout(() => navigate('/client'), 3000);
     } catch (err) {
       setMessage(err.message || 'Something went wrong');
       setSubmitting(false);
     }
+
   };
 
   // Confirmation state

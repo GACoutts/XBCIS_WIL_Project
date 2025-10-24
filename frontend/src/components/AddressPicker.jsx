@@ -73,7 +73,7 @@ export default function AddressPicker({
   /** Fetch suggestions (Places API v1) */
   useEffect(() => {
     if (!apiKey) {
-      // Don’t render a visible error here—keep UI quiet like the other inputs
+      // Don’t render a visible error here - keep UI quiet like the other inputs
       console.warn("[AddressPicker] Missing VITE_GOOGLE_MAPS_API_KEY");
       return;
     }
@@ -160,7 +160,7 @@ export default function AddressPicker({
       setQ(composed);
       setLoading(true);
 
-      // Details request (use query params; no X-Goog- headers; no sessionToken)
+      // Details request
       const fields = encodeURIComponent("id,formattedAddress,location");
       const url = `${BASE_URL}/places/${encodeURIComponent(item.placeId)}?fields=${fields}&key=${encodeURIComponent(
         apiKey
@@ -183,7 +183,6 @@ export default function AddressPicker({
       // Refresh session token after a successful selection
       tokenRef.current = uuid();
     } catch (e) {
-      // Selection still worked for your flow (you mentioned it saved correctly)
       // So: quietly fallback to minimal payload WITHOUT surfacing an error to the user.
       console.warn("[AddressPicker] details failed, falling back:", e?.message || e);
       onSelect?.({

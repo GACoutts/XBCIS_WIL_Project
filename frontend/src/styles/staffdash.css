@@ -77,6 +77,17 @@ body {
   padding-left: 90px; 
 }
 
+/* Titles */
+.staffdashboard-title { padding-left: 90px; }
+
+/* Force proper spacing so it sits above the filter card */
+.sub-title {
+  padding-left: 90px;
+  margin: 8px 0 6px !important; /* overwrite the old -35px rule */
+  font-size: 13px;
+}
+
+
 .sub-titles-container {
   display: flex;
   gap: 20px;
@@ -673,15 +684,6 @@ body {
 }
 
 /* Specific styling for ReviewRoleRequests table */
-/*
- * Adjust the ReviewRoleRequests table column widths to accommodate the new
- * fields (ID, User, Email, Role, Status, Address, Proof, Actions).  The
- * combined widths should add up to ~100% to avoid overlapping columns
- * when the table scrolls horizontally.  Each column is assigned a
- * relative width based on its expected content length.  If you add or
- * remove columns in the future be sure to update these selectors
- * accordingly.
- */
 .review-roles-table th:nth-child(1),
 .review-roles-table td:nth-child(1) {
   width: 7%;   /* ID column */
@@ -951,3 +953,225 @@ body {
   text-align: center;
   flex: 1;
 }
+
+:root { --navbar-height: 60px; }
+
+/* Page base */
+body {
+  background: white;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding-top: var(--navbar-height);
+  box-sizing: border-box;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  min-height: 100vh !important;
+}
+
+/* Navbar */
+.navbar {
+  display:flex; justify-content:space-between; align-items:center;
+  background:white; padding:10px 15px; border-bottom:1px solid black;
+  position:fixed; top:0; left:0; width:100%; height:var(--navbar-height);
+  box-sizing:border-box; z-index:1000;
+}
+.navbar-logo{ padding-left:75px; }
+.navbar-right{ display:flex; align-items:center; gap:0; margin-left:auto; }
+.navbar-menu{ list-style:none; display:flex; margin:0; padding:0; }
+.navbar-menu li{ margin:0 25px; }
+.navbar-menu a{ text-decoration:none; color:black; font-size:16px; transition:color .3s; }
+.navbar-menu a:hover{ color:#FBD402; }
+.navbar-profile img{ width:40px; height:40px; border-radius:50%; cursor:pointer; }
+.navbar .navbar-profile{ position:relative; }
+.navbar .logout-popup button{
+  background:#FBD402; color:black; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;
+  width:100%; text-align:center; left:50%; transform:translateX(-8%) translateY(15%);
+}
+
+/* Titles */
+.staffdashboard-title{ padding-left:90px; }
+.sub-title{ padding-left:90px; margin-top:6px; font-size:13px; margin-bottom:6px; }
+
+/* Filters (shared look) */
+.jobs-filters{ padding:0 90px 14px; margin-top:6px; }
+.filter-card{
+  display:flex; align-items:flex-end; gap:12px;
+  background:#fffef6; border:1px solid #f3e289; border-radius:12px;
+  padding:12px; box-shadow:0 2px 6px rgba(0,0,0,.05);
+}
+.filter-item{ display:flex; flex-direction:column; min-width:180px; }
+.filter-item label{ font-size:12px; color:#424242; margin-bottom:4px; user-select:none; }
+.filter-item select,.filter-item input[type="date"]{
+  appearance:none; background:#fff; border:1px solid #e5e5e5; border-radius:8px;
+  padding:8px 10px; font-size:14px; box-shadow:inset 0 1px 0 rgba(0,0,0,.02);
+  outline:none; transition:border-color .15s ease, box-shadow .15s ease;
+}
+.filter-item select:focus,.filter-item input[type="date"]:focus{
+  border-color:#FBD402; box-shadow:0 0 0 3px rgba(251,212,2,.25);
+}
+.filter-reset{
+  margin-left:auto; background:#111; color:#fff; border:none; border-radius:9px;
+  padding:10px 14px; cursor:pointer; font-weight:700; box-shadow:0 2px 0 rgba(0,0,0,.2);
+}
+.filter-reset:hover{ opacity:.92; transform:translateY(-1px); }
+
+.jobs-section{ padding:0 90px; margin-bottom:40px; }
+
+/* ===== Tickets table ===== */
+.jobs-table-container{
+  border:1px solid #FBD402; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+/* Show ~5 rows (header + 5x ~56px rows ≈ 340–360px) and scroll */
+.jobs-table-scroll{ max-height:360px; overflow-y:auto; }
+
+.jobs-table{ width:100%; border-collapse:collapse; table-layout:auto; border-spacing:0; }
+.jobs-table thead th{
+  background:#f8f8f8; padding:16px; text-align:left; font-weight:bold; color:#333; border-bottom:2px solid #FBD402;
+}
+.jobs-table td{ padding:16px; }
+
+/* Single grey separator across row */
+.jobs-table tbody tr{ position:relative; }
+.jobs-table tbody tr::after{
+  content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:rgba(0,0,0,.08); pointer-events:none;
+}
+.jobs-table tbody tr:last-child::after{ display:none; }
+.jobs-table td{ border-bottom:none !important; }
+
+/* Issue & clamp */
+.issue-cell{ padding-right:8px; }
+.issue-inner{ display:block; width:100%; }
+.issue-desc{
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden;
+}
+
+/* Urgency/Status */
+.urgency-status{ display:flex; flex-direction:column; gap:4px; }
+.status-text{ font-size:12px; color:#666; }
+.urgency-high{ color:#e74c3c; font-weight:bold; }
+.urgency-medium{ color:#f39c12; font-weight:bold; }
+.urgency-low{ color:#27ae60; font-weight:bold; }
+
+/* Actions */
+.jobs-table th.actions-col,.jobs-table td.actions-col{
+  width:1%; white-space:nowrap; text-align:right; padding-right:10px;
+}
+.action-buttons{ display:inline-flex; flex-direction:column; gap:8px; align-items:flex-end; width:100%; }
+.action-btn{
+  background:#FBD402; color:#111; border:none; padding:8px 12px; border-radius:8px;
+  font-weight:700; cursor:pointer; box-shadow:0 2px 0 rgba(0,0,0,.2);
+}
+.action-btn:hover{ filter:brightness(.98); transform:translateY(-1px); }
+
+.empty-tickets{ text-align:center; padding:60px 0; font-size:18px; color:#555; }
+
+/* ===== Role Requests (match style + scroll 5 rows) ===== */
+.staff-admin-panel{ margin:16px auto 24px; padding:1px; background:#fff; }
+.staff-admin-panel .section-title{ font-size:1.25rem; margin-bottom:-3px; margin-left:90px; margin-top:-10px; }
+
+.admin-card{
+  margin:20px 90px; background:#fff; border-radius:8px; border:1px solid #FBD402;
+  padding:16px 0; width:auto; max-width:calc(100% - 180px);
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+.role-requests-card{ padding-top:0; }
+.review-roles-scroll{ max-height:360px; overflow-y:auto; padding-top:8px; }
+
+/* Tweak the table inside ReviewRoleRequests to look like our main table */
+.review-roles-table{ width:100%; border-collapse:separate; border-spacing:0; }
+.review-roles-table thead th{
+  background:#f8f8f8; padding:16px; text-align:left; font-weight:bold; color:#333; border-bottom:2px solid #FBD402;
+}
+.review-roles-table td{ padding:16px; }
+.review-roles-table tbody tr{ position:relative; }
+.review-roles-table tbody tr::after{
+  content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:rgba(0,0,0,.08);
+}
+.review-roles-table tbody tr:last-child::after{ display:none; }
+
+/* ===== Modals ===== */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.35);
+  display:flex; justify-content:center; align-items:center; z-index:2000;
+}
+.modal{
+  background:#fff; border:1px solid #FBD402; border-radius:8px; padding:20px;
+  width:400px; max-width:90%; box-shadow:0 8px 16px rgba(0,0,0,.25);
+}
+.modal-wide{ width:min(820px, 96vw); } /* wider details modal */
+.modal h2{ margin:0 0 15px; font-size:18px; font-weight:600; text-align:center; }
+.modal-content{ display:flex; flex-direction:column; gap:12px; }
+.modal-content select,.modal-content input{
+  padding:8px 10px; font-size:14px; border:1px solid #FBD402; border-radius:5px; outline:none;
+}
+.modal-buttons{ display:flex; justify-content:flex-end; gap:10px; margin-top:15px; }
+.modal-buttons button{
+  padding:8px 16px; font-size:13px; font-weight:600; border-radius:5px; border:none; cursor:pointer;
+  background:#FBD402; color:black;
+}
+.modal-buttons button:hover{ background:#e6c500; }
+
+/* Details layout */
+.details-grid{
+  display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:8px;
+}
+.detail-row{ margin:6px 0; }
+.list-block{ margin:8px 0 14px 18px; }
+.muted{ color:#666; }
+
+/* Analytics */
+.analytics-panel{ margin:2rem 0; margin-left:6rem; }
+.charts-container{ display:flex; gap:2rem; flex-wrap:wrap; }
+.chart-card{
+  background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.06); text-align:center;
+}
+.analytics-summary{ display:flex; gap:2rem; margin:1.25rem 0; }
+.summary-card{ background:#f5f5f5; padding:1rem; border-radius:8px; text-align:center; flex:1; }
+
+.page-bottom-spacer{ height:15px; width:100%; }
+
+/* Logo */
+.navbar .logo-placeholder{
+  color:#FBD402 !important; padding:0 !important; margin:0 auto; width:150px; text-align:center !important;
+  font-size:23px !important; font-weight:bold; font-family:'Arial Black', sans-serif; letter-spacing:1px; background:none !important;
+  text-shadow:-1px -1px 0 black,1px -1px 0 black,-1px 1px 0 black,1px 1px 0 black,-1px 0 0 black,1px 0 0 black,0 -1px 0 black,0 1px 0 black;
+}
+
+/* Responsive */
+@media (max-width:1024px){
+  .jobs-section,.jobs-filters{ padding:0 20px; }
+  .filter-card{ flex-wrap:wrap; }
+  .filter-reset{ width:100%; margin-left:0; }
+  .jobs-table{ display:block; overflow-x:auto; }
+  .details-grid{ grid-template-columns: 1fr; }
+}
+
+/* ====== FIX: inner scrollers take over (~5 rows visible) ====== */
+
+/* Make parents NOT control scrolling or clip heights */
+.awaiting-tickets-container,
+.contractor-table {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+/* The actual inner scrollers: fixed height so ~5 rows are visible */
+.awaiting-tickets-container .cards-scroll-5 {
+  height: 360px;
+  overflow-y: auto;
+}
+
+.contractor-table .contractor-scroll-5 {
+  height: 360px;
+  overflow-y: auto;
+}
+
+/* Thin, subtle scrollbars */
+.awaiting-tickets-container .cards-scroll-5::-webkit-scrollbar,
+.contractor-table .contractor-scroll-5::-webkit-scrollbar { width: 5px; }
+.awaiting-tickets-container .cards-scroll-5::-webkit-scrollbar-thumb,
+.contractor-table .contractor-scroll-5::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 5px;
+}
+
