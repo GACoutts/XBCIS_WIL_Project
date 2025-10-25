@@ -358,7 +358,7 @@ function LandlordDashboard() {
                         <tr key={ticketId}>
                           <td>{ref || ticketId}</td>
                           <td>{t.propertyAddress || '-'}</td>
-                          <td>{getDescription(t) || '-'}</td>
+                          <td>{getTitle(t) || '-'}</td>
                           <td>R {quoteAmount.toFixed(0)}</td>
                           <td className="actions-col">
                             <div className="action-buttons">

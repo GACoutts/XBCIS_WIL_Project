@@ -211,8 +211,8 @@ function UserDashboard() {
       : true;
     const matchesSearch = searchTerm
       ? (ticket.Title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ticket.Description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (ticket.TicketRefNumber || "").toLowerCase().includes(searchTerm.toLowerCase())
+      (ticket.Description || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ticket.TicketRefNumber || "").toLowerCase().includes(searchTerm.toLowerCase())
       : true;
     return matchesStatus && matchesDate && matchesSearch;
   });
@@ -524,14 +524,14 @@ function UserDashboard() {
                   {ticketMedia.map((m, idx) => (
                     <div key={idx} className="media-card">
                       {m.MediaURL &&
-                      (m.MediaType?.startsWith("image") ||
-                        /\.(jpg|jpeg|png|gif)$/i.test(m.MediaURL)) ? (
+                        (m.MediaType?.startsWith("image") ||
+                          /\.(jpg|jpeg|png|gif)$/i.test(m.MediaURL)) ? (
                         <img
                           src={m.MediaURL}
                           alt={`Media ${idx}`}
                           onError={(e) =>
-                            (e.currentTarget.src =
-                              "https://placehold.co/150x100?text=No+Image")
+                          (e.currentTarget.src =
+                            "https://placehold.co/150x100?text=No+Image")
                           }
                           onClick={() => window.open(m.MediaURL, "_blank")}
                         />
@@ -636,9 +636,11 @@ function UserDashboard() {
               </div>
 
               <div className="right-side">
-                {(selectedTicket.CurrentStatus === "Approved" ||
-                  selectedTicket.CurrentStatus === "Awaiting Appointment") &&
-                  approvedContractor && (
+                {(
+                  selectedTicket.CurrentStatus === "Approved" ||
+                  selectedTicket.CurrentStatus === "Awaiting Appointment" ||
+                  proposedSchedule /* show if we already have a proposal */
+                ) && (
                     <div className="appointment-actions">
                       {loadingSchedule ? (
                         <div style={{ fontSize: 14, opacity: 0.8 }}>
@@ -754,7 +756,7 @@ function UserDashboard() {
                                         if (!res.ok)
                                           throw new Error(
                                             data?.message ||
-                                              "Failed to propose appointment"
+                                            "Failed to propose appointment"
                                           );
                                         await fetchLatestSchedule(
                                           selectedTicket.TicketID
@@ -766,7 +768,7 @@ function UserDashboard() {
                                         console.error(err);
                                         alert(
                                           err.message ||
-                                            "Failed to propose appointment"
+                                          "Failed to propose appointment"
                                         );
                                       } finally {
                                         setBooking(false);

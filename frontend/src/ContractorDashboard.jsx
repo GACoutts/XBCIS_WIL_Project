@@ -124,6 +124,20 @@ function CDashboard() {
       }
       const resp = await getJobSchedule(job.ticketId);
       const s = resp?.data;
+      if (s) {
+        setModalJob(prev => prev ? {
+          ...prev,
+          schedule: {
+            scheduleId: s.ScheduleID,
+            proposedDate: s.ProposedDate,
+            clientConfirmed: !!s.ClientConfirmed,
+            contractorConfirmed: !!s.ContractorConfirmed,
+            proposedBy: s.ProposedBy || null,
+            notes: s.Notes ?? null,
+          }
+        } : prev);
+      }
+
       if (s && !(s.ClientConfirmed && s.ContractorConfirmed) && s.ProposedDate) {
         const dt = new Date(s.ProposedDate);
         const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
@@ -472,9 +486,58 @@ function CDashboard() {
                 min={new Date().toISOString().slice(0, 16)}
               />
               <div className="modal-buttons">
-                <button onClick={() => handleBookAppointment(modalJob)}>Submit</button>
-                <button onClick={() => { setModalJob(null); setAppointmentDate(''); }}>Cancel</button>
+                {modalJob?.schedule &&
+                  modalJob.schedule.clientConfirmed &&
+                  !modalJob.schedule.contractorConfirmed ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(
+                            `/api/tickets/${modalJob.ticketId}/appointments/confirm`,
+                            {
+                              method: 'POST',
+                              credentials: 'include',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ scheduleId: modalJob.schedule.scheduleId }),
+                            }
+                          );
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data?.message || 'Failed to confirm appointment');
+                          alert(data?.message || 'Appointment confirmed');
+
+                          // Refresh list then close modal
+                          const refreshed = await getJobs({ page: 1, pageSize: 100 });
+                          setJobs(Array.isArray(refreshed?.data?.jobs) ? refreshed.data.jobs : []);
+                          setModalJob(null);
+                          setAppointmentDate('');
+                        } catch (e) {
+                          alert(e.message || 'Confirmation failed');
+                        }
+                      }}
+                    >
+                      Accept
+                    </button>
+
+                    <span style={{ margin: '0 8px', opacity: .7 }}>or</span>
+
+                    <button onClick={() => handleBookAppointment(modalJob)}>
+                      Propose different time
+                    </button>
+
+                    <button onClick={() => { setModalJob(null); setAppointmentDate(''); }}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Default propose/edit flow */}
+                    <button onClick={() => handleBookAppointment(modalJob)}>Submit</button>
+                    <button onClick={() => { setModalJob(null); setAppointmentDate(''); }}>Cancel</button>
+                  </>
+                )}
               </div>
+
             </div>
           </div>
         )}
