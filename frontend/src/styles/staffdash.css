@@ -714,8 +714,29 @@ body {
 }
 .review-roles-table th:nth-child(8),
 .review-roles-table td:nth-child(8) {
-  width: 10%;  /* Actions column */
+  width: 14%;  /* Actions column */
 }
+
+/* Make sure action buttons are not ellipsized/clipped */
+.review-roles-table td:nth-child(8) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  max-width: none !important;
+}
+
+/* If the actions are wrapped in a container, space them nicely */
+.review-roles-table td:nth-child(8) .action-buttons {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap; /* stack if tiny width */
+}
+
+/* Ensure buttons render fully even in scrolling tbody */
+.review-roles-table td:nth-child(8) button {
+  display: inline-flex;
+  align-items: center;
+}
+
 
 .admin-table tr:last-child td,
 .review-roles-table tr:last-child td {

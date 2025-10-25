@@ -170,13 +170,13 @@ export default function SignUpPage() {
         <hr className="underline" />
 
         {registered && successMsg && (
-          <div className="success" style={{ marginTop: 8 }}>
-            {successMsg}
-            <div style={{ marginTop: 8 }}>
-              <Link to="/login" className="submit" role="button">
-                Go to login
-              </Link>
-            </div>
+          <div className="verify-card">
+            <div className="verify-icon" aria-hidden="true">✓</div>
+            <h3 className="verify-title">You’re almost there</h3>
+            <p className="verify-text">{successMsg}</p>
+            <Link to="/login" className="verify-btn" role="button">
+              Go to Login
+            </Link>
           </div>
         )}
 
