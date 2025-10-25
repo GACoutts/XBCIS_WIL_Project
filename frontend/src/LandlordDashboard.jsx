@@ -546,7 +546,7 @@ function LandlordDashboard() {
               </div>
             </div>
 
-            {/* QUOTE (optional) */}
+            {/* QUOTE */}
             {detailsTicket.quote && (
               <div className="modal-section">
                 <h3 style={{ marginTop: 0 }}>Latest Quote</h3>

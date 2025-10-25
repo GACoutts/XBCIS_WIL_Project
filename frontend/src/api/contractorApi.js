@@ -1,4 +1,3 @@
-// frontend/src/api/contractorApi.js
 const API_BASE = '/api/contractor';
 
 async function handleResponse(response) {

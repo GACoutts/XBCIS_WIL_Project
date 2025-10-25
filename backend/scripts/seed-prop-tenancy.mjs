@@ -38,7 +38,7 @@ await db.query(
   [LandlordUserID, PropertyID]
 );
 
-// create tenancy (client ↔ property)
+// create tenancy (client to property)
 await db.query(
   `INSERT INTO tblTenancies (PropertyID, TenantUserID, StartDate, IsActive)
    VALUES (?, ?, CURDATE(), 1)`,

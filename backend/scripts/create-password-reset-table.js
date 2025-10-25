@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import pool from '../db.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';

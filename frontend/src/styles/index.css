@@ -1,11 +1,3 @@
-/* ------------------------------------------------------------------
-   Global Styles & Resets
-   These styles provide a consistent look and feel across the entire
-   application.  They define typography, colours, layout helpers and
-   responsive behaviours to ensure pages render well on both desktop
-   and mobile devices.
-   ------------------------------------------------------------------ */
-
 /* Apply a global box-sizing so padding/border don't affect element size */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -68,16 +60,7 @@ tr:nth-child(even) {
 }
 
 /*
- * Style the GoodLiving logo consistently across all pages.  In a
- * few components we explicitly import page‑specific CSS files which
- * previously defined their own `.navbar .logo-placeholder` rules to
- * colour the logo yellow with a black outline.  However, pages like
- * Settings or Notifications that rely solely on this global stylesheet
- * were falling back to the default black colour defined here.  To
- * ensure a consistent look and restore the intended styling on every
- * screen, we update the global rule below to match the page‑specific
- * versions.  The `!important` flags ensure this rule takes priority
- * over earlier definitions without affecting component overrides.
+ * Style the GoodLiving logo consistently across all pages.
  */
 .navbar-logo .logo-placeholder {
   color: #FBD402 !important;
@@ -184,16 +167,6 @@ tr:nth-child(even) {
   }
 }
 
-/*
- * Additional responsive improvements for dashboard tables and lists.
- * Many of the landlord/staff/contractor pages rely on grid layouts
- * that assume ample horizontal space.  On smaller screens these
- * structures can overflow the viewport, making content unreadable.
- * The rules below gently reduce side paddings and enable horizontal
- * scrolling for wide tables on screens narrower than 600px.  They
- * complement existing page‑specific CSS without changing the desktop
- * layout.
- */
 @media (max-width: 600px) {
   /* Reduce horizontal padding on wrappers to maximise available space */
   .pendingapprovals-wrapper,

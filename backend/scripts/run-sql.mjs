@@ -16,7 +16,7 @@ const conn = await mysql.createConnection({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "Rawson"   // IMPORTANT: must match where your earlier migrations ran
+  database: process.env.DB_NAME || "Rawson" 
 });
 
 for (const s of statements) {

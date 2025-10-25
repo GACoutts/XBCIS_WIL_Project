@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 const AUTOCOMPLETE_URL = "https://places.googleapis.com/v1/places:autocomplete";
 const BASE_URL = "https://places.googleapis.com/v1";
 
-/** Simple session token you can keep for a flow */
 function uuid() {
   return (crypto?.randomUUID && crypto.randomUUID()) || Math.random().toString(36).slice(2);
 }

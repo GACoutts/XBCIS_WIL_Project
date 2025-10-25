@@ -101,7 +101,6 @@ function StaffDashboard() {
     t?.ResolvedAt ||
     t?.ClosedAt ||
     t?.CompletedAt ||
-    // if backend didn’t send explicit resolved time but the ticket is closed,
     // fall back to UpdatedAt if present:
     ((t?.CurrentStatus === "Completed" || t?.CurrentStatus === "Closed") ? t?.UpdatedAt : null);
 

@@ -219,7 +219,7 @@ router.get('/jobs', async (req, res) => {
 });
 
 // --------- GET /api/contractor/jobs/:id/schedule ----------
-// Returns the latest schedule row for this ticket (and optionally all)
+// Returns the latest schedule row for this ticket
 router.get('/jobs/:id/schedule', async (req, res) => {
   try {
     const ticketId = parseInt(req.params.id, 10);

@@ -6,13 +6,6 @@ import './styles/logticket.css';
 
 /**
  * Ticket
- *
- * Allows a client (tenant) to log a new maintenance ticket.  Only the
- * description and urgency are sent to the backend; a title is collected
- * for user context but not persisted by the API.  An optional image or
- * video can be attached.  After submission, the form resets and a
- * confirmation message is shown briefly before redirecting back to the
- * dashboard.  The component uses RoleNavbar for a consistent header.
  */
 function Ticket() {
   const { user } = useAuth();

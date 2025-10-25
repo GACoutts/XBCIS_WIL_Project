@@ -253,15 +253,15 @@ export default function SignUpPage() {
 
             {/* Google Address */}
             {(formData.role === "tenant" || formData.role === "landlord") && (
-  <div className="input">
-    <div className="input-head">Home/Property Address (Google):</div>
-    <div className="input-row">
-      <AddressPicker onSelect={setLoc} className="address-picker-input" />
-    </div>
-    {errors.google && <span className="error">{errors.google}</span>}
-    {loc?.address && <small>Selected: {loc.address}</small>}
-  </div>
-)}
+              <div className="input">
+                <div className="input-head">Home/Property Address (Google):</div>
+                <div className="input-row">
+                  <AddressPicker onSelect={setLoc} className="address-picker-input" />
+                </div>
+                {errors.google && <span className="error">{errors.google}</span>}
+                {loc?.address && <small>Selected: {loc.address}</small>}
+              </div>
+            )}
 
 
             <div className="input">

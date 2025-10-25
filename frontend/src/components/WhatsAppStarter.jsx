@@ -31,8 +31,7 @@ export default function WhatsAppStarter({ context = {}, contacts = {}, className
     }, [contacts]);
 
     // Compose a simple message to prefill the WhatsApp chat.  Use the ticket
-    // reference and tenant name if supplied.  Feel free to customize the
-    // wording or add more variables.
+    // reference and tenant name if supplied.
     const buildText = (who) => {
         const parts = [];
         if (who?.name) parts.push(`Hello ${who.name}`);

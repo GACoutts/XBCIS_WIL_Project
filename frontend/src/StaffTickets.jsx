@@ -318,7 +318,7 @@ export default function StaffTickets() {
         )}
       </div>
 
-      {/* ===== Ticket History (same block style, no assign btn) ===== */}
+      {/* ===== Ticket History ===== */}
       <div className="sub-title"><h2>Ticket History</h2></div>
       <div className="jobs-section">
         {sortedClosedTickets.length === 0 ? (
@@ -458,7 +458,7 @@ export default function StaffTickets() {
               </div>
             </div>
 
-            {/* QUOTE (optional) */}
+            {/* QUOTE */}
             {selectedTicketDetails.Quote && (
               <div className="modal-section">
                 <h3 style={{ marginTop: 0 }}>Latest Quote</h3>

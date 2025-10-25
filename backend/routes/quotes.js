@@ -16,7 +16,6 @@ function mapMimeToDocType(mime) {
   if (m.includes('pdf')) return 'PDF';
   if (m.includes('word') || m.includes('doc')) return 'DOCX';
   if (m.startsWith('image/')) return 'Image';
-  // safe fallback that exists in your ENUM; if you only have the 3 above, repeat one:
   return 'PDF';
 }
 
@@ -26,7 +25,7 @@ function mapMimeToDocType(mime) {
 const fileStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, quotesDir),
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase(); // keep original ext
+    const ext = path.extname(file.originalname).toLowerCase();
     const base = path
       .basename(file.originalname, path.extname(file.originalname))
       .replace(/\s+/g, "_")
@@ -66,12 +65,11 @@ router.post(
   async (req, res) => {
     try {
       const { ticketId } = req.params;
-      // price-only is fine; description optional
       const amountRaw = (req.body.quoteAmount ?? '').toString();
       const amount = Number.parseFloat(
         amountRaw
-          .replace(/[^\d.,-]/g, '') // keep digits, dot, comma, minus
-          .replace(/,/g, '.')       // treat comma as decimal
+          .replace(/[^\d.,-]/g, '') 
+          .replace(/,/g, '.')       
       );
       if (!Number.isFinite(amount) || amount <= 0) {
         return res.status(400).json({
@@ -134,7 +132,7 @@ router.post(
         );
         const quoteId = result.insertId;
 
-        // Attach documents (optional)
+        // Attach documents
         if (uploadedFiles.length > 0) {
           const filesData = uploadedFiles.map((file) => {
             const webPath = `/uploads/quotes/${path.basename(file.path)}`;

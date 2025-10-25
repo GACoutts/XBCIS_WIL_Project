@@ -91,7 +91,7 @@ export default function ContractorCompleted() {
           </div>
         </div>
 
-        {/* 👇 Wrap content in the same padded container as Assigned Jobs */}
+        {/* Wrap content in the same padded container as Assigned Jobs */}
         <div className="jobs-section">
           <h2>Completed Jobs</h2>
           {loading ? (

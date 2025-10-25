@@ -341,7 +341,7 @@ router.get("/quotes/:quoteId/media", requireAuth, permitRoles("Landlord", "Staff
       return res.status(400).json({ success: false, message: "Invalid quoteId" });
     }
 
-    // If landlord, ensure they belong to this ticket's property
+    // If landlord, ensure they belong to this tickets property
     if (req.user?.role === "Landlord") {
       const [[owns]] = await pool.execute(
         `

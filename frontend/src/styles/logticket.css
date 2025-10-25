@@ -45,7 +45,7 @@
   border-radius: 8px;
   padding: 30px 25px;
   width: 700px;
-  text-align: left;                    /* left-align content by default */
+  text-align: left;            
   height: auto;
   max-height: none;
   position: static;

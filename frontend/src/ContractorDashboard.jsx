@@ -479,7 +479,6 @@ function CDashboard() {
           </div>
         )}
 
-        {/* Full Ticket Details Modal */}
         {/* Full Ticket Details Modal (landlord-style) */}
         {infoJob && (
           <div className="ticket-modal-overlay" onClick={closeDetails}>

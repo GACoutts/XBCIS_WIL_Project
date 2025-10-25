@@ -1,4 +1,3 @@
-// backend/routes/staff.js
 import express from 'express';
 import db from '../db.js';
 import { requireAuth, permitRoles } from '../middleware/authMiddleware.js';

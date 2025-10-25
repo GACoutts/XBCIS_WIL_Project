@@ -1,4 +1,3 @@
-// StaffContractors.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import RoleNavbar from './components/RoleNavbar.jsx';
 import { useAuth } from './context/AuthContext.jsx';
@@ -27,7 +26,7 @@ export default function StaffContractors() {
 
   const fetchContractors = async () => {
     try {
-      // Using your existing endpoint (active). If backend returns Status, filters will work client-side.
+      // Using the existing endpoint (active). If backend returns Status, filters will work client-side.
       const res = await fetch('/api/admin/contractors/active', { credentials: 'include' });
       const data = await res.json();
       if (res.ok) setContractors(data.contractors || []);
