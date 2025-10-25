@@ -483,3 +483,49 @@
     min-width: 100px; /* smaller width for mobile */
   }
 }
+
+.ticket-filters-client {
+  display: flex;
+  gap: 15px;
+  padding: 0; /* match dashboard padding */
+  margin-left: 90px;
+  /* remove border and background for a cleaner, floating appearance */
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  margin-bottom: -30px;
+  margin-top: 20px;
+
+}
+
+.ticket-filters-client label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: bold;
+  color: black;
+}
+
+.ticket-filters-client select,
+.ticket-filters-client input[type="date"] {
+  margin-top: 5px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ticket-filters-client select:hover,
+.ticket-filters-client input[type="date"]:hover {
+  border-color: #000;
+}
+
+.ticket-filters-client select:focus,
+.ticket-filters-client input[type="date"]:focus {
+  border-color: #FBD402;
+  box-shadow: 0 0 5px rgba(251, 212, 2, 0.5);
+}

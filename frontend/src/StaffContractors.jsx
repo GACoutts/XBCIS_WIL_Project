@@ -133,10 +133,10 @@ export default function StaffContractors() {
 
       <div className="staffdashboard-title"><h1>Contractors</h1></div>
 
-      <div className="sub-titles-container">
+      <div className="sub-titles-contractors-container">
         <div className="sub-title"><h2>Contractor Management</h2></div>
         {/* Add contractor button placed beneath the heading to keep it outside of the table */}
-        <button className="action-btn" onClick={() => setShowAddModal(true)}>Add Contractor</button>
+        <button className="contractor-action-btn" onClick={() => setShowAddModal(true)}>Add Contractor</button>
       </div>
 
       <div className="contractor-table">

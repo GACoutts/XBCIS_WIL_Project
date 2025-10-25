@@ -224,106 +224,105 @@ function CDashboard() {
           <h1>Dashboard</h1>
         </div>
 
-        {/* Filters only apply to the active tab */}
-        <div className="jobs-filters">
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-            <option value="">All Status</option>
-            <option value="New">New</option>
-            <option value="In Review">In Review</option>
-            <option value="Quoting">Quoting</option>
-            <option value="Awaiting Approval">Awaiting Approval</option>
-            <option value="Approved">Approved</option>
-            <option value="Awaiting Appointment">Awaiting Appointment</option>
-            <option value="Scheduled">Scheduled</option>
-            <option value="Completed">Completed</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-          <input
-            type="date"
-            value={filterDate}
-            onChange={e => setFilterDate(e.target.value)}
-          />
-        </div>
-
         {loading ? (
-          <p>Loading jobs...</p>
-        ) : activeTab === 'assigned' ? (
-          <div className="jobs-section">
-            <h2>Assigned Jobs</h2>
-            {filteredAssignedJobs.length === 0 ? (
-              <p>No assigned jobs</p>
-            ) : (
-              <div className="jobs-table-container">
-                <table className="jobs-table">
-                  <thead>
-                    <tr>
-                      <th>Ref #</th>
-                      <th>Issue</th>
-                      <th>Submitted</th>
-                      <th>Urgency / Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAssignedJobs.map(job => {
-                      const statusInfo = formatJobStatus(job.status);
-                      const urgencyInfo = formatUrgency(job.urgency);
-                      const actions = getJobActions(job);
-                      return (
-                        <tr key={job.ticketId}>
-                          <td>{job.ticketRefNumber || job.ticketId}</td>
-                          <td>{job.description || job.subject}</td>
-                          <td>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}</td>
-                          <td>
-                            <div className="urgency-status">
-                              <span className={`urgency ${urgencyInfo.class}`}>{urgencyInfo.display}</span>
-                              <span className={`status-text ${statusInfo.class}`}>{statusInfo.display}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="action-buttons">
-                              {actions.map((action, idx) => (
-                                <button key={idx} className="action-btn" onClick={action.onClick}>{action.label}</button>
-                              ))}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="jobs-section">
-            <h2>Completed Jobs</h2>
-            {filteredCompletedJobs.length === 0 ? (
-              <p>No completed jobs</p>
-            ) : (
-              <div className="jobs-table-container">
-                <table className="jobs-table">
-                  <thead>
-                    <tr>
-                      <th>Ref #</th>
-                      <th>Issue</th>
-                      <th>Completed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCompletedJobs.map(job => (
-                      <tr key={job.ticketId}>
-                        <td>{job.ticketRefNumber || job.ticketId}</td>
-                        <td>{job.description || job.subject}</td>
-                        <td>{job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+  <p>Loading jobs...</p>
+) : (
+  <div className="jobs-section">
+    <div className="section-header">
+      <h2>{activeTab === 'assigned' ? 'Assigned Jobs' : 'Completed Jobs'}</h2>
+      <div className="jobs-filters-contractor">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <option value="">All Statuses</option>
+          <option value="New">New</option>
+          <option value="In Review">In Review</option>
+          <option value="Quoting">Quoting</option>
+          <option value="Awaiting Approval">Awaiting Approval</option>
+          <option value="Approved">Approved</option>
+          <option value="Awaiting Appointment">Awaiting Appointment</option>
+          <option value="Scheduled">Scheduled</option>
+          <option value="Completed">Completed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+        <input
+          type="date"
+          value={filterDate}
+          onChange={e => setFilterDate(e.target.value)}
+        />
+      </div>
+    </div>
+    {activeTab === 'assigned' ? (
+      filteredAssignedJobs.length === 0 ? (
+        <p>No assigned jobs</p>
+      ) : (
+        <div className="jobs-table-container">
+          <table className="jobs-table">
+            <thead>
+              <tr>
+                <th>Ref #</th>
+                <th>Issue</th>
+                <th>Submitted</th>
+                <th>Urgency / Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAssignedJobs.map(job => {
+                const statusInfo = formatJobStatus(job.status);
+                const urgencyInfo = formatUrgency(job.urgency);
+                const actions = getJobActions(job);
+                return (
+                  <tr key={job.ticketId}>
+                    <td>{job.ticketRefNumber || job.ticketId}</td>
+                    <td>{job.description || job.subject}</td>
+                    <td>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}</td>
+                    <td>
+                      <div className="urgency-status">
+                        <span className={`urgency ${urgencyInfo.class}`}>{urgencyInfo.display}</span>
+                        <span className={`status-text ${statusInfo.class}`}>{statusInfo.display}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        {actions.map((action, idx) => (
+                          <button key={idx} className="action-btn" onClick={action.onClick}>{action.label}</button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )
+    ) : (
+      filteredCompletedJobs.length === 0 ? (
+        <p>No completed jobs</p>
+      ) : (
+        <div className="jobs-table-container">
+          <table className="jobs-table">
+            <thead>
+              <tr>
+                <th>Ref #</th>
+                <th>Issue</th>
+                <th>Completed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCompletedJobs.map(job => (
+                <tr key={job.ticketId}>
+                  <td>{job.ticketRefNumber || job.ticketId}</td>
+                  <td>{job.description || job.subject}</td>
+                  <td>{job.updatedAt ? new Date(job.updatedAt).toLocaleDateString() : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    )}
+  </div>
+)}
 
         {/* Modal for proposing appointment */}
         {modalJob && (

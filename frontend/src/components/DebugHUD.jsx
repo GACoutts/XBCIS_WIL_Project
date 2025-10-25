@@ -8,6 +8,7 @@ export default function DebugHUD() {
   const { user, initializing, reload, logout } = useAuth();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [shown, setShown] = useState(true);
 
   const doRefreshToken = async () => {
     setBusy(true);
@@ -22,6 +23,10 @@ export default function DebugHUD() {
       setBusy(false);
     }
   };
+
+if (!shown) {
+    return null;
+  }
 
   const doReloadMe = async () => {
     setBusy(true);
@@ -97,6 +102,13 @@ export default function DebugHUD() {
           style={{ padding: '4px 8px', borderRadius: 6, background: '#ef4444', color: 'white', border: 'none' }}
         >
           Logout
+        </button>
+        <button
+          onClick={() => setShown(false)}
+          disabled={busy}
+          style={{ padding: '4px 8px', borderRadius: 6, background: '#6b7280', color: 'white', border: 'none' }}
+        >
+          Hide
         </button>
       </div>
 

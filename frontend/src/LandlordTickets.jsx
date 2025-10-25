@@ -209,10 +209,10 @@ export default function LandlordTickets() {
         </div>
       </nav>
 
-      <div style={{ padding: '80px 90px 40px' }}>
+      <div style={{ padding: '20px 90px 40px' }}>
         <h1 style={{ marginBottom: 20 }}>My Tickets</h1>
         {/* Filters */}
-        <div style={{ display: 'flex', gap: 20, marginBottom: 20, alignItems: 'flex-end' }}>
+        <div className="ticket-filters-ltickets" style={{ display: 'flex', gap: 20, marginBottom: 20, alignItems: 'flex-end' }}>
           <div>
             <label style={{ fontSize: 13, fontWeight: 600 }}>Status:</label>
             <select
@@ -248,7 +248,7 @@ export default function LandlordTickets() {
         </div>
 
         {/* Current Tickets */}
-        <div className="pendingapprovals-wrapper" style={{ marginTop: 0 }}>
+        <div className="pendingapprovals-wrapper-landlord" style={{ marginTop: 0 }}>
           <h2 style={{ margin: '0 0 10px 0' }}>Current Tickets</h2>
           <div className="pendingapprovals-card">
             <div className="pendingapprovals-header">
@@ -301,7 +301,7 @@ export default function LandlordTickets() {
         </div>
 
         {/* History Tickets */}
-        <div className="pendingapprovals-wrapper" style={{ marginTop: 40 }}>
+        <div className="pendingapprovals-wrapper-landlord" style={{ marginTop: 40 }}>
           <h2 style={{ margin: '0 0 10px 0' }}>Ticket & Quote History</h2>
           <div className="pendingapprovals-card">
             <div className="pendingapprovals-header" style={{ gridTemplateColumns: '1fr 3fr 2fr 2fr 2fr' }}>

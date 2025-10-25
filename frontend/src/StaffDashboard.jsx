@@ -343,81 +343,81 @@ function StaffDashboard() {
       <div className="staffdashboard-title"><h1>Dashboard</h1></div>
 
       <div className="sub-titles-container">
-        <div className="sub-title"><h2>Awaiting Tickets</h2></div>
-      </div>
+  <div className="sub-title">
+    <h2>Awaiting Tickets</h2>
+  </div>
+  <div className="ticket-filters">
+    <label>
+      Status:
+      <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <option value="">All</option>
+        <option value="New">New</option>
+        <option value="In Review">In Review</option>
+        <option value="Quoting">Quoting</option>
+        <option value="Awaiting Appointment">Awaiting Appointment</option>
+        <option value="Awaiting Approval">Awaiting Approval</option>
+        <option value="Approved">Approved</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Scheduled">Scheduled</option>
+        <option value="Closed">Closed</option>
+      </select>
+    </label>
+    <label>
+      Submitted After:
+      <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+    </label>
+  </div>
+</div>
 
-      <div className="awaiting-tickets-container">
-        <div className="table-header">
-          <div className="header-content">
-            <div className="header-grid">
-              <div className="header-item">Ticket ID</div>
-              <div className="header-item">Property</div>
-              <div className="header-item">Issue</div>
-              <div className="header-item">Submitted</div>
-              <div className="header-status">Urgency/Status</div>
+<div className="awaiting-tickets-container">
+  <div className="table-header">
+    <div className="header-content">
+      <div className="header-grid">
+        <div className="header-item">Ticket ID</div>
+        <div className="header-item">Property</div>
+        <div className="header-item">Issue</div>
+        <div className="header-item">Submitted</div>
+        <div className="header-status">Urgency/Status</div>
+      </div>
+    </div>
+  </div>
+
+  {filteredTickets.length > 0 ? (
+    filteredTickets.map((ticket, index) => (
+      <div key={ticket.TicketID || index} className="ticket-card">
+        <div className="ticket-layout">
+          <div className="ticket-info-grid">
+            <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
+            <div className="info-value">{ticket.PropertyAddress || ticket.property || '—'}</div>
+            <div className="info-value issue-cell">
+              <span>{ticket.Description || ticket.issue}</span>
+              <img src={gearIcon} alt="Settings" className="gear-icon" />
+            </div>
+            <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
+            <div className="urgency-status-column">
+              <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
+                {ticket.UrgencyLevel || ticket.urgency}
+              </span>
+              <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
+                {getDisplayStatus(ticket) || ticket.status}
+              </span>
+            </div>
+            <div className="action-buttons">
+              <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
+                Assign Contractor
+              </button>
+              <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
+                View Details
+              </button>
             </div>
           </div>
         </div>
-
-        {/* Ticket filters */}
-        <div className="ticket-filters">
-          <label>
-            Status:
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              <option value="">All</option>
-              <option value="New">New</option>
-              <option value="In Review">In Review</option>
-              <option value="Quoting">Quoting</option>
-              <option value="Awaiting Appointment">Awaiting Appointment</option>
-              <option value="Awaiting Approval">Awaiting Approval</option>
-              <option value="Approved">Approved</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </label>
-          <label>
-            Submitted After:
-            <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-          </label>
-        </div>
-
-        {filteredTickets.length > 0 ? (
-          filteredTickets.map((ticket, index) => (
-            <div key={ticket.TicketID || index} className="ticket-card">
-              <div className="ticket-layout">
-                <div className="ticket-info-grid">
-                  <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-                  <div className="info-value">{ticket.PropertyAddress || ticket.property || '—'}</div>
-                  <div className="info-value issue-cell">
-                    <span>{ticket.Description || ticket.issue}</span>
-                    <img src={gearIcon} alt="Settings" className="gear-icon" />
-                  </div>
-                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-                  <div className="urgency-status-column">
-                    <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
-                      {ticket.UrgencyLevel || ticket.urgency}
-                    </span>
-                    <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
-                      {getDisplayStatus(ticket) || ticket.status}
-                    </span>
-                  </div>
-                  <div className="action-buttons">
-                    <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                      Assign Contractor
-                    </button>
-                    <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="empty-state">No tickets available</p>
-        )}
       </div>
+    ))
+  ) : (
+    <p className="empty-state">No tickets available</p>
+  )}
+</div>
 
       <section className="staff-admin-panel">
         <h2 className="section-title">Role Requests</h2>
@@ -488,7 +488,7 @@ function StaffDashboard() {
       <div className="analytics-panel">
         <h2>Analytics</h2>
         <div className="charts-container">
-          <div className="chart-wrapper">
+          <div className="chart-wrapper1">
             <h3>Tickets by Status</h3>
             <PieChart width={300} height={300}>
               <Pie
@@ -509,7 +509,7 @@ function StaffDashboard() {
             </PieChart>
           </div>
 
-          <div className="chart-wrapper">
+          <div className="chart-wrapper1">
             <h3>Tickets by Urgency</h3>
             <BarChart width={400} height={300} data={ticketsByUrgencyData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -532,7 +532,7 @@ function StaffDashboard() {
           </div>
         </div>
 
-        <div className="chart-wrapper">
+        <div className="chart-wrapper2">
           <h3>Tickets Opened vs Resolved (Weekly)</h3>
           <BarChart width={600} height={300} data={ticketsByWeekData}>
             <CartesianGrid strokeDasharray="3 3" />

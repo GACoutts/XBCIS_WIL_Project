@@ -239,7 +239,7 @@ const totalPages = activeTab === "open" ? openTotalPages : closedTotalPages;
           </div>
 
           {/* Filters + Search */}
-          <div className="ticket-filters">
+          <div className="ticket-filters-client">
             <input
               type="text"
               placeholder="Search tickets..."
