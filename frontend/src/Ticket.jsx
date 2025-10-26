@@ -13,6 +13,7 @@ function Ticket() {
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     document.body.style.setProperty("overflow", "important");
@@ -22,6 +23,7 @@ function Ticket() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+
     if (!user?.userId) {
       setMessage("User not logged in.");
       return;
@@ -59,6 +61,7 @@ function Ticket() {
       setDescription("");
       setUrgency("Low");
       setFile(null);
+      setDone(true);
 
       setTimeout(() => navigate("/"), 5000); // redirect after 5s
     } catch (err) {
@@ -67,34 +70,6 @@ function Ticket() {
     }
   };
 
-  if (done) {
-    return (
-      <div className="logticket">
-        <nav className="navbar">
-          <div className="navbar-logo">
-            <img src="https://placehold.co/120x40" alt="logo" />
-          </div>
-          <div className="navbar-right">
-            <ul className="navbar-menu">
-              <li><Link to="/">Dashboard</Link></li>
-              <li><Link to="/ticket">Tickets</Link></li>
-              <li><Link to="/reports">Reports</Link></li>
-              <li><Link to="/notifications">Notifications</Link></li>
-              <li><Link to="/settings">Settings</Link></li>
-            </ul>
-          </div>
-          <div className="navbar-profile">
-            <img src="https://placehold.co/40" alt="profile" />
-          </div>
-        </nav>
-
-        <div className="container-confirmation">
-          <div className="header">
-            <div className="text"><h2>Ticket Submitted</h2></div>
-            <hr className="underline" />
-          </div>
-          <p className="text">Your ticket has been logged successfully. We'll keep you updated on its status.</p>
-        </div>
   // Navbar component for reuse
   const Navbar = () => (
     <nav className="navbar">
@@ -103,6 +78,7 @@ function Ticket() {
         <ul className="navbar-menu">
           <li><Link to="/">Dashboard</Link></li>
           <li><Link to="/ticket">Tickets</Link></li>
+          <li><Link to="/notifications">Notifications</Link></li>
           <li><Link to="/settings">Settings</Link></li>
         </ul>
       </div>
@@ -112,25 +88,26 @@ function Ticket() {
     </nav>
   );
 
+  if (done) {
+    return (
+      <div className="logticket">
+        <Navbar />
+        <div className="container-confirmation">
+          <div className="header">
+            <div className="text"><h2>Ticket Submitted</h2></div>
+            <hr className="underline" />
+          </div>
+          <p className="text">
+            Your ticket has been logged successfully. We’ll keep you updated on its status.
+            You’ll be redirected to your dashboard shortly.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="logticket">
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <div className="logo-placeholder">GoodLiving</div>
-        </div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/">Dashboard</Link></li>
-            <li><Link to="/ticket">Tickets</Link></li>
-          {/*  <li><Link to="/reports">Reports</Link></li> */}
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <img src="https://placehold.co/40" alt="profile" />
-        </div>
-      </nav>
       <Navbar />
 
       <div className="container">
@@ -168,7 +145,7 @@ function Ticket() {
           <div className="urgency-container">
             <label>Urgency Selection</label>
             <div className="urgency-options">
-              {["Low", "Medium", "High", "Critical"].map((level) => (
+              {["Low", "Medium", "High"].map((level) => (
                 <label key={level}>
                   <input
                     type="radio"
