@@ -8,6 +8,7 @@ export default function DebugHUD() {
   const { user, initializing, reload, logout } = useAuth();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [shown, setShown] = useState(true);
 
   const doRefreshToken = async () => {
     setBusy(true);
@@ -22,6 +23,10 @@ export default function DebugHUD() {
       setBusy(false);
     }
   };
+
+if (!shown) {
+    return null;
+  }
 
   const doReloadMe = async () => {
     setBusy(true);

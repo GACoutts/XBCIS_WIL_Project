@@ -317,6 +317,11 @@ export default function StaffTickets() {
           </div>
         )}
       </div>
+    ))
+  ) : (
+    <p className="empty-state">No tickets available</p>
+  )}
+</div>
 
       {/* ===== Ticket History ===== */}
       <div className="sub-title"><h2>Ticket History</h2></div>

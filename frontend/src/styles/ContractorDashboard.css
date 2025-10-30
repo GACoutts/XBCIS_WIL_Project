@@ -650,3 +650,54 @@ body {
 .ticket-modal .modal-buttons {
   margin-top: 16px;
 }
+
+.contractor-dashboard .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.jobs-filters-contractor {
+  display: flex;
+  gap: 15px;
+  padding: 0; /* match dashboard padding */
+  margin-left: 40px;
+  /* remove border and background for a cleaner, floating appearance */
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  margin-bottom: -30px;
+}
+
+.jobs-filters-contractor label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: bold;
+  color: black;
+}
+
+.jobs-filters-contractor select,
+.jobs-filters-contractor input[type="date"] {
+  margin-top: 5px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.jobs-filters-contractor select:hover,
+.jobs-filters-contractor input[type="date"]:hover {
+  border-color: #000;
+}
+
+.jobs-filters-contractor select:focus,
+.jobs-filters-contractor input[type="date"]:focus {
+  border-color: #FBD402;
+  box-shadow: 0 0 5px rgba(251, 212, 2, 0.5);
+}

@@ -19,11 +19,13 @@
   margin: 5px auto;
   text-align: center;
   width: 350px;
-  /* Allow the card to expand with content while enforcing a minimum height */
   min-height: 450px;
   height: auto;
-  transform: scale(1.25);
-  transform-origin: center center;
+  transform: scale(1.07);
+  transform-origin: top center;
+  margin-top: -35px;
+  position: relative !important;
+  z-index: 10000 !important;
 }
 
 /* Header + underline */

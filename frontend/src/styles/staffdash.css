@@ -74,7 +74,8 @@ body {
 }
 
 .staffdashboard-title{ 
-  padding-left: 90px; 
+  padding-left: 90px;
+  margin-bottom: -50px; 
 }
 
 /* Titles */
@@ -132,6 +133,7 @@ body {
     /* increase height so the list of awaiting tickets can display more rows */
     max-height: 400px;
     box-sizing: border-box;
+    margin-bottom: 50px;
 }
 
 .contractor-table {
@@ -904,8 +906,8 @@ body {
 .ticket-filters {
   display: flex;
   gap: 15px;
-  padding: 15px 90px 10px 90px; /* match dashboard padding */
-  margin-top: 10px;
+  padding: 0; /* match dashboard padding */
+  margin-left: 40px;
   /* remove border and background for a cleaner, floating appearance */
   background-color: transparent;
   border: none;
@@ -946,25 +948,49 @@ body {
 
 .analytics-panel {
   margin: 2rem 0;
-  margin-left: 6rem;
+  text-align: center;
 }
+
+.analytics-panel h2 {
+  text-align: center;
+}
+
 .charts-container {
   display: flex;
   gap: 2rem;
   flex-wrap: wrap;
+  margin-bottom: 20px;
+  justify-content: center;
+  margin-left: 100px
 }
-.chart-wrapper {
+.chart-wrapper1 {
   background: #fff;
   padding: 1rem;
   border-radius: 8px;
   box-shadow: 0 0 6px rgba(0,0,0,0.1);
   text-align: center;
+  align-content: center !important;
+}
+
+.chart-wrapper2 {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.1);
+  text-align: center;
+  align-content: center !important;
+  margin-left: 330px;
+  width: 690px
 }
 
 .analytics-summary {
   display: flex;
   gap: 2rem;
   margin-bottom: 1.5rem;
+  margin-bottom: 50px;
+  justify-content: center;
+  width: 690px;
+  margin-left: 330px;
 }
 
 .summary-card {
@@ -973,6 +999,106 @@ body {
   border-radius: 8px;
   text-align: center;
   flex: 1;
+  justify-content: center;
+}
+
+.sub-titles-container {
+  display: flex;
+  align-items: center; /* Vertically aligns heading and filters */
+  justify-content: flex-start; /* Keeps them left-aligned, or use space-between to spread out */
+  gap: 20px; /* Your existing gap */
+  padding-bottom: 10px; /* Reduce this from 40px to shrink the space below */
+  margin-bottom: 0; /* Remove any extra bottom margin if present */
+}
+
+.sub-titles-tickets-container {
+  display: flex;
+  align-items: center; /* Vertically aligns heading and filters */
+  justify-content: flex-start; /* Keeps them left-aligned, or use space-between to spread out */
+  gap: 20px; /* Your existing gap */
+  padding-bottom: 10px; /* Reduce this from 40px to shrink the space below */
+  margin-bottom: 0; /* Remove any extra bottom margin if present */
+  margin-top: 50px;
+}
+
+.awaiting-tickets-container2 {
+    margin: 20px 90px;
+    width: 100%;
+    background: white;
+    border-radius: 5px;
+    overflow-y: auto;
+    border: 1px solid #FBD402;
+    margin-top: 30px;
+    width: calc(100% - 180px);
+    /* increase height so the list of awaiting tickets can display more rows */
+    max-height: 400px;
+    box-sizing: border-box;
+    margin-bottom: 50px;
+}
+
+.sub-titles-tickets-container .sub-title-bottom {
+  display: flex;
+  align-items: center; /* Vertically aligns heading and filters */
+  justify-content: flex-start; /* Keeps them left-aligned, or use space-between to spread out */
+  gap: 20px; /* Your existing gap */
+  padding-bottom: 10px; /* Reduce this from 40px to shrink the space below */
+  margin-bottom: -35px; /* Remove any extra bottom margin if present */
+  margin-top: -10px;
+  margin-left: 85px;
+}
+
+.ticket-filters-tickets {
+  display: flex;
+  gap: 15px;
+  padding: 0; /* match dashboard padding */
+  margin-left: 40px;
+  /* remove border and background for a cleaner, floating appearance */
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  margin-bottom: -30px;
+}
+
+.ticket-filters-tickets label {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: bold;
+  color: black;
+}
+
+.ticket-filters-tickets select,
+.ticket-filters-tickets input[type="date"] {
+  margin-top: 5px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid #FBD402;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ticket-filters-tickets select:hover,
+.ticket-filters-tickets input[type="date"]:hover {
+  border-color: #000;
+}
+
+.ticket-filters-tickets select:focus,
+.ticket-filters-tickets input[type="date"]:focus {
+  border-color: #FBD402;
+  box-shadow: 0 0 5px rgba(251, 212, 2, 0.5);
+}
+
+.sub-titles-contractors-container {
+  display: flex;
+  align-items: center; /* Vertically aligns heading and filters */
+  justify-content: flex-start; /* Keeps them left-aligned, or use space-between to spread out */
+  gap: 20px; /* Your existing gap */
+  padding-bottom: 10px; /* Reduce this from 40px to shrink the space below */
+  margin-bottom: 30px; /* Remove any extra bottom margin if present */
+  margin-top: 50px;
 }
 
 :root { --navbar-height: 60px; }
