@@ -4,6 +4,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -13,11 +14,11 @@ jobs:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: testdb
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: Rawson
         ports: ["3306:3306"]
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ppassword"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -36,6 +37,31 @@ jobs:
           [ -f package-lock.json ] && npm ci || true
           [ -d backend ] && npm ci --prefix backend || true
           [ -d frontend ] && npm ci --prefix frontend || true
+
+      # --- MySQL setup steps ---
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..60}; do
+            mysqladmin ping -h 127.0.0.1 -ppassword && exit 0
+            echo "⏳ waiting for mysql..."; sleep 2
+          done
+          echo "MySQL did not become healthy in time" && exit 1
+
+      - name: Import schema (if present)
+        if: ${{ hashFiles('**/*00-master-setup.sql') != '' }}
+        run: |
+          set -e
+          FILE=$(git ls-files '*00-master-setup.sql' | head -n1 || true)
+          if [ -n "$FILE" ]; then
+            echo "Importing schema from $FILE into Rawson"
+            mysql -h 127.0.0.1 -uroot -ppassword Rawson < "$FILE"
+          else
+            echo "No schema file found — skipping"
+          fi
+      # --- End MySQL setup steps ---
 
       - name: Super-Linter (non-blocking)
         uses: super-linter/super-linter@v6
@@ -56,8 +82,8 @@ jobs:
           DB_HOST=127.0.0.1
           DB_PORT=3306
           DB_USER=root
-          DB_PASSWORD=root
-          DB_NAME=testdb
+          DB_PASSWORD=password
+          DB_NAME=Rawson
 
           # --- Security / JWT (safe test values) ---
           BCRYPT_ROUNDS=10
