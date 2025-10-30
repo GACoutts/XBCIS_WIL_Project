@@ -621,3 +621,5 @@ function StaffDashboard() {
 }
 
 export default StaffDashboard;
+
+// ci: trigger rebuild to include StaffDashboard fix in PR
