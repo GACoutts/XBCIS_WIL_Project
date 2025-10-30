@@ -24,7 +24,21 @@ jobs:
           --health-retries=10
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use PR head when running on pull_request; otherwise use the pushed ref
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+
+      - name: Debug refs
+        run: |
+          echo "event: ${{ github.event_name }}"
+          echo "ref:   ${{ github.ref }}"
+          echo "head:  ${{ github.head_ref }}"
+          echo "sha:   $GITHUB_SHA"
+          git rev-parse --abbrev-ref HEAD
+          git log -1 --oneline
 
       - name: Use Node 20
         uses: actions/setup-node@v4
