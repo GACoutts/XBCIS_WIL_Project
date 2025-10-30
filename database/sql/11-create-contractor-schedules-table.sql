@@ -26,5 +26,9 @@ CREATE INDEX IdxContractorSchedulesDate ON tblContractorSchedules (ProposedDate)
 CREATE INDEX IdxContractorSchedulesConfirmed ON tblContractorSchedules (ClientConfirmed);
 CREATE INDEX IdxContractorSchedulesCreated ON tblContractorSchedules (CreatedAt);
 
+ALTER TABLE tblContractorSchedules
+  ADD COLUMN ContractorConfirmed TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN ProposedBy ENUM('Client','Contractor') NOT NULL DEFAULT 'Contractor';
+
 -- Verify table structure
 DESCRIBE tblContractorSchedules;

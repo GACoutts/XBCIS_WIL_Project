@@ -1,417 +1,407 @@
-import React, { useState, useEffect } from "react";
-import gearIcon from "./assets/settings.png";
+import React, { useState, useEffect, useMemo } from "react";
+import RoleNavbar from "./components/RoleNavbar.jsx";
 import "./styles/staffdash.css";
-import ReviewRoleRequests from './components/ReviewRoleRequest.jsx';
-import { Link } from 'react-router-dom';
+import ReviewRoleRequests from "./components/ReviewRoleRequest.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
-import { PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+  PieChart, Pie, Cell, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
+} from "recharts";
 
 function StaffDashboard() {
   const { logout } = useAuth();
-  const [showLogout, setShowLogout] = useState(false);
+
   const [allTickets, setAllTickets] = useState([]);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDate, setFilterDate] = useState("");
 
-  // Modal state
+  // Assign contractor modal
   const [showContractorModal, setShowContractorModal] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [activeContractors, setActiveContractors] = useState([]);
   const [chosenContractorId, setChosenContractorId] = useState(null);
 
+  // Ticket details modal
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedTicketDetails, setSelectedTicketDetails] = useState(null);
 
-  // Contractor management state has been moved to its own page (StaffContractors).
-  // We retain only the ability to assign a contractor to a ticket using the
-  // `activeContractors` list loaded when assigning.  The full contractor
-  // management UI is now located in `StaffContractors.jsx`.
+  const [ticketMedia, setTicketMedia] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
+
+  // ===== Helpers =====
+  const getUrgencyClass = (urgency) => {
+    switch ((urgency || "").toLowerCase()) {
+      case "high": return "urgency-high";
+      case "medium": return "urgency-medium";
+      case "low": return "urgency-low";
+      default: return "";
+    }
+  };
+
+  const mapDisplayStatus = (status, createdAt) => {
+    if (!status) return "";
+    if (status === "New" && createdAt) {
+      const diffDays = (Date.now() - new Date(createdAt)) / 86400000;
+      if (diffDays > 31) return "";
+      return "New";
+    }
+    switch (status) {
+      case "In Review": return "In Review";
+      case "Awaiting Staff Assignment": return "Awaiting Staff Assignment";
+      case "Quoting": return "Quoting";
+      case "Awaiting Landlord Approval": return "Awaiting Landlord Approval";
+      case "Awaiting Appointment": return "Awaiting Appointment";
+      case "Approved": return "Approved";
+      case "Scheduled": return "Scheduled";
+      case "Completed": return "Closed";
+      case "Rejected": return "Rejected";
+      default: return status;
+    }
+  };
+
+
+  const getStatusTone = (statusText) => {
+    if (!statusText) return "";
+    if ([
+      "In Review",
+      "Awaiting Staff Assignment",
+      "Quoting",
+      "Awaiting Landlord Approval",
+      "Awaiting Appointment",
+      "Scheduled"
+    ].includes(statusText)) {
+      return "status-awaiting";
+    }
+    if (statusText === "Approved") return "status-approved";
+    if (["Completed", "Closed"].includes(statusText)) return "status-closed";
+    if (statusText === "Rejected") return "status-rejected";
+    return "";
+  };
+
+
+  const titleOrDesc = (t) => (t?.Title && t.Title.trim()) || t?.Description || "-";
+
+  // Which statuses to show in the pie (order matters)
+  const STATUS_ORDER = [
+    "New",
+    "In Review",
+    "Awaiting Staff Assignment",
+    "Quoting",
+    "Awaiting Landlord Approval",
+    "Awaiting Appointment",
+    "Approved",
+    "Scheduled",
+    "Closed",
+    "Rejected",
+  ];
+
+  // best-effort getter for a resolved/closed timestamp
+  const getResolvedAt = (t) =>
+    t?.ResolvedAt ||
+    t?.ClosedAt ||
+    t?.CompletedAt ||
+    // fall back to UpdatedAt if present:
+    ((t?.CurrentStatus === "Completed" || t?.CurrentStatus === "Closed") ? t?.UpdatedAt : null);
+
+
+  // ===== Data =====
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/tickets", { credentials: "include" });
+        const data = await res.json();
+        setAllTickets(Array.isArray(data?.tickets) ? data.tickets : []);
+      } catch {
+        setAllTickets([]);
+      }
+    })();
+  }, []);
+
+  const filteredTickets = useMemo(() => {
+    const list = allTickets
+      .filter(t => !filterStatus || mapDisplayStatus(t.CurrentStatus, t.CreatedAt) === filterStatus)
+      .filter(t => !filterDate || new Date(t.CreatedAt) >= new Date(filterDate));
+
+    const effective = (t) => new Date(t.CreatedAt || Date.now());
+    return list.sort((a, b) => effective(b) - effective(a));
+  }, [allTickets, filterStatus, filterDate]);
+
+  const totalOpenTickets = allTickets.filter(t => mapDisplayStatus(t.CurrentStatus, t.CreatedAt) !== "Closed").length;
+
+  // ===== Assign contractor flow =====
   const loadActiveContractors = async () => {
     try {
       const res = await fetch("/api/admin/contractors/active", { credentials: "include" });
       const data = await res.json();
-      if (res.ok) setActiveContractors(data.contractors);
-    } catch (err) {
-      console.error("Failed to load active contractors:", err);
-    }
+      if (res.ok) setActiveContractors(data.contractors || []);
+    } catch { }
   };
 
   const handleAssignContractor = async (ticketId) => {
     setSelectedTicketId(ticketId);
     setShowContractorModal(true);
-
-    // Load active contractors
     await loadActiveContractors();
-
-    // Load currently assigned contractor
     try {
       const res = await fetch(`/api/tickets/${ticketId}/contractor`, { credentials: "include" });
       const data = await res.json();
-      if (res.ok && data.contractor) {
-        setChosenContractorId(data.contractor.UserID);
-      } else {
-        setChosenContractorId(null);
-      }
-    } catch (err) {
-      console.error("Failed to load assigned contractor", err);
-      setChosenContractorId(null);
-    }
+      setChosenContractorId(res.ok && data.contractor ? data.contractor.UserID : null);
+    } catch { setChosenContractorId(null); }
   };
 
-  const handleConfirmSchedule = async () => {
+  const handleConfirmAssign = async () => {
     if (!chosenContractorId) return alert("Select contractor");
-
     try {
       const res = await fetch(`/api/staff/tickets/${selectedTicketId}/assign`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contractorUserId: chosenContractorId }),
+        body: JSON.stringify({ contractorUserId: chosenContractorId })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to create schedule");
-
-      // Update local ticket status to In Review (assignment moves ticket to in review)
-      const id = selectedTicketId;
-      setAllTickets(prev => prev.map(t => t.TicketID === id ? { ...t, CurrentStatus: 'Quoting' } : t));
+      if (!res.ok) throw new Error(data?.message || "Failed to assign contractor");
+      setAllTickets(prev => prev.map(t => t.TicketID === selectedTicketId ? { ...t, CurrentStatus: "Quoting" } : t));
       setShowContractorModal(false);
       setChosenContractorId(null);
       setSelectedTicketId(null);
       alert("Contractor assigned successfully!");
-    } catch (err) {
-      console.error(err);
-      alert(err.message);
-    }
+    } catch (e) { alert(e.message); }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    window.location.reload();
-  };
-
-  const getUrgencyColor = (urgency) => {
-    switch ((urgency || "").toLowerCase()) {
-      case 'high': return 'high-urgency';
-      case 'medium': return 'medium-urgency';
-      case 'low': return 'low-urgency';
-      default: return '';
-    }
-  };
-
-  const getEffectiveDate = (ticket) => {
-    if (!ticket.CreatedAt) return new Date();
-    const createdDate = new Date(ticket.CreatedAt);
-    const now = new Date();
-    const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-    if (diffDays > 31) {
-      const monthsOld = Math.floor(diffDays / 30);
-      const bumpedDate = new Date(createdDate);
-      bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
-      return bumpedDate;
-    }
-    return createdDate;
-  };
-
-  const getStatusColor = (status) => {
-    // Map various ticket states to CSS classes.  If you add new statuses
-    // on the backend, update this mapping accordingly.  Unrecognised
-    // statuses fall back to no additional styling.
-    switch (status) {
-      case 'New':
-      case 'In Review':
-      case 'Quoting':
-      case 'Awaiting Landlord Approval':
-      case 'Awaiting Approval':
-      case 'Awaiting Appointment':
-      case 'Scheduled':
-        return 'status-awaiting';
-      case 'Approved':
-        return 'status-approved';
-      case 'Rejected':
-        return 'status-rejected';
-      case 'Completed':
-      case 'Closed':
-        return 'status-closed';
-      default:
-        return '';
-    }
-  };
-
-  const getDisplayStatus = (ticket) => {
-    const status = ticket.CurrentStatus;
-    if (!status) return "";
-    // Show "New" only for the first 31 days
-    if (status === 'New' && ticket.CreatedAt) {
-      const createdDate = new Date(ticket.CreatedAt);
-      const now = new Date();
-      const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-      if (diffDays > 31) return '';
-      return 'New';
-    }
-    switch (status) {
-      case 'In Review':
-        return 'In Review';
-      case 'Quoting':
-        return 'Quoting';
-      case 'Awaiting Landlord Approval':
-        return 'Awaiting Approval';
-      case 'Awaiting Appointment':
-        return 'Awaiting Appointment';
-      case 'Approved':
-        return 'Approved';
-      case 'Scheduled':
-        return 'Scheduled';
-      case 'Completed':
-        return 'Closed';
-      default:
-        return status;
-    }
-  };
-
-  const totalOpenTickets = allTickets.filter(t => getDisplayStatus(t) !== "Closed").length;
-
-  // Fetch tickets on mount
-  useEffect(() => {
-    async function fetchTickets() {
-      try {
-        const res = await fetch("/api/tickets", { credentials: "include" });
-        const data = await res.json();
-        if (res.ok && Array.isArray(data.tickets)) {
-          setAllTickets(data.tickets);
-        }
-      } catch (err) {
-        setAllTickets([]);
-      }
-    }
-    fetchTickets();
-  }, []);
-
-  // The contractor management functions (fetching, adding, removing) have
-  // moved to the separate StaffContractors component.  Only the
-  // ticket-assignment flows remain here.
-
-  // Ticket detail modal
+  // ===== Ticket details modal =====
   const handleOpenTicketModal = async (ticketId) => {
     try {
+      setModalLoading(true);
+      setTicketMedia([]);
       const res = await fetch(`/api/tickets/${ticketId}`, { credentials: "include" });
       const data = await res.json();
       if (res.ok) {
-        setSelectedTicketDetails(data.ticket);
+        // merge any missing property info from the list row we already have
+        const row = allTickets.find(t => t.TicketID === ticketId);
+        const merged = { ...data.ticket };
+        if (!merged.PropertyAddress && row?.PropertyAddress) merged.PropertyAddress = row.PropertyAddress;
+        // (some backends use lower-case or nested objects)
+        if (!merged.propertyAddress && row?.PropertyAddress) merged.propertyAddress = row.PropertyAddress;
+        setSelectedTicketDetails(merged);
         setShowTicketModal(true);
       }
-    } catch (err) {
-      console.error(err);
+
+      // fetch media for staff
+      try {
+        const r2 = await fetch(`/api/staff/tickets/${ticketId}/media`, { credentials: "include" });
+        const d2 = await r2.json();
+        if (r2.ok && Array.isArray(d2?.data)) setTicketMedia(d2.data);
+        else setTicketMedia([]);
+      } catch { setTicketMedia([]); }
+    } catch {
+      setSelectedTicketDetails(null);
+      setTicketMedia([]);
+    } finally {
+      setModalLoading(false);
     }
   };
 
-  // Close ticket action
+
   const handleCloseTicket = async (ticketId) => {
     try {
-      const res = await fetch(`/api/tickets/${ticketId}/close`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const res = await fetch(`/api/tickets/${ticketId}/close`, { method: "POST", credentials: "include" });
       const data = await res.json();
-      if (res.ok) {
-        // Backend sets CurrentStatus to 'Completed'; update local list accordingly
-        setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: 'Completed' } : t));
-        alert("Ticket closed!");
-        setShowTicketModal(false);
-      } else {
-        throw new Error(data?.message || "Failed to close ticket");
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      if (!res.ok) throw new Error(data?.message || "Failed to close ticket");
+      setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: "Completed" } : t));
+      setShowTicketModal(false);
+      alert("Ticket closed!");
+    } catch (e) { alert(e.message || "Failed"); }
   };
 
-  // Filter & sort tickets
-  const filteredTickets = allTickets
-    .filter(ticket => !filterStatus || getDisplayStatus(ticket) === filterStatus)
-    .filter(ticket => !filterDate || new Date(ticket.CreatedAt) >= new Date(filterDate))
-    .slice()
-    .sort((a, b) => {
-      const aOld = (new Date() - new Date(a.CreatedAt)) / (1000 * 60 * 60 * 24) > 30;
-      const bOld = (new Date() - new Date(b.CreatedAt)) / (1000 * 60 * 60 * 24) > 30;
-      if (aOld && !bOld) return -1;
-      if (!aOld && bOld) return 1;
-      return getEffectiveDate(b) - getEffectiveDate(a);
-    });
+  const clearFilters = () => {
+    setFilterStatus("");
+    setFilterDate("");
+  };
 
-
-  // Colors for pie chart statuses
+  // ===== Analytics =====
   const statusColors = {
     New: "#8884d8",
+    "Awaiting Staff Assignment": "#ffcc00",
+    "Awaiting Landlord Approval": "#ffbb99",
     "Awaiting Appointment": "#82ca9d",
+    Quoting: "#a0a0ff",
     Approved: "#ffc658",
     Rejected: "#ff8042",
+    Scheduled: "#b0e0e6",
     Closed: "#8dd1e1"
   };
 
-  // Prepare Pie Chart data (tickets by status)
-  const ticketsByStatus = Object.entries(
-    allTickets.reduce((acc, ticket) => {
-      const status = getDisplayStatus(ticket) || "Unknown";
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {})
-  ).map(([status, count]) => ({ name: status, value: count }));
+  const ALLOWED_STATUSES = new Set([
+    'New', 'In Review', 'Awaiting Staff Assignment', 'Quoting',
+    'Awaiting Landlord Approval', 'Awaiting Appointment',
+    'Approved', 'Scheduled', 'Rejected', 'Closed'
+  ]);
 
-  // Group tickets by week (opened vs resolved)
-  const ticketsByWeekData = React.useMemo(() => {
-    const weekMap = {};
-
-    allTickets.forEach(ticket => {
-      const created = new Date(ticket.CreatedAt);
-      const resolved = ticket.ResolvedAt ? new Date(ticket.ResolvedAt) : null;
-
-      const getWeekKey = (date) => {
-        const firstDay = new Date(date.getFullYear(), 0, 1);
-        const weekNo = Math.ceil(((date - firstDay) / (1000 * 60 * 60 * 24) + firstDay.getDay() + 1) / 7);
-        return `${date.getFullYear()}-W${weekNo}`;
-      };
-
-      const createdWeek = getWeekKey(created);
-      if (!weekMap[createdWeek]) weekMap[createdWeek] = { week: createdWeek, opened: 0, resolved: 0 };
-      weekMap[createdWeek].opened += 1;
-
-      if (resolved) {
-        const resolvedWeek = getWeekKey(resolved);
-        if (!weekMap[resolvedWeek]) weekMap[resolvedWeek] = { week: resolvedWeek, opened: 0, resolved: 0 };
-        weekMap[resolvedWeek].resolved += 1;
-      }
-    });
-
-    return Object.values(weekMap).sort((a, b) => a.week.localeCompare(b.week));
-  }, [allTickets]);
-
-  const avgResolutionTime = React.useMemo(() => {
-    const resolvedTickets = allTickets.filter(t => t.ResolvedAt);
-    if (!resolvedTickets.length) return 0;
-    const totalDays = resolvedTickets.reduce((acc, t) => {
-      const created = new Date(t.CreatedAt);
-      const resolved = new Date(t.ResolvedAt);
-      return acc + ((resolved - created) / (1000 * 60 * 60 * 24));
-    }, 0);
-    return (totalDays / resolvedTickets.length).toFixed(1); // days
-  }, [allTickets]);
-
-  // Prepare Bar Chart data (tickets by urgency).  Group tickets by their urgency
-  const ticketsByUrgencyData = React.useMemo(() => {
-    const counts = { Low: 0, Medium: 0, High: 0, Critical: 0 };
+  const ticketsByStatus = useMemo(() => {
+    const counts = {};
     allTickets.forEach(t => {
-      const urgency = (t.UrgencyLevel || '').toLowerCase();
-      if (urgency === 'low') counts.Low += 1;
-      else if (urgency === 'medium') counts.Medium += 1;
-      else if (urgency === 'high') counts.High += 1;
-      else if (urgency === 'critical') counts.Critical += 1;
+      const s = mapDisplayStatus(t.CurrentStatus, t.CreatedAt);
+      if (!s || !ALLOWED_STATUSES.has(s)) return;
+      counts[s] = (counts[s] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .filter(d => d.value > 0);
+  }, [allTickets]);
+
+  const ticketsByUrgencyData = useMemo(() => {
+    const counts = { Low: 0, Medium: 0, High: 0, Critical: 0 };
+    const openTickets = allTickets.filter(
+      t => mapDisplayStatus(t.CurrentStatus, t.CreatedAt) !== 'Closed'
+    );
+    openTickets.forEach(t => {
+      const u = (t.UrgencyLevel || '').toLowerCase();
+      if (u === 'low') counts.Low++;
+      else if (u === 'medium') counts.Medium++;
+      else if (u === 'high') counts.High++;
+      else if (u === 'critical') counts.Critical++;
     });
     return [
       { urgency: 'Low', count: counts.Low },
       { urgency: 'Medium', count: counts.Medium },
       { urgency: 'High', count: counts.High },
       { urgency: 'Critical', count: counts.Critical },
-    ];
+    ].filter(d => d.count > 0);
   }, [allTickets]);
+
+  const ticketsByWeekData = useMemo(() => {
+    const toWeekKey = (d) => {
+      const date = new Date(d);
+      const jan1 = new Date(date.getFullYear(), 0, 1);
+      // ISO-ish week calc (good enough for charts)
+      const day = (date - jan1) / 86400000 + jan1.getDay() + 1;
+      const weekNo = Math.ceil(day / 7);
+      return `${date.getFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+    };
+
+    const byWeek = new Map();
+
+    const bump = (key, field) => {
+      if (!byWeek.has(key)) byWeek.set(key, { week: key, opened: 0, resolved: 0 });
+      byWeek.get(key)[field]++;
+    };
+
+    for (const t of allTickets) {
+      if (t.CreatedAt) bump(toWeekKey(t.CreatedAt), "opened");
+      const resolvedAt = getResolvedAt(t);
+      if (resolvedAt) bump(toWeekKey(resolvedAt), "resolved");
+    }
+
+    return Array.from(byWeek.values()).sort((a, b) => a.week.localeCompare(b.week));
+  }, [allTickets]);
+
+
+  const avgResolutionTime = useMemo(() => {
+    const solved = allTickets
+      .map(t => ({ t, resolvedAt: getResolvedAt(t) }))
+      .filter(x => x.resolvedAt);
+
+    if (!solved.length) return 0;
+
+    const totalDays = solved.reduce((acc, x) => {
+      const end = new Date(x.resolvedAt);
+      const start = new Date(x.t.CreatedAt);
+      return acc + ((end - start) / 86400000);
+    }, 0);
+
+    return Number((totalDays / solved.length).toFixed(1));
+  }, [allTickets]);
+
 
   return (
     <>
-      <nav className="navbar">
-        <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/staff">Dashboard</Link></li>
-            <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/contractors">Contractors</Link></li>
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button className="profile-btn" onClick={() => setShowLogout(!showLogout)}>
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-          {showLogout && (
-            <div className="logout-popup">
-              <button onClick={handleLogout}>Log Out</button>
-            </div>
-          )}
-        </div>
-      </nav>
+      <RoleNavbar />
 
       <div className="staffdashboard-title"><h1>Dashboard</h1></div>
+      <div className="sub-title"><h2>Awaiting Tickets</h2></div>
 
-      <div className="sub-titles-container">
-  <div className="sub-title">
-    <h2>Awaiting Tickets</h2>
-  </div>
-  <div className="ticket-filters">
-    <label>
-      Status:
-      <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-        <option value="">All</option>
-        <option value="New">New</option>
-        <option value="In Review">In Review</option>
-        <option value="Quoting">Quoting</option>
-        <option value="Awaiting Appointment">Awaiting Appointment</option>
-        <option value="Awaiting Approval">Awaiting Approval</option>
-        <option value="Approved">Approved</option>
-        <option value="Rejected">Rejected</option>
-        <option value="Scheduled">Scheduled</option>
-        <option value="Closed">Closed</option>
-      </select>
-    </label>
-    <label>
-      Submitted After:
-      <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-    </label>
-  </div>
-</div>
+      {/* Filters */}
+      <div className="jobs-filters">
+        <div className="filter-card">
+          <div className="filter-item">
+            <label htmlFor="staff-status">Status</label>
+            <select id="staff-status" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">All</option>
+              <option value="New">New</option>
+              <option value="In Review">In Review</option>
+              <option value="Awaiting Staff Assignment">Awaiting Staff Assignment</option>
+              <option value="Quoting">Quoting</option>
+              <option value="Awaiting Landlord Approval">Awaiting Landlord Approval</option>
+              <option value="Awaiting Appointment">Awaiting Appointment</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+          <div className="filter-item">
+            <label htmlFor="staff-date">Submitted After</label>
+            <input id="staff-date" type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+          </div>
 
-<div className="awaiting-tickets-container">
-  <div className="table-header">
-    <div className="header-content">
-      <div className="header-grid">
-        <div className="header-item">Ticket ID</div>
-        <div className="header-item">Property</div>
-        <div className="header-item">Issue</div>
-        <div className="header-item">Submitted</div>
-        <div className="header-status">Urgency/Status</div>
+          <button className="filter-reset" onClick={clearFilters} type="button">Reset</button>
+        </div>
       </div>
-    </div>
-  </div>
 
-  {filteredTickets.length > 0 ? (
-    filteredTickets.map((ticket, index) => (
-      <div key={ticket.TicketID || index} className="ticket-card">
-        <div className="ticket-layout">
-          <div className="ticket-info-grid">
-            <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-            <div className="info-value">{ticket.PropertyAddress || ticket.property || '—'}</div>
-            <div className="info-value issue-cell">
-              <span>{ticket.Description || ticket.issue}</span>
-              <img src={gearIcon} alt="Settings" className="gear-icon" />
-            </div>
-            <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-            <div className="urgency-status-column">
-              <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>
-                {ticket.UrgencyLevel || ticket.urgency}
-              </span>
-              <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>
-                {getDisplayStatus(ticket) || ticket.status}
-              </span>
-            </div>
-            <div className="action-buttons">
-              <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>
-                Assign Contractor
-              </button>
-              <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>
-                View Details
-              </button>
+      {/* ===== Tickets (5 visible rows; whole block scrolls) ===== */}
+      <div className="jobs-section">
+        {filteredTickets.length === 0 ? (
+          <div className="empty-tickets">No tickets available</div>
+        ) : (
+          <div className="jobs-table-container">
+            <div className="jobs-table-scroll"> {/* sets ~5 rows tall and scrolls */}
+              <table className="jobs-table">
+                <thead>
+                  <tr>
+                    <th>Ref #</th>
+                    <th>Issue</th>
+                    <th>Submitted</th>
+                    <th>Urgency / Status</th>
+                    <th className="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTickets.map((t) => {
+                    const submitted = t.CreatedAt ? new Date(t.CreatedAt).toLocaleDateString() : "";
+                    const statusText = mapDisplayStatus(t.CurrentStatus, t.CreatedAt);
+                    return (
+                      <tr key={t.TicketID}>
+                        <td>{t.TicketRefNumber || t.TicketID}</td>
+
+                        <td className="issue-cell">
+                          <div className="issue-inner">
+                            <div className="issue-desc">{titleOrDesc(t)}</div>
+                          </div>
+                        </td>
+
+                        <td>{submitted}</td>
+
+                        <td>
+                          <div className="urgency-status">
+                            <span className={`urgency ${getUrgencyClass(t.UrgencyLevel)}`}>{t.UrgencyLevel || "-"}</span>
+                            <span className={`status-text ${getStatusTone(statusText)}`}>{statusText}</span>
+                          </div>
+                        </td>
+
+                        <td className="actions-col">
+                          <div className="action-buttons">
+                            <button className="action-btn" onClick={() => handleAssignContractor(t.TicketID)}>Assign Contractor</button>
+                            <button className="action-btn" onClick={() => handleOpenTicketModal(t.TicketID)}>View Details</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        )}
       </div>
     ))
   ) : (
@@ -419,12 +409,13 @@ function StaffDashboard() {
   )}
 </div>
 
+      {/* ===== Role Requests (new style, 5 visible rows; block scrolls) ===== */}
       <section className="staff-admin-panel">
         <h2 className="section-title">Role Requests</h2>
         <ReviewRoleRequests />
       </section>
 
-      {/* Assign Contractor Modal */}
+      {/* ===== Assign Contractor Modal ===== */}
       {showContractorModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -433,12 +424,10 @@ function StaffDashboard() {
               <label>Select Contractor:</label>
               <select value={chosenContractorId || ""} onChange={e => setChosenContractorId(Number(e.target.value))}>
                 <option value="">-- Select --</option>
-                {activeContractors.map(c => (
-                  <option key={c.UserID} value={c.UserID}>{c.FullName}</option>
-                ))}
+                {activeContractors.map(c => <option key={c.UserID} value={c.UserID}>{c.FullName}</option>)}
               </select>
               <div className="modal-buttons">
-                <button onClick={handleConfirmSchedule}>Confirm</button>
+                <button onClick={handleConfirmAssign}>Confirm</button>
                 <button onClick={() => setShowContractorModal(false)}>Cancel</button>
               </div>
             </div>
@@ -446,31 +435,123 @@ function StaffDashboard() {
         </div>
       )}
 
-      {/* Ticket Detail Modal */}
+      {/* ===== Ticket Detail Modal (richer details) ===== */}
       {showTicketModal && selectedTicketDetails && (
         <div className="modal-overlay">
-          <div className="modal">
-            <h2>Ticket Details</h2>
-            <p><strong>Issue:</strong> {selectedTicketDetails.Description}</p>
-            <p><strong>Status:</strong> {selectedTicketDetails.CurrentStatus}</p>
+          <div className="modal modal-wide">
+            <h2>Ticket {selectedTicketDetails.TicketRefNumber || selectedTicketDetails.TicketID}</h2>
 
-            <h3>Contractor Responses</h3>
-            {selectedTicketDetails.ContractorResponses?.length ? (
-              <ul>
-                {selectedTicketDetails.ContractorResponses.map(r => (
-                  <li key={r.ResponseID}>{r.Message} - {new Date(r.Date).toLocaleDateString()}</li>
-                ))}
-              </ul>
-            ) : <p>No responses yet</p>}
+            <div className="details-grid">
+              <div>
+                <div className="detail-row"><strong>Title:</strong> {titleOrDesc(selectedTicketDetails)}</div>
+                <div className="detail-row"><strong>Description:</strong> {selectedTicketDetails.Description || "-"}</div>
+                <div className="detail-row"><strong>Status:</strong> {selectedTicketDetails.CurrentStatus || "-"}</div>
+                <div className="detail-row"><strong>Urgency:</strong> {selectedTicketDetails.UrgencyLevel || "-"}</div>
+                <div className="detail-row"><strong>Submitted:</strong> {selectedTicketDetails.CreatedAt ? new Date(selectedTicketDetails.CreatedAt).toLocaleString() : "-"}</div>
+                {selectedTicketDetails.UpdatedAt && (
+                  <div className="detail-row"><strong>Updated:</strong> {new Date(selectedTicketDetails.UpdatedAt).toLocaleString()}</div>
+                )}
+                {selectedTicketDetails.ResolvedAt && (
+                  <div className="detail-row"><strong>Resolved:</strong> {new Date(selectedTicketDetails.ResolvedAt).toLocaleString()}</div>
+                )}
+              </div>
 
-            <h3>Landlord Approvals</h3>
-            {selectedTicketDetails.LandlordApprovals?.length ? (
-              <ul>
-                {selectedTicketDetails.LandlordApprovals.map(a => (
-                  <li key={a.ApprovalID}>{a.Approved ? "Approved" : "Rejected"} - {new Date(a.Date).toLocaleDateString()}</li>
-                ))}
-              </ul>
-            ) : <p>No approvals yet</p>}
+              <div>
+                {(() => {
+                  const t = selectedTicketDetails || {};
+                  const nested =
+                    t.Property?.Address ||
+                    [t.Property?.AddressLine1, t.Property?.AddressLine2, t.Property?.City, t.Property?.Province, t.Property?.PostalCode]
+                      .filter(v => v && String(v).trim()).join(', ');
+                  const flat =
+                    t.PropertyAddress || t.propertyAddress ||
+                    [t.AddressLine1, t.AddressLine2, t.City, t.Province, t.PostalCode]
+                      .filter(v => v && String(v).trim()).join(', ');
+                  const joined = (flat || nested || '').trim();
+                  return (
+                    <div className="detail-row">
+                      <strong>Property:</strong> {joined || "-"}
+                    </div>
+                  );
+                })()}
+                {selectedTicketDetails.Client?.Name && (
+                  <div className="detail-row"><strong>Client:</strong> {selectedTicketDetails.Client.Name}{selectedTicketDetails.Client.Phone ? ` • ${selectedTicketDetails.Client.Phone}` : ""}</div>
+                )}
+                {selectedTicketDetails.Landlord?.Name && (
+                  <div className="detail-row"><strong>Landlord:</strong> {selectedTicketDetails.Landlord.Name}{selectedTicketDetails.Landlord.Phone ? ` • ${selectedTicketDetails.Landlord.Phone}` : ""}</div>
+                )}
+                {selectedTicketDetails.AssignedContractor?.FullName && (
+                  <div className="detail-row"><strong>Assigned Contractor:</strong> {selectedTicketDetails.AssignedContractor.FullName}</div>
+                )}
+                {selectedTicketDetails.Schedule && (
+                  <div className="detail-row">
+                    <strong>Appointment:</strong>{" "}
+                    {selectedTicketDetails.Schedule.ClientConfirmed ? "Confirmed" : "Pending"} -{" "}
+                    {selectedTicketDetails.Schedule.ProposedDate ? new Date(selectedTicketDetails.Schedule.ProposedDate).toLocaleString() : "-"}
+                  </div>
+                )}
+                {selectedTicketDetails.Quote && (
+                  <div className="detail-row">
+                    <strong>Quote:</strong> {selectedTicketDetails.Quote.Status || "-"}
+                    {Number.isFinite(selectedTicketDetails.Quote.Amount) ? ` • R ${Number(selectedTicketDetails.Quote.Amount).toFixed(0)}` : ""}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {selectedTicketDetails.Attachments?.length ? (
+              <>
+                <h3>Attachments</h3>
+                <ul className="list-block">
+                  {selectedTicketDetails.Attachments.map((f, i) => (
+                    <li key={i}>
+                      <a href={f.Url} target="_blank" rel="noreferrer">{f.Name || `File ${i + 1}`}</a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+
+            <h3>Media</h3>
+            {modalLoading ? (
+              <p>Loading media…</p>
+            ) : !ticketMedia.length ? (
+              <p className="muted">No media uploaded</p>
+            ) : (
+              <div className="media-gallery-grid">
+                {ticketMedia.map((m, idx) => {
+                  const url = m.MediaURL || '';
+                  const type = (m.MediaType || '').toLowerCase();
+                  const isImage = type.startsWith('image') || /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                  const isVideo = type.startsWith('video') || /\.(mp4|webm|ogg)$/i.test(url);
+                  return (
+                    <div key={idx} className="media-card">
+                      {isImage ? (
+                        <img
+                          src={url}
+                          alt={`Media ${idx}`}
+                          onError={(e) => (e.currentTarget.src = 'https://placehold.co/150x100?text=No+Image')}
+                          onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      ) : isVideo ? (
+                        <video controls className="media-thumb" style={{ width: '100%', borderRadius: 8 }}>
+                          <source src={url} type={type || 'video/mp4'} />
+                        </video>
+                      ) : (
+                        <div
+                          className="media-placeholder"
+                          onClick={() => url && window.open(url, '_blank', 'noopener,noreferrer')}
+                          style={{ cursor: url ? 'pointer' : 'default' }}
+                        >
+                          {url ? 'Open file' : 'No preview available'}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="modal-buttons">
               {selectedTicketDetails.CurrentStatus !== "Closed" && (
@@ -482,26 +563,16 @@ function StaffDashboard() {
         </div>
       )}
 
-
-      {/* The contractor management section has been moved to its own page.  */}
-
+      {/* ===== Analytics ===== */}
       <div className="analytics-panel">
         <h2>Analytics</h2>
         <div className="charts-container">
-          <div className="chart-wrapper1">
+          <div className="chart-card">
             <h3>Tickets by Status</h3>
             <PieChart width={300} height={300}>
-              <Pie
-                data={ticketsByStatus}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label
-              >
-                {ticketsByStatus.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={statusColors[entry.name] || "#ccc"} />
+              <Pie data={ticketsByStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                {ticketsByStatus.map((entry, i) => (
+                  <Cell key={i} fill={statusColors[entry.name] || "#ccc"} />
                 ))}
               </Pie>
               <Tooltip />
@@ -509,18 +580,21 @@ function StaffDashboard() {
             </PieChart>
           </div>
 
-          <div className="chart-wrapper1">
-            <h3>Tickets by Urgency</h3>
-            <BarChart width={400} height={300} data={ticketsByUrgencyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="urgency" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="count" name="Count" fill="#8884d8" />
-            </BarChart>
-          </div>
+          {ticketsByUrgencyData.length > 0 && (
+            <div className="chart-card">
+              <h3>Tickets by Urgency</h3>
+              <BarChart width={400} height={300} data={ticketsByUrgencyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="urgency" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" name="Count" fill="#8884d8" />
+              </BarChart>
+            </div>
+          )}
         </div>
+
         <div className="analytics-summary">
           <div className="summary-card">
             <h4>Total Open Tickets</h4>
@@ -532,7 +606,7 @@ function StaffDashboard() {
           </div>
         </div>
 
-        <div className="chart-wrapper2">
+        <div className="chart-card">
           <h3>Tickets Opened vs Resolved (Weekly)</h3>
           <BarChart width={600} height={300} data={ticketsByWeekData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -546,7 +620,7 @@ function StaffDashboard() {
         </div>
       </div>
 
-      <div className="page-bottom-spacer"></div>
+      <div className="page-bottom-spacer" />
     </>
   );
 }

@@ -3,7 +3,6 @@
 
 import pool from './db.js';
 
-// Add these routes to your main server.js file
 export const dbViewerRoutes = (app) => {
   
   // Get all tables in the database

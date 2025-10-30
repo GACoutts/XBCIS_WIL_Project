@@ -1,4 +1,3 @@
-// backend/routes/quotes.js
 import express from "express";
 import multer from "multer";
 import path from "path";
@@ -12,35 +11,51 @@ const router = express.Router();
 const quotesDir = path.resolve("uploads/quotes");
 fs.mkdirSync(quotesDir, { recursive: true });
 
+function mapMimeToDocType(mime) {
+  const m = String(mime || '').toLowerCase();
+  if (m.includes('pdf')) return 'PDF';
+  if (m.includes('word') || m.includes('doc')) return 'DOCX';
+  if (m.startsWith('image/')) return 'Image';
+  return 'PDF';
+}
+
 // -------------------------------------------------------------------------------------
-// Multer (PDF-only) for quote document uploads
+// Multer (PDF + Word) for quote document uploads
 // -------------------------------------------------------------------------------------
-const pdfStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, "uploads/quotes"),
+const fileStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, quotesDir),
   filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
     const base = path
       .basename(file.originalname, path.extname(file.originalname))
-      .replace(/\s+/g, "_");
-    const sanitizedBase = base.replace(/[^a-zA-Z0-9._-]/g, "");
-    cb(null, Date.now() + "_" + sanitizedBase + ".pdf");
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9._-]/g, "");
+    cb(null, `${Date.now()}_${base}${ext}`);
   },
 });
 
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const ALLOWED_EXT = new Set([".pdf", ".doc", ".docx"]);
+
 const quotesUpload = multer({
-  storage: pdfStorage,
+  storage: fileStorage,
   limits: { fileSize: 10 * 1024 * 1024, files: 5 }, // 10MB each, max 5 files
   fileFilter: (_req, file, cb) => {
-    const isPdf = file.mimetype === "application/pdf";
-    const hasPdfExt = path.extname(file.originalname).toLowerCase() === ".pdf";
-    if (isPdf && hasPdfExt) return cb(null, true);
-    return cb(new Error("Only .pdf files up to 10MB are allowed."));
+    const ext = path.extname(file.originalname).toLowerCase();
+    const ok = ALLOWED_MIME.has(file.mimetype) && ALLOWED_EXT.has(ext);
+    if (ok) return cb(null, true);
+    return cb(new Error("Only PDF/DOC/DOCX files up to 10MB are allowed."));
   },
 });
 
 // -------------------------------------------------------------------------------------
 // Contractor submits a new quote
-//   - Allowed when ticket is in 'Quoting' OR already 'Awaiting Landlord Quote Approval'
-//   - After first submission from 'Quoting', advance to 'Awaiting Landlord Quote Approval'
+//   - Allowed when ticket is in 'Quoting' OR already 'Awaiting Landlord Approval'
+//   - After first submission from 'Quoting', advance to 'Awaiting Landlord Approval'
 // -------------------------------------------------------------------------------------
 router.post(
   "/:ticketId",
@@ -50,15 +65,32 @@ router.post(
   async (req, res) => {
     try {
       const { ticketId } = req.params;
-      const { quoteAmount, quoteDescription } = req.body;
+      const amountRaw = (req.body.quoteAmount ?? '').toString();
+      const amount = Number.parseFloat(
+        amountRaw
+          .replace(/[^\d.,-]/g, '') 
+          .replace(/,/g, '.')       
+      );
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Quote amount must be a positive number"
+        });
+      }
+
       const contractorId = req.user.userId;
       const uploadedFiles = req.files || [];
+      const quoteDescription = '';
 
-      if (!quoteAmount || !quoteDescription) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Quote amount and description are required" });
+      // Require at least one document for a quote
+      if (!uploadedFiles.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Please attach at least one quote document (PDF/DOC/DOCX)."
+        });
       }
+
+
 
       // Fetch ticket & validate stage
       const [[ticketRow]] = await db.query(
@@ -69,7 +101,7 @@ router.post(
         return res.status(404).json({ success: false, message: "Ticket not found" });
       }
 
-      const allowed = ["Quoting", "Awaiting Landlord Quote Approval"];
+      const allowed = ["Quoting", "Awaiting Landlord Approval"];
       if (!allowed.includes(ticketRow.CurrentStatus)) {
         return res.status(400).json({
           success: false,
@@ -96,15 +128,17 @@ router.post(
           `INSERT INTO tblQuotes
              (TicketID, ContractorUserID, QuoteAmount, QuoteDescription, QuoteStatus, SubmittedAt)
            VALUES (?, ?, ?, ?, 'Pending', NOW())`,
-          [ticketId, contractorId, quoteAmount, quoteDescription]
+          [ticketId, contractorId, amount, quoteDescription]
         );
         const quoteId = result.insertId;
 
-        // Attach documents (optional)
+        // Attach documents
         if (uploadedFiles.length > 0) {
           const filesData = uploadedFiles.map((file) => {
             const webPath = `/uploads/quotes/${path.basename(file.path)}`;
-            return [quoteId, "PDF", webPath];
+            // store MIME type we actually got (pdf/doc/docx)
+            const docType = mapMimeToDocType(file.mimetype);
+            return [quoteId, docType, webPath];
           });
           await connection.query(
             "INSERT INTO tblQuoteDocuments (QuoteID, DocumentType, DocumentURL) VALUES ?",
@@ -112,24 +146,18 @@ router.post(
           );
         }
 
-        // History: Quote Submitted
-        await connection.query(
-          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Quote Submitted', ?)",
-          [ticketId, contractorId]
-        );
-
-        // Advance ticket to landlord review (only when previously in 'Quoting')
+        // Advance ticket to landlord review only when previously in 'Quoting'
         if (shouldAdvance) {
-          await db.query("UPDATE tblTickets SET CurrentStatus = 'Approved' WHERE TicketID = ?", [ticketId]);
-          await db.query(
-            "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Approved', ?)",
-            [ticketId, userId]
-          );
           await connection.query(
-            "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Awaiting Landlord Quote Approval', ?)",
-            [ticketId, contractorId]
+            "UPDATE tblTickets SET CurrentStatus = 'Awaiting Landlord Approval' WHERE TicketID = ?",
+            [ticketId]
           );
         }
+        // Always log the status change (or re-submission) to history
+        await connection.query(
+          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Awaiting Landlord Approval', ?)",
+          [ticketId, contractorId]
+        );
 
         await connection.commit();
 
@@ -158,9 +186,9 @@ router.post(
                 notifyUser({
                   userId: l.LandlordUserID,
                   ticketId,
-                  template: "quote_submitted",
-                  params: { ticketRef: ctx.TicketRefNumber, quoteId },
-                  eventKey: `quote_submitted:${ticketId}:${quoteId}`,
+                  template: "quote_status",
+                  params: { ticketRef: ctx.TicketRefNumber, quoteId, status: "Pending" },
+                  eventKey: `quote_status:${ticketId}:${quoteId}:Pending`,
                   fallbackToEmail: true,
                 })
               )
@@ -188,7 +216,7 @@ router.post(
           .status(400)
           .json({ success: false, message: err.message, code: "FILE_UPLOAD_ERROR" });
       }
-      if (err.message?.includes("Only .pdf files")) {
+      if (err.message?.includes("Only PDF/DOC/DOCX")) {
         return res
           .status(400)
           .json({ success: false, message: err.message, code: "INVALID_FILE_TYPE" });
@@ -220,6 +248,28 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
     );
     if (!quoteRow) return res.status(404).json({ message: "Quote not found" });
 
+    // Ensure this landlord is tied to the ticket's property
+    const [[auth]] = await db.query(
+      `
+  SELECT 1
+    FROM tblLandlordProperties lp
+    JOIN tblTickets t  ON t.PropertyID = lp.PropertyID
+    JOIN tblQuotes  q  ON q.TicketID = t.TicketID
+   WHERE q.QuoteID = ?
+     AND lp.LandlordUserID = ?
+     AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+   LIMIT 1
+  `,
+      [quoteId, landlordId]
+    );
+
+    if (!auth) {
+      return res.status(403).json({
+        message:
+          "You are not authorized to approve quotes for this ticket. (No active landlord link to this property.)",
+      });
+    }
+
     const ticketId = quoteRow.TicketID;
     const contractorId = quoteRow.ContractorUserID;
 
@@ -237,38 +287,41 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
     try {
       await connection.beginTransaction();
 
-      // Reject all other quotes
-      + await db.query(
-        "UPDATE tblTickets SET CurrentStatus = 'Quoting' WHERE TicketID = (SELECT TicketID FROM tblQuotes WHERE QuoteID = ? LIMIT 1)",
-        [quoteId]
+      // Reject all other quotes for this ticket
+      await connection.query(
+        `UPDATE tblQuotes 
+      SET QuoteStatus = 'Rejected'
+    WHERE TicketID = ?
+      AND QuoteID <> ?`,
+        [ticketId, quoteId]
       );
 
       // Approve selected quote
-      await connection.query(`UPDATE tblQuotes SET QuoteStatus = 'Approved' WHERE QuoteID = ?`, [
-        quoteId,
-      ]);
-
-      // Record landlord approval (idempotent insert)
       await connection.query(
-        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus)
-         VALUES (?, ?, 'Approved')`,
-        [quoteId, landlordId]
+        `UPDATE tblQuotes SET QuoteStatus = 'Approved' WHERE QuoteID = ?`,
+        [quoteId]
       );
 
-      // Move ticket to Approved and assign contractor
+      try {
+        await connection.query(
+          `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus, ApprovedAt)
+   VALUES (?, ?, 'Approved', NOW())
+   ON DUPLICATE KEY UPDATE ApprovalStatus='Approved', ApprovedAt=NOW()`,
+          [quoteId, landlordId]
+        );
+      } catch (apprErr) {
+        console.error('[quotes/approve] landlord approvals write skipped:', apprErr?.message || apprErr);
+      }
+
+      // Continue with ticket updates
       await connection.query(
         `UPDATE tblTickets
-            SET CurrentStatus = 'Approved',
-                AssignedContractorID = ?
-          WHERE TicketID = ?`,
+     SET CurrentStatus = 'Approved',
+         AssignedContractorID = ?
+   WHERE TicketID = ?`,
         [contractorId, ticketId]
       );
 
-      // History
-      await connection.query(
-        "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Quote Approved', ?)",
-        [ticketId, landlordId]
-      );
       await connection.query(
         "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Approved', ?)",
         [ticketId, landlordId]
@@ -331,8 +384,11 @@ router.post("/:quoteId/approve", requireAuth, permitRoles("Landlord"), async (re
 
     res.json({ message: "Quote approved" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error('[quotes/approve] error:', err);
+    return res.status(500).json({
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? (err.sqlMessage || err.message) : undefined
+    });
   }
 });
 
@@ -344,11 +400,50 @@ router.post("/:quoteId/reject", requireAuth, permitRoles("Landlord"), async (req
     const { quoteId } = req.params;
     const landlordId = req.user.userId;
 
-    await db.query("UPDATE tblQuotes SET QuoteStatus = 'Rejected' WHERE QuoteID = ?", [quoteId]);
-    await db.query(
-      "INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus) VALUES (?, ?, 'Rejected')",
+    const [[qStatus]] = await db.query(
+      `SELECT QuoteStatus, TicketID FROM tblQuotes WHERE QuoteID = ? LIMIT 1`,
+      [quoteId]
+    );
+    if (!qStatus) return res.status(404).json({ message: "Quote not found" });
+
+    if (qStatus.QuoteStatus === 'Approved') {
+      return res.status(400).json({ message: "Approved quotes cannot be rejected" });
+    }
+
+    // Ensure this landlord is tied to the ticket's property
+    const [[auth]] = await db.query(
+      `
+  SELECT 1
+    FROM tblLandlordProperties lp
+    JOIN tblTickets t  ON t.PropertyID = lp.PropertyID
+    JOIN tblQuotes  q  ON q.TicketID = t.TicketID
+   WHERE q.QuoteID = ?
+     AND lp.LandlordUserID = ?
+     AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+   LIMIT 1
+  `,
       [quoteId, landlordId]
     );
+
+    if (!auth) {
+      return res.status(403).json({
+        message:
+          "You are not authorized to reject quotes for this ticket. (No active landlord link to this property.)",
+      });
+    }
+
+    await db.query("UPDATE tblQuotes SET QuoteStatus = 'Rejected' WHERE QuoteID = ?", [quoteId]);
+
+    try {
+      await db.query(
+        `INSERT INTO tblLandlordApprovals (QuoteID, LandlordUserID, ApprovalStatus)
+     VALUES (?, ?, 'Rejected')
+     ON DUPLICATE KEY UPDATE ApprovalStatus='Rejected'`,
+        [quoteId, landlordId]
+      );
+    } catch (apprErr) {
+      console.error('[quotes/reject] landlord approvals write skipped:', apprErr?.sqlMessage || apprErr?.message || apprErr);
+    }
 
     try {
       const [[ctx]] = await db.query(
@@ -367,7 +462,7 @@ router.post("/:quoteId/reject", requireAuth, permitRoles("Landlord"), async (req
         const ticketId = ctx.TicketID;
 
         await db.query(
-          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Quote Rejected', ?)",
+          "INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, 'Rejected', ?)",
           [ticketId, landlordId]
         );
 
@@ -441,12 +536,30 @@ router.get("/ticket/:ticketId", requireAuth, permitRoles("Staff"), async (req, r
 router.get("/ticket/:ticketId/landlord", requireAuth, permitRoles("Landlord"), async (req, res) => {
   try {
     const { ticketId } = req.params;
+    const landlordId = req.user.userId;
 
     const [ticketRows] = await db.query(
       "SELECT TicketID FROM tblTickets WHERE TicketID = ? LIMIT 1",
       [ticketId]
     );
     if (!ticketRows.length) return res.status(404).json({ message: "Ticket not found" });
+
+    const [[viewAuth]] = await db.query(
+      `
+  SELECT 1
+    FROM tblLandlordProperties lp
+    JOIN tblTickets t ON t.PropertyID = lp.PropertyID
+   WHERE t.TicketID = ?
+     AND lp.LandlordUserID = ?
+     AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+   LIMIT 1
+  `,
+      [ticketId, landlordId]
+    );
+
+    if (!viewAuth) {
+      return res.status(403).json({ message: "Forbidden: not a landlord on this property." });
+    }
 
     const [quotes] = await db.query(
       `SELECT q.QuoteID, q.QuoteAmount, q.QuoteDescription, q.QuoteStatus, q.SubmittedAt,
@@ -474,6 +587,73 @@ router.get("/ticket/:ticketId/landlord", requireAuth, permitRoles("Landlord"), a
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* =============================================================================
+   NEW: Landlord/Staff media endpoint used by getQuoteMedia(quoteId)
+   Returns [{ MediaID, QuoteID, MediaURL, OriginalName, MimeType, UploadedAt }]
+   ========================================================================== */
+router.get("/:quoteId/media", requireAuth, permitRoles("Landlord", "Staff"), async (req, res) => {
+  try {
+    const quoteId = Number.parseInt(req.params.quoteId, 10);
+    if (!Number.isInteger(quoteId)) {
+      return res.status(400).json({ success: false, message: "Invalid quoteId" });
+    }
+
+    // If landlord, ensure they belong to this ticket's property
+    if (req.user?.role === "Landlord") {
+      const [[owns]] = await db.query(
+        `
+        SELECT 1
+          FROM tblQuotes q
+          JOIN tblTickets t ON t.TicketID = q.TicketID
+          JOIN tblLandlordProperties lp
+            ON lp.PropertyID = t.PropertyID
+           AND lp.LandlordUserID = ?
+           AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())
+         WHERE q.QuoteID = ?
+         LIMIT 1
+        `,
+        [req.user.userId, quoteId]
+      );
+      if (!owns) {
+        return res.status(403).json({ success: false, message: "Not allowed to access this quote" });
+      }
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT
+        d.DocumentID,
+        d.QuoteID,
+        d.DocumentURL,
+        d.DocumentType
+      FROM tblQuoteDocuments d
+      WHERE d.QuoteID = ?
+      ORDER BY d.DocumentID DESC
+      `,
+      [quoteId]
+    );
+
+    const host = `${req.protocol}://${req.get("host")}`;
+    const data = rows.map(r => {
+      const url = r.DocumentURL || "";
+      const absolute = url.startsWith("http") ? url : `${host}${url.startsWith("/") ? "" : "/"}${url}`;
+      return {
+        MediaID: r.DocumentID,
+        QuoteID: r.QuoteID,
+        MediaURL: absolute,
+        OriginalName: null,
+        MimeType: r.DocumentType || null,
+        UploadedAt: null
+      };
+    });
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("GET /api/quotes/:quoteId/media error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

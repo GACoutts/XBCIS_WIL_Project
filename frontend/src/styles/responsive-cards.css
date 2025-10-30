@@ -1,0 +1,91 @@
+/* Responsive card and badge styles reused across dashboards.
+ * These rules ensure ticket cards stack neatly on small screens and
+ * present a grid layout on larger screens. Urgency and status badges
+ * use subtle background colours for quick scanning.
+ */
+
+.ticket-card {
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 10px 0;
+  background: #fff;
+}
+
+.ticket-layout {
+  display: grid;
+  gap: 8px;
+}
+
+.ticket-info-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1.6fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.urgency-status-column {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (min-width: 900px) {
+  .ticket-info-grid {
+    grid-template-columns: 120px 2fr 2fr 1fr 1.3fr 1fr;
+  }
+}
+
+@media (max-width: 899px) {
+  .ticket-info-grid {
+    grid-template-columns: 1fr;
+  }
+  .urgency-status-column,
+  .action-buttons {
+    justify-content: flex-start;
+  }
+}
+
+.urgency-badge,
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid #e5e5e5;
+}
+
+.high-urgency {
+  background: #fdecea;
+}
+
+.medium-urgency {
+  background: #fff7e6;
+}
+
+.low-urgency {
+  background: #eef9f1;
+}
+
+.status-awaiting {
+  background: #eef2ff;
+}
+
+.status-approved {
+  background: #e6fffa;
+}
+
+.status-rejected {
+  background: #ffecec;
+}
+
+.status-closed {
+  background: #f3f4f6;
+}

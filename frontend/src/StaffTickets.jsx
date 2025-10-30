@@ -1,92 +1,166 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import RoleNavbar from './components/RoleNavbar.jsx';
 import { useAuth } from './context/AuthContext.jsx';
-import gearIcon from './assets/settings.png';
 import './styles/staffdash.css';
+import './styles/responsive-cards.css';
+import './styles/userdash.css';
 
 /*
- * StaffTickets
- *
- * This component renders the staff-facing ticket listing.  It displays
- * all tickets available to staff, including active and closed tickets.
- * Tickets older than 30 days bubble back to the top of the list to
- * ensure forgotten items receive attention.  Staff can assign
- * contractors, view ticket details, and close tickets directly from
- * this page.  Filtering by status and submission date is supported.
+ * StaffTickets - dashboard-style list
+ * Uses the same block, filter, and table styling as StaffDashboard.
  */
 export default function StaffTickets() {
   const { logout } = useAuth();
 
-  // Ticket and filter state
+  // Ticket + filters
   const [allTickets, setAllTickets] = useState([]);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDate, setFilterDate] = useState('');
 
-  // Contractor assignment modal state
+  // Assign contractor modal
   const [showContractorModal, setShowContractorModal] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState(null);
   const [activeContractors, setActiveContractors] = useState([]);
   const [chosenContractorId, setChosenContractorId] = useState(null);
 
-  // Ticket detail modal state
+  // Ticket details modal
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedTicketDetails, setSelectedTicketDetails] = useState(null);
+  const [ticketMedia, setTicketMedia] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
 
-  // Log out handler
-  const handleLogout = async () => {
-    await logout();
-    window.location.reload();
+  const closeTicketModal = () => {
+    setShowTicketModal(false);
+    setSelectedTicketDetails(null);
+    setTicketMedia([]);
+    setModalLoading(false);
   };
 
-  // Fetch all tickets on mount
+  // ===== Helpers to match dashboard look =====
+  const getUrgencyClass = (urgency) => {
+    switch ((urgency || '').toLowerCase()) {
+      case 'high': return 'urgency-high';
+      case 'medium': return 'urgency-medium';
+      case 'low': return 'urgency-low';
+      case 'critical': return 'urgency-high';
+      default: return '';
+    }
+  };
+
+  const getStatusTone = (statusText) => {
+    if (!statusText) return '';
+    if (['In Review', 'Awaiting Staff Assignment', 'Quoting', 'Awaiting Landlord Approval', 'Awaiting Appointment', 'Scheduled'].includes(statusText)) {
+      return 'status-awaiting';
+    }
+    if (statusText === 'Approved') return 'status-approved';
+    if (['Completed', 'Closed'].includes(statusText)) return 'status-closed';
+    if (statusText === 'Rejected') return 'status-rejected';
+    return '';
+  };
+
+  const getEffectiveDate = (ticket) => {
+    if (!ticket.CreatedAt) return new Date();
+    const created = new Date(ticket.CreatedAt);
+    const diffDays = (Date.now() - created) / 86400000;
+    if (diffDays > 31) {
+      const monthsOld = Math.floor(diffDays / 30);
+      const bumped = new Date(created);
+      bumped.setMonth(bumped.getMonth() + monthsOld);
+      return bumped;
+    }
+    return created;
+  };
+
+  const mapDisplayStatus = (status, createdAt) => {
+    if (!status) return '';
+    if (status === 'New' && createdAt) {
+      const diffDays = (Date.now() - new Date(createdAt)) / 86400000;
+      if (diffDays > 31) return '';
+      return 'New';
+    }
+    switch (status) {
+      case 'In Review': return 'In Review';
+      case 'Awaiting Staff Assignment': return 'Awaiting Staff Assignment';
+      case 'Quoting': return 'Quoting';
+      case 'Awaiting Landlord Approval': return 'Awaiting Landlord Approval';
+      case 'Awaiting Appointment': return 'Awaiting Appointment';
+      case 'Approved': return 'Approved';
+      case 'Scheduled': return 'Scheduled';
+      case 'Completed': return 'Closed';
+      case 'Rejected': return 'Rejected';
+      default: return status;
+    }
+  };
+
+  const titleOrDesc = (t) => (t?.Title && t.Title.trim()) || t?.Description || '-';
+
+
+  // ===== Data =====
   useEffect(() => {
-    async function fetchTickets() {
+    (async () => {
       try {
         const res = await fetch('/api/tickets', { credentials: 'include' });
         const data = await res.json();
-        if (res.ok && Array.isArray(data.tickets)) {
-          setAllTickets(data.tickets);
-        }
-      } catch (err) {
+        setAllTickets(Array.isArray(data?.tickets) ? data.tickets : []);
+      } catch {
         setAllTickets([]);
       }
-    }
-    fetchTickets();
+    })();
   }, []);
 
-  // Load contractors when assigning
+  // Active vs closed
+  const sortedActiveTickets = useMemo(() => {
+    const list = allTickets
+      .filter(t => mapDisplayStatus(t.CurrentStatus, t.CreatedAt) !== 'Closed')
+      .filter(t => !filterStatus || mapDisplayStatus(t.CurrentStatus, t.CreatedAt) === filterStatus)
+      .filter(t => !filterDate || new Date(t.CreatedAt) >= new Date(filterDate));
+
+    // Bubble >30 day old to top, then by effective date desc
+    return list.slice().sort((a, b) => {
+      const aCreated = a?.CreatedAt ? new Date(a.CreatedAt) : null;
+      const bCreated = b?.CreatedAt ? new Date(b.CreatedAt) : null;
+      const aOld = aCreated ? ((Date.now() - aCreated) / 86400000 > 30) : false;
+      const bOld = bCreated ? ((Date.now() - bCreated) / 86400000 > 30) : false;
+      if (aOld && !bOld) return -1;
+      if (!aOld && bOld) return 1;
+      return getEffectiveDate(b) - getEffectiveDate(a);
+    });
+  }, [allTickets, filterStatus, filterDate]);
+
+  const sortedClosedTickets = useMemo(() => {
+    const list = allTickets
+      .filter(t => mapDisplayStatus(t.CurrentStatus, t.CreatedAt) === 'Closed')
+      .filter(t => !filterStatus || mapDisplayStatus(t.CurrentStatus, t.CreatedAt) === filterStatus)
+      .filter(t => !filterDate || new Date(t.CreatedAt) >= new Date(filterDate));
+
+    return list.slice().sort((a, b) => getEffectiveDate(b) - getEffectiveDate(a));
+  }, [allTickets, filterStatus, filterDate]);
+
+  const clearFilters = () => {
+    setFilterStatus('');
+    setFilterDate('');
+  };
+
+  // ===== Assign contractor flow =====
   const loadActiveContractors = async () => {
     try {
       const res = await fetch('/api/admin/contractors/active', { credentials: 'include' });
       const data = await res.json();
-      if (res.ok) setActiveContractors(data.contractors);
-    } catch (err) {
-      console.error('Failed to load active contractors:', err);
-    }
+      if (res.ok) setActiveContractors(data.contractors || []);
+    } catch { }
   };
 
-  // Open assign contractor modal
   const handleAssignContractor = async (ticketId) => {
     setSelectedTicketId(ticketId);
     setShowContractorModal(true);
-    // Load list of active contractors
     await loadActiveContractors();
-    // Load currently assigned contractor for this ticket
     try {
       const res = await fetch(`/api/tickets/${ticketId}/contractor`, { credentials: 'include' });
       const data = await res.json();
-      if (res.ok && data.contractor) {
-        setChosenContractorId(data.contractor.UserID);
-      } else {
-        setChosenContractorId(null);
-      }
-    } catch (err) {
-      console.error('Failed to load assigned contractor', err);
-      setChosenContractorId(null);
-    }
+      setChosenContractorId(res.ok && data.contractor ? data.contractor.UserID : null);
+    } catch { setChosenContractorId(null); }
   };
 
-  // Confirm assignment
   const handleConfirmSchedule = async () => {
     if (!chosenContractorId) return alert('Select contractor');
     try {
@@ -98,32 +172,48 @@ export default function StaffTickets() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to assign contractor');
-      // Update local ticket status to In Review
-      setAllTickets((prev) => prev.map((t) => (t.TicketID === selectedTicketId ? { ...t, CurrentStatus: 'Quoting' } : t))); setShowContractorModal(false);
+
+      // Move to Quoting locally
+      setAllTickets(prev => prev.map(t => t.TicketID === selectedTicketId ? { ...t, CurrentStatus: 'Quoting' } : t));
+      setShowContractorModal(false);
       setChosenContractorId(null);
       setSelectedTicketId(null);
       alert('Contractor assigned successfully!');
-    } catch (err) {
-      console.error(err);
-      alert(err.message);
+    } catch (e) {
+      alert(e.message || 'Failed to assign contractor');
     }
   };
 
-  // Load ticket details for modal
+  // ===== Ticket details modal =====
   const handleOpenTicketModal = async (ticketId) => {
     try {
+      setModalLoading(true);
+      setTicketMedia([]);
       const res = await fetch(`/api/tickets/${ticketId}`, { credentials: 'include' });
       const data = await res.json();
       if (res.ok) {
-        setSelectedTicketDetails(data.ticket);
+        const row = allTickets.find(t => t.TicketID === ticketId);
+        const merged = { ...data.ticket };
+        if (!merged.PropertyAddress && row?.PropertyAddress) merged.PropertyAddress = row.PropertyAddress;
+        if (!merged.propertyAddress && row?.PropertyAddress) merged.propertyAddress = row.PropertyAddress;
+        setSelectedTicketDetails(merged);
         setShowTicketModal(true);
       }
-    } catch (err) {
-      console.error(err);
+
+      try {
+        const r2 = await fetch(`/api/staff/tickets/${ticketId}/media`, { credentials: 'include' });
+        const d2 = await r2.json();
+        if (r2.ok && Array.isArray(d2?.data)) setTicketMedia(d2.data);
+        else setTicketMedia([]);
+      } catch { setTicketMedia([]); }
+    } catch {
+      setSelectedTicketDetails(null);
+      setTicketMedia([]);
+    } finally {
+      setModalLoading(false);
     }
   };
 
-  // Close ticket
   const handleCloseTicket = async (ticketId) => {
     try {
       const res = await fetch(`/api/tickets/${ticketId}/close`, {
@@ -131,204 +221,101 @@ export default function StaffTickets() {
         credentials: 'include'
       });
       const data = await res.json();
-      if (res.ok) {
-        setAllTickets((prev) => prev.map((t) => (t.TicketID === ticketId ? { ...t, CurrentStatus: 'Completed' } : t)));
-        alert('Ticket closed!');
-        setShowTicketModal(false);
-      } else {
-        throw new Error(data?.message || 'Failed to close ticket');
-      }
-    } catch (err) {
-      console.error(err);
+      if (!res.ok) throw new Error(data?.message || 'Failed to close ticket');
+      setAllTickets(prev => prev.map(t => t.TicketID === ticketId ? { ...t, CurrentStatus: 'Completed' } : t));
+      setShowTicketModal(false);
+      alert('Ticket closed!');
+    } catch (e) {
+      alert(e.message || 'Failed to close ticket');
     }
   };
-
-  // Helpers for urgency, status colours and computed fields
-  const getUrgencyColor = (urgency) => {
-    switch ((urgency || '').toLowerCase()) {
-      case 'high': return 'high-urgency';
-      case 'medium': return 'medium-urgency';
-      case 'low': return 'low-urgency';
-      case 'critical': return 'high-urgency';
-      default: return '';
-    }
-  };
-
-  const getEffectiveDate = (ticket) => {
-    if (!ticket.CreatedAt) return new Date();
-    const createdDate = new Date(ticket.CreatedAt);
-    const now = new Date();
-    const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-    if (diffDays > 31) {
-      const monthsOld = Math.floor(diffDays / 30);
-      const bumpedDate = new Date(createdDate);
-      bumpedDate.setMonth(bumpedDate.getMonth() + monthsOld);
-      return bumpedDate;
-    }
-    return createdDate;
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'New':
-      case 'In Review':
-      case 'Quoting':
-      case 'Awaiting Landlord Approval':
-      case 'Awaiting Approval':
-      case 'Awaiting Appointment':
-      case 'Scheduled':
-        return 'status-awaiting';
-      case 'Approved':
-        return 'status-approved';
-      case 'Rejected':
-        return 'status-rejected';
-      case 'Completed':
-      case 'Closed':
-        return 'status-closed';
-      default:
-        return '';
-    }
-  };
-
-  const getDisplayStatus = (ticket) => {
-    const status = ticket.CurrentStatus;
-    if (!status) return '';
-    // Show "New" only for the first 31 days
-    if (status === 'New' && ticket.CreatedAt) {
-      const createdDate = new Date(ticket.CreatedAt);
-      const now = new Date();
-      const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-      if (diffDays > 31) return '';
-      return 'New';
-    }
-    switch (status) {
-      case 'In Review':
-        return 'In Review';
-      case 'Quoting':
-        return 'Quoting';
-      case 'Awaiting Landlord Approval':
-        return 'Awaiting Approval';
-      case 'Awaiting Appointment':
-        return 'Awaiting Appointment';
-      case 'Approved':
-        return 'Approved';
-      case 'Scheduled':
-        return 'Scheduled';
-      case 'Completed':
-        return 'Closed';
-      default:
-        return status;
-    }
-  };
-
-  // Separate tickets into active (not closed) and closed (history).  Filter by status and date as appropriate.
-  const activeTickets = allTickets.filter(
-    (t) => getDisplayStatus(t) !== 'Closed' && (!filterStatus || getDisplayStatus(t) === filterStatus) && (!filterDate || new Date(t.CreatedAt) >= new Date(filterDate))
-  );
-  const closedTickets = allTickets.filter(
-    (t) => getDisplayStatus(t) === 'Closed' && (!filterStatus || getDisplayStatus(t) === filterStatus) && (!filterDate || new Date(t.CreatedAt) >= new Date(filterDate))
-  );
-  // Sort so tickets older than 30 days bubble to top, then by effective date descending
-  const sortTickets = (list) => {
-    return list
-      .slice()
-      .sort((a, b) => {
-        const aOld = (new Date() - new Date(a.CreatedAt)) / (1000 * 60 * 60 * 24) > 30;
-        const bOld = (new Date() - new Date(b.CreatedAt)) / (1000 * 60 * 60 * 24) > 30;
-        if (aOld && !bOld) return -1;
-        if (!aOld && bOld) return 1;
-        return getEffectiveDate(b) - getEffectiveDate(a);
-      });
-  };
-  const sortedActiveTickets = sortTickets(activeTickets);
-  const sortedClosedTickets = sortTickets(closedTickets);
 
   return (
     <>
-      <nav className="navbar">
-        <div className="navbar-logo"><div className="logo-placeholder">GoodLiving</div></div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/staff">Dashboard</Link></li>
-            <li><Link to="/tickets">Tickets</Link></li>
-            <li><Link to="/quotes">Quotes</Link></li>
-            <li><Link to="/contractors">Contractors</Link></li>
-            <li><Link to="/notifications">Notifications</Link></li>
-            <li><Link to="/settings">Settings</Link></li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button className="profile-btn" onClick={() => handleLogout()}>
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-        </div>
-      </nav>
+      <RoleNavbar />
 
       <div className="staffdashboard-title"><h1>Tickets</h1></div>
+      <div className="sub-title"><h2>Awaiting Tickets</h2></div>
 
-<div className="sub-titles-tickets-container">
-  <div className="sub-title"><h2>All Tickets</h2></div>
-  {/* Filters moved here, next to the heading */}
-  <div className="ticket-filters-tickets">
-    <label>
-      Status:
-      <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-        <option value="">All</option>
-        <option value="New">New</option>
-        <option value="In Review">In Review</option>
-        <option value="Quoting">Quoting</option>
-        <option value="Awaiting Appointment">Awaiting Appointment</option>
-        <option value="Awaiting Approval">Awaiting Approval</option>
-        <option value="Approved">Approved</option>
-        <option value="Rejected">Rejected</option>
-        <option value="Scheduled">Scheduled</option>
-        <option value="Closed">Closed</option>
-      </select>
-    </label>
-    <label>
-      Submitted After:
-      <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
-    </label>
-  </div>
-</div>
-
-<div className="awaiting-tickets-container2">
-  <div className="table-header">
-    <div className="header-content">
-      <div className="header-grid">
-        <div className="header-item">Ticket ID</div>
-        <div className="header-item">Property</div>
-        <div className="header-item">Issue</div>
-        <div className="header-item">Submitted</div>
-        <div className="header-status">Urgency/Status</div>
+      {/* Filters (same as dashboard) */}
+      <div className="jobs-filters">
+        <div className="filter-card">
+          <div className="filter-item">
+            <label htmlFor="tickets-status">Status</label>
+            <select id="tickets-status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="">All</option>
+              <option value="New">New</option>
+              <option value="In Review">In Review</option>
+              <option value="Awaiting Staff Assignment">Awaiting Staff Assignment</option>
+              <option value="Quoting">Quoting</option>
+              <option value="Awaiting Landlord Approval">Awaiting Landlord Approval</option>
+              <option value="Awaiting Appointment">Awaiting Appointment</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+          <div className="filter-item">
+            <label htmlFor="tickets-date">Submitted After</label>
+            <input id="tickets-date" type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
+          </div>
+          <button className="filter-reset" type="button" onClick={clearFilters}>Reset</button>
+        </div>
       </div>
-    </div>
-  </div>
 
-  {/* Filters are no longer here */}
-
-  {sortedActiveTickets.length > 0 ? (
-    sortedActiveTickets.map((ticket, index) => (
-      <div key={ticket.TicketID || index} className="ticket-card">
-        <div className="ticket-layout">
-          <div className="ticket-info-grid">
-            <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-            <div className="info-value">{ticket.PropertyAddress || ticket.property || '—'}</div>
-            <div className="info-value issue-cell">
-              <span>{ticket.Description || ticket.issue}</span>
-              <img src={gearIcon} alt="Settings" className="gear-icon" />
-            </div>
-            <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-            <div className="urgency-status-column">
-              <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>{ticket.UrgencyLevel || ticket.urgency}</span>
-              <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>{getDisplayStatus(ticket) || ticket.status}</span>
-            </div>
-            <div className="action-buttons">
-              <button className="action-btn assign-btn" onClick={() => handleAssignContractor(ticket.TicketID)}>Assign Contractor</button>
-              <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>View Details</button>
+      {/* ===== Active tickets block (dashboard-style table) ===== */}
+      <div className="jobs-section">
+        {sortedActiveTickets.length === 0 ? (
+          <div className="empty-tickets">No tickets available</div>
+        ) : (
+          <div className="jobs-table-container">
+            <div className="jobs-table-scroll">
+              <table className="jobs-table">
+                <thead>
+                  <tr>
+                    <th>Ref #</th>
+                    <th>Property</th>
+                    <th>Issue</th>
+                    <th>Submitted</th>
+                    <th>Urgency / Status</th>
+                    <th className="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedActiveTickets.map((t) => {
+                    const submitted = t.CreatedAt ? new Date(t.CreatedAt).toLocaleDateString() : '';
+                    const statusText = mapDisplayStatus(t.CurrentStatus, t.CreatedAt);
+                    return (
+                      <tr key={t.TicketID}>
+                        <td>{t.TicketRefNumber || t.TicketID}</td>
+                        <td>{t.PropertyAddress || '-'}</td>
+                        <td className="issue-cell">
+                          <div className="issue-inner">
+                            <div className="issue-desc">{titleOrDesc(t)}</div>
+                          </div>
+                        </td>
+                        <td>{submitted}</td>
+                        <td>
+                          <div className="urgency-status">
+                            <span className={`urgency ${getUrgencyClass(t.UrgencyLevel)}`}>{t.UrgencyLevel || '-'}</span>
+                            <span className={`status-text ${getStatusTone(statusText)}`}>{statusText}</span>
+                          </div>
+                        </td>
+                        <td className="actions-col">
+                          <div className="action-buttons">
+                            <button className="action-btn" onClick={() => handleAssignContractor(t.TicketID)}>Assign Contractor</button>
+                            <button className="action-btn" onClick={() => handleOpenTicketModal(t.TicketID)}>View Details</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        )}
       </div>
     ))
   ) : (
@@ -336,52 +323,61 @@ export default function StaffTickets() {
   )}
 </div>
 
-      {/* Ticket History Section */}
-      <div className="sub-titles-tickets-container">
-        <div className="sub-title-bottom"><h2>Ticket History</h2></div>
-      </div>
-      <div className="awaiting-tickets-container">
-        <div className="table-header">
-          <div className="header-content">
-            <div className="header-grid">
-              <div className="header-item">Ticket ID</div>
-              <div className="header-item">Property</div>
-              <div className="header-item">Issue</div>
-              <div className="header-item">Submitted</div>
-              <div className="header-status">Urgency/Status</div>
+      {/* ===== Ticket History ===== */}
+      <div className="sub-title"><h2>Ticket History</h2></div>
+      <div className="jobs-section">
+        {sortedClosedTickets.length === 0 ? (
+          <div className="empty-tickets">No historical tickets</div>
+        ) : (
+          <div className="jobs-table-container">
+            <div className="jobs-table-scroll">
+              <table className="jobs-table">
+                <thead>
+                  <tr>
+                    <th>Ref #</th>
+                    <th>Property</th>
+                    <th>Issue</th>
+                    <th>Submitted</th>
+                    <th>Urgency / Status</th>
+                    <th className="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedClosedTickets.map((t) => {
+                    const submitted = t.CreatedAt ? new Date(t.CreatedAt).toLocaleDateString() : '';
+                    const statusText = mapDisplayStatus(t.CurrentStatus, t.CreatedAt);
+                    return (
+                      <tr key={t.TicketID}>
+                        <td>{t.TicketRefNumber || t.TicketID}</td>
+                        <td>{t.PropertyAddress || '-'}</td>
+                        <td className="issue-cell">
+                          <div className="issue-inner">
+                            <div className="issue-desc">{titleOrDesc(t)}</div>
+                          </div>
+                        </td>
+                        <td>{submitted}</td>
+                        <td>
+                          <div className="urgency-status">
+                            <span className={`urgency ${getUrgencyClass(t.UrgencyLevel)}`}>{t.UrgencyLevel || '-'}</span>
+                            <span className={`status-text ${getStatusTone(statusText)}`}>{statusText}</span>
+                          </div>
+                        </td>
+                        <td className="actions-col">
+                          <div className="action-buttons">
+                            <button className="action-btn" onClick={() => handleOpenTicketModal(t.TicketID)}>View Details</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
-        {sortedClosedTickets.length > 0 ? (
-          sortedClosedTickets.map((ticket, index) => (
-            <div key={ticket.TicketID || index} className="ticket-card">
-              <div className="ticket-layout">
-                <div className="ticket-info-grid">
-                  <div className="info-value ticket-id">{ticket.TicketRefNumber || ticket.TicketID}</div>
-                  <div className="info-value">{ticket.PropertyAddress || ticket.property || '—'}</div>
-                  <div className="info-value issue-cell">
-                    <span>{ticket.Description || ticket.issue}</span>
-                    <img src={gearIcon} alt="Settings" className="gear-icon" />
-                  </div>
-                  <div className="info-value">{ticket.CreatedAt ? new Date(ticket.CreatedAt).toLocaleDateString() : ticket.submitted}</div>
-                  <div className="urgency-status-column">
-                    <span className={`urgency-badge ${getUrgencyColor(ticket.UrgencyLevel || ticket.urgency)}`}>{ticket.UrgencyLevel || ticket.urgency}</span>
-                    <span className={`status-badge ${getStatusColor(getDisplayStatus(ticket) || ticket.status)}`}>{getDisplayStatus(ticket) || ticket.status}</span>
-                  </div>
-                  <div className="action-buttons">
-                    {/* In history view we don't assign or close tickets, but still allow viewing details */}
-                    <button className="action-btn view-btn" onClick={() => handleOpenTicketModal(ticket.TicketID)}>View Details</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="empty-state">No historical tickets</p>
         )}
       </div>
 
-      {/* Assign Contractor Modal */}
+      {/* ===== Assign Contractor Modal ===== */}
       {showContractorModal && (
         <div className="modal-overlay">
           <div className="modal">
@@ -403,41 +399,210 @@ export default function StaffTickets() {
         </div>
       )}
 
-      {/* Ticket Detail Modal */}
+      {/* ===== Ticket Detail Modal ===== */}
       {showTicketModal && selectedTicketDetails && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h2>Ticket Details</h2>
-            <p><strong>Issue:</strong> {selectedTicketDetails.Description}</p>
-            <p><strong>Status:</strong> {selectedTicketDetails.CurrentStatus}</p>
+        <div className="modal-overlay" onClick={closeTicketModal}>
+          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            {/* HEADER */}
+            <div className="modal-header">
+              <h2 className="modal-title">Ticket Details</h2>
+              <button
+                type="button"
+                className="modal-close-icon"
+                aria-label="Close ticket details"
+                onClick={closeTicketModal}
+              >
+                ✕
+              </button>
+            </div>
 
+            {/* DETAILS */}
+            <div className="modal-section">
+              <p>
+                <strong>Ref / ID:</strong>{" "}
+                {selectedTicketDetails.TicketRefNumber || selectedTicketDetails.TicketID}
+              </p>
+              <p>
+                <strong>Property:</strong>{" "}
+                {(() => {
+                  const t = selectedTicketDetails || {};
+                  const nested =
+                    t.Property?.Address ||
+                    [t.Property?.AddressLine1, t.Property?.AddressLine2, t.Property?.City, t.Property?.Province, t.Property?.PostalCode]
+                      .filter(v => v && String(v).trim())
+                      .join(", ");
+                  const flat =
+                    t.PropertyAddress || t.propertyAddress ||
+                    [t.AddressLine1, t.AddressLine2, t.City, t.Province, t.PostalCode]
+                      .filter(v => v && String(v).trim())
+                      .join(", ");
+                  const joined = (flat || nested || "").trim();
+                  return joined || "-";
+                })()}
+              </p>
+              <p>
+                <strong>Submitted:</strong>{" "}
+                {selectedTicketDetails.CreatedAt
+                  ? new Date(selectedTicketDetails.CreatedAt).toLocaleString()
+                  : "-"}
+              </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                <span className="status-text">
+                  {mapDisplayStatus(selectedTicketDetails.CurrentStatus, selectedTicketDetails.CreatedAt) || "-"}
+                </span>
+              </p>
+              <p>
+                <strong>Urgency:</strong> {selectedTicketDetails.UrgencyLevel || "-"}
+              </p>
+              <div style={{ marginTop: 8 }}>
+                <strong>Issue Description:</strong>
+                <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>
+                  {selectedTicketDetails.Description || "-"}
+                </div>
+              </div>
+            </div>
+
+            {/* QUOTE */}
+            {selectedTicketDetails.Quote && (
+              <div className="modal-section">
+                <h3 style={{ marginTop: 0 }}>Latest Quote</h3>
+                <div>
+                  {selectedTicketDetails.Quote.Status || "-"} -{" "}
+                  {(() => {
+                    const amt = Number(selectedTicketDetails.Quote?.Amount);
+                    return Number.isFinite(amt) ? `R ${amt.toFixed(0)}` : "R 0";
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* CONTRACTOR RESPONSES */}
             <h3>Contractor Responses</h3>
             {selectedTicketDetails.ContractorResponses?.length ? (
-              <ul>
-                {selectedTicketDetails.ContractorResponses.map((r) => (
-                  <li key={r.ResponseID}>{r.Message} - {new Date(r.Date).toLocaleDateString()}</li>
+              <ul className="list-block">
+                {selectedTicketDetails.ContractorResponses.map(r => (
+                  <li key={r.ResponseID}>
+                    {r.Message}
+                    {r.Date ? ` - ${new Date(r.Date).toLocaleString()}` : ""}
+                  </li>
                 ))}
               </ul>
-            ) : <p>No responses yet</p>}
+            ) : selectedTicketDetails.Quote ? (
+              <ul className="list-block">
+                <li>
+                  Contractor Uploaded Quote
+                  {selectedTicketDetails.Quote.CreatedAt ||
+                    selectedTicketDetails.Quote.Date ||
+                    selectedTicketDetails.Quote.UpdatedAt
+                    ? ` - ${new Date(
+                      selectedTicketDetails.Quote.CreatedAt ||
+                      selectedTicketDetails.Quote.Date ||
+                      selectedTicketDetails.Quote.UpdatedAt
+                    ).toLocaleString()}`
+                    : ""}
+                </li>
+              </ul>
+            ) : (
+              <p className="muted">No responses yet</p>
+            )}
 
+            {/* LANDLORD APPROVALS */}
             <h3>Landlord Approvals</h3>
-            {selectedTicketDetails.LandlordApprovals?.length ? (
-              <ul>
-                {selectedTicketDetails.LandlordApprovals.map((a) => (
-                  <li key={a.ApprovalID}>{a.Approved ? 'Approved' : 'Rejected'} - {new Date(a.Date).toLocaleDateString()}</li>
-                ))}
-              </ul>
-            ) : <p>No approvals yet</p>}
+            {(() => {
+              const rows = [];
 
-            <div className="modal-buttons">
-              {selectedTicketDetails.CurrentStatus !== 'Closed' && (
-                <button onClick={() => handleCloseTicket(selectedTicketDetails.TicketID)}>Close Ticket</button>
+              // Ticket-level approvals (array)
+              if (Array.isArray(selectedTicketDetails.LandlordApprovals) && selectedTicketDetails.LandlordApprovals.length) {
+                selectedTicketDetails.LandlordApprovals.forEach(a => {
+                  const label = a.Approved ? "Landlord Approved Ticket" : "Landlord Rejected Ticket";
+                  rows.push(`${label}${a.Date ? ` - ${new Date(a.Date).toLocaleString()}` : ""}`);
+                });
+              }
+
+              // Quote approval/rejection (single object with Status)
+              if (selectedTicketDetails.Quote?.Status === "Approved") {
+                const ts = selectedTicketDetails.Quote.ApprovedAt || selectedTicketDetails.Quote.UpdatedAt || selectedTicketDetails.Quote.Date;
+                rows.push(`Landlord Approved Quote${ts ? ` - ${new Date(ts).toLocaleString()}` : ""}`);
+              }
+              if (selectedTicketDetails.Quote?.Status === "Rejected") {
+                const ts = selectedTicketDetails.Quote.RejectedAt || selectedTicketDetails.Quote.UpdatedAt || selectedTicketDetails.Quote.Date;
+                rows.push(`Landlord Rejected Quote${ts ? ` - ${new Date(ts).toLocaleString()}` : ""}`);
+              }
+
+              return rows.length ? (
+                <ul className="list-block">
+                  {rows.map((text, i) => <li key={i}>{text}</li>)}
+                </ul>
+              ) : (
+                <p className="muted">No approvals yet</p>
+              );
+            })()}
+
+            {/* MEDIA */}
+            <div className="modal-section">
+              <h3 style={{ marginTop: 0 }}>Media</h3>
+              {modalLoading ? (
+                <p>Loading media…</p>
+              ) : ticketMedia.length === 0 ? (
+                <p className="empty-text">No media uploaded</p>
+              ) : (
+                <div className="media-gallery-grid">
+                  {ticketMedia.map((m, idx) => {
+                    const url = m.MediaURL || "";
+                    const type = (m.MediaType || "").toLowerCase();
+                    const isImage = type.startsWith("image") || /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+                    const isVideo = type.startsWith("video") || /\.(mp4|webm|ogg)$/i.test(url);
+                    return (
+                      <div key={idx} className="media-card">
+                        {isImage ? (
+                          <img
+                            src={url}
+                            alt={`Media ${idx}`}
+                            onError={(e) => (e.currentTarget.src = "https://placehold.co/150x100?text=No+Image")}
+                            onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+                            style={{ cursor: "pointer" }}
+                          />
+                        ) : isVideo ? (
+                          <video controls className="media-thumb" style={{ width: "100%", borderRadius: 8 }}>
+                            <source src={url} type={type || "video/mp4"} />
+                          </video>
+                        ) : (
+                          <div
+                            className="media-placeholder"
+                            onClick={() => url && window.open(url, "_blank", "noopener,noreferrer")}
+                            style={{ cursor: url ? "pointer" : "default" }}
+                          >
+                            {url ? "Open file" : "No preview available"}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
-              <button onClick={() => setShowTicketModal(false)}>Close</button>
+            </div>
+
+            {/* FOOTER */}
+            <div className="modal-footer">
+              {selectedTicketDetails.CurrentStatus !== "Closed" && (
+                <button
+                  onClick={() => handleCloseTicket(selectedTicketDetails.TicketID)}
+                  className="action-btn"
+                  type="button"
+                >
+                  Close Ticket
+                </button>
+              )}
+              <button onClick={closeTicketModal} className="action-btn" type="button">
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
+
+
       <div className="page-bottom-spacer"></div>
     </>
   );

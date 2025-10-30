@@ -20,6 +20,8 @@ import ReviewRoleRequest from './components/ReviewRoleRequest.jsx';
 import RoleDashboardRedirect from './components/RoleDashboardRedirect.jsx';
 import StaffTickets from './StaffTickets.jsx';
 import StaffContractors from './StaffContractors.jsx';
+import LandlordQuoteView from "./LandlordQuoteView.jsx";
+import ContractorCompleted from './ContractorCompleted.jsx';
 
 // Role management components
 import RequestRole from './RequestRole.jsx';
@@ -175,6 +177,8 @@ export default function App() {
           }
         />
 
+        <Route path="/contractor/completed" element={<ContractorCompleted />} />
+
         {/* Notifications center - accessible to any logged-in user */}
         <Route
           path="/notifications"
@@ -211,6 +215,8 @@ export default function App() {
             </RoleRoute>
           }
         />
+
+        <Route path="/landlord/quotes" element={<LandlordQuoteView />} />
 
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

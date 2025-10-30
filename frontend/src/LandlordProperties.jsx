@@ -1,30 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import RoleNavbar from "./components/RoleNavbar.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import { getProperties, addProperty } from "./landlordApi";
+import "./styles/userdash.css";
 import "./styles/landlorddash.css";
 import AddressPicker from "./components/AddressPicker.jsx";
 
-/**
- * LandlordProperties
- *
- * View landlord properties + add new properties.
- * Old manual address fields removed — we now rely solely on Google address.
- */
 export default function LandlordProperties() {
   const { logout } = useAuth();
 
-  const [showLogout, setShowLogout] = useState(false);
-  const [properties, setProperties] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-
+  const [properties, setProperties] = useState([]);
   const [proofFile, setProofFile] = useState(null);
-
-  // Google-picked location for the property being added
-  // { address, placeId, latitude, longitude }
   const [loc, setLoc] = useState(null);
 
-  // Load properties on mount
   useEffect(() => {
     (async () => {
       try {
@@ -60,18 +49,14 @@ export default function LandlordProperties() {
 
     try {
       const fd = new FormData();
-
-      // New simplified model: send single address + geo from Google
       fd.append("address", loc.address || "");
       fd.append("placeId", String(loc.placeId));
       if (typeof loc.latitude === "number") fd.append("latitude", String(loc.latitude));
       if (typeof loc.longitude === "number") fd.append("longitude", String(loc.longitude));
-
       fd.append("proof", proofFile);
 
       const res = await addProperty(fd);
       if (res.success) {
-        // Reload list after successful add
         const listRes = await getProperties();
         setProperties(listRes.success ? listRes.data || [] : []);
         resetModal();
@@ -85,110 +70,59 @@ export default function LandlordProperties() {
     }
   };
 
+  const rows = properties.map((p) => ({
+    id: p.PropertyID || p.propertyId || "-",
+    address:
+      p.Address ||
+      [p.AddressLine1, p.AddressLine2, p.City, p.Province, p.PostalCode]
+        .filter((x) => x && x.toString().trim())
+        .join(", ") ||
+      "-",
+    tenant: p.TenantName ? `${p.TenantName} (${p.TenantEmail})` : "-",
+  }));
+
   return (
-    <>
-      {/* Navbar replicating Landlord layout */}
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <div className="logo-placeholder">GoodLiving</div>
+    <div className="dashboard-page">
+      <RoleNavbar />
+
+      <div className="content" style={{ padding: "20px 24px 40px" }}>
+        <div className="dashboard-title">
+          <h1 style={{ margin: 0 }}>My Properties</h1>
+          <button className="action-btn" onClick={() => setShowAddModal(true)}>Add Property</button>
         </div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li>
-              <Link to="/landlord">Dashboard</Link>
-            </li>
-            <li>
-              <Link to="/landlord/tickets">Tickets</Link>
-            </li>
-            <li>
-              <Link to="/landlord/properties" className="active">
-                Properties
-              </Link>
-            </li>
-            <li>
-              <Link to="/notifications">Notifications</Link>
-            </li>
-            <li>
-              <Link to="/landlord/settings">Settings</Link>
-            </li>
-          </ul>
-        </div>
-        <div className="navbar-profile">
-          <button
-            className="profile-btn"
-            onClick={() => setShowLogout(!showLogout)}
-          >
-            <img src="https://placehold.co/40" alt="profile" />
-          </button>
-          {showLogout && (
-            <div className="logout-popup">
-              <button onClick={handleLogout}>Log Out</button>
+
+        <div className="jobs-section">
+          {rows.length === 0 ? (
+            <div className="empty-tickets">No properties found.</div>
+          ) : (
+            <div className="jobs-table-container">
+              <div className="jobs-table-scroll">
+                <table className="jobs-table">
+                  <thead>
+                    <tr>
+                      <th>Property ID</th>
+                      <th>Address</th>
+                      <th>Tenant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id}>
+                        <td>{r.id}</td>
+                        <td className="issue-cell">
+                          <div className="issue-inner">
+                            <div className="issue-desc">{r.address}</div>
+                          </div>
+                        </td>
+                        <td>{r.tenant}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
-      </nav>
-
-      <div style={{ padding: "80px 90px 40px" }}>
-        <h1 style={{ marginBottom: "20px" }}>My Properties</h1>
-        <button
-          style={{
-            backgroundColor: "#FBD402",
-            color: "black",
-            border: "none",
-            borderRadius: "5px",
-            padding: "8px 16px",
-            fontWeight: 600,
-            cursor: "pointer",
-            marginBottom: "20px",
-          }}
-          onClick={() => setShowAddModal(true)}
-        >
-          Add Property
-        </button>
-
-        {properties.length ? (
-          <div style={{ display: "grid", gap: "15px" }}>
-            {properties.map((p) => (
-              <div
-                key={p.PropertyID || p.propertyId || `${p.PlaceId || p.placeId || "addr"}-${Math.random()}`}
-                style={{
-                  border: "1px solid #FBD402",
-                  borderRadius: 6,
-                  padding: 16,
-                  background: "white",
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                  Property ID: {p.PropertyID || p.propertyId || "—"}
-                </div>
-
-                {/* Try to display a friendly address from either the old structure
-                    (AddressLine1..PostalCode) or a single `Address` field */}
-                <div style={{ marginBottom: 4 }}>
-                  <strong>Address:</strong>{" "}
-                  {p.Address
-                    ? p.Address
-                    : [
-                        p.AddressLine1,
-                        p.AddressLine2,
-                        p.City,
-                        p.Province,
-                        p.PostalCode,
-                      ]
-                        .filter((x) => x && x.toString().trim())
-                        .join(", ") || "—"}
-                </div>
-
-                <div style={{ marginBottom: 4 }}>
-                  <strong>Tenant:</strong>{" "}
-                  {p.TenantName ? `${p.TenantName} (${p.TenantEmail})` : "—"}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p style={{ color: "#666" }}>No properties found.</p>
-        )}
       </div>
 
       {/* Add Property Modal */}
@@ -217,6 +151,6 @@ export default function LandlordProperties() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

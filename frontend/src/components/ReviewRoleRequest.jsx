@@ -113,7 +113,7 @@ export default function ReviewRoleRequests() {
                 <td>{u.Email}</td>
                 <td>{u.Role}</td>
                 <td>{u.Status}</td>
-                <td>{u.UserAddress || u.Address || '—'}</td>
+                <td>{u.UserAddress || u.Address || '-'}</td>
                 <td>
                   {u.ProofFile ? (() => {
                     const raw = String(u.ProofFile || '');
@@ -134,7 +134,7 @@ export default function ReviewRoleRequests() {
                         View
                       </a>
                     );
-                  })() : '—'}
+                  })() : '-'}
                 </td>
 
                 <td>

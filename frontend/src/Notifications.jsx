@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import RoleNavbar from './components/RoleNavbar.jsx';
+import './styles/userdash.css';
 
-/**
- * Notifications page
- * Shows the authenticated user's recent notifications.
- */
+/** Notifications page */
 function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +14,7 @@ function Notifications() {
         const res = await fetch('/api/notifications', { credentials: 'include' });
         const data = await res.json();
         if (res.ok) {
-          setNotifications(data.notifications || []);
+          setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
         } else {
           setError(data?.message || 'Failed to load notifications');
         }
@@ -31,20 +29,9 @@ function Notifications() {
 
   return (
     <div className="dashboard-page">
-      {/* Basic navbar with a back link */}
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <div className="logo-placeholder">GoodLiving</div>
-        </div>
-        <div className="navbar-right">
-          <ul className="navbar-menu">
-            <li><Link to="/">Dashboard</Link></li>
-            <li><Link to="/notifications">Notifications</Link></li>
-          </ul>
-        </div>
-      </nav>
+      <RoleNavbar />
 
-      <div className="content" style={{ padding: '20px' }}>
+      <div className="content" style={{ padding: '20px 24px' }}>
         <h1>Notifications</h1>
         {loading ? (
           <p>Loading notifications...</p>
@@ -54,14 +41,41 @@ function Notifications() {
           <p>No notifications found.</p>
         ) : (
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {notifications.map(notif => {
-              const ts = notif.SentAt || notif.LastAttemptAt || notif.CreatedAt || Date.now();
+            {notifications.map(n => {
+              const ts = n.SentAt || n.LastAttemptAt || n.CreatedAt || Date.now();
               return (
-                <li key={notif.NotificationID} style={{ marginBottom: '15px', padding: '10px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                  <div style={{ fontSize: '14px', marginBottom: '5px', color: '#555' }}>
-                    {new Date(ts).toLocaleString()}
+                <li
+                  key={n.NotificationID}
+                  style={{
+                    marginBottom: '15px',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                    <span
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        fontSize: 11,
+                        border: '1px solid #e0e0e0',
+                        background: n.Status === 'Sent' ? '#111' : '#fff',
+                        color: n.Status === 'Sent' ? '#fff' : '#555'
+                      }}
+                    >
+                      {n.NotificationType}
+                    </span>
+                    <small style={{ color: '#666' }}>
+                      {new Date(ts).toLocaleString()}
+                    </small>
                   </div>
-                  <div style={{ whiteSpace: 'pre-line' }}>{notif.NotificationContent}</div>
+                  <div style={{ marginTop: 6, whiteSpace: 'pre-line' }}>{n.NotificationContent}</div>
+                  {n.ErrorMessage && (
+                    <div style={{ marginTop: 6, color: '#b00020', fontSize: 12 }}>
+                      Error: {n.ErrorMessage}
+                    </div>
+                  )}
                 </li>
               );
             })}
