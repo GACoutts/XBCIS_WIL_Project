@@ -157,7 +157,16 @@ jobs:
             set +a
           fi
           npm run --prefix backend build --if-present
-          npm test --prefix backend --if-present
+          npm test --prefix backend --if-
+            
+      - name: Show StaffDashboard excerpt + hash
+        if: ${{ hashFiles('frontend/**') != '' }}
+        run: |
+          echo "HEAD: $(git rev-parse --short HEAD)"
+          echo "--- SHA256 of StaffDashboard.jsx ---"
+          sha256sum frontend/src/StaffDashboard.jsx || true
+          echo "--- lines 395..430 (with line numbers) ---"
+          nl -ba frontend/src/StaffDashboard.jsx | sed -n '395,430p' || true
 
       - name: Frontend build
         if: ${{ hashFiles('frontend/**') != '' }}
