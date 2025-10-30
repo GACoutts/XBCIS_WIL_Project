@@ -223,14 +223,16 @@ async function authorizeTicketAccess(req, res, next) {
 // -------------------------------------------------------------------------------------
 // Upload media for a ticket (field: file)
 // -------------------------------------------------------------------------------------
-router.post('/:ticketId(\\d+)/media', authMiddleware, authorizeTicketAccess, upload.single('file'), async (req, res) => {
+// MEDIA UPLOAD
+router.post('/:ticketId/media', authMiddleware, authorizeTicketAccess, upload.single('file'), async (req, res) => {
   try {
-    const { ticketId } = req.params;
+    const ticketId = parseInt(req.params.ticketId, 10);
+    if (!Number.isFinite(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
+
     const file = req.file;
     if (!file) return res.status(400).json({ message: 'No file uploaded.' });
 
     const publicUrl = `/uploads/${path.basename(file.path)}`;
-
     const mediaType = file.mimetype.startsWith('video/')
       ? 'Video'
       : file.mimetype.startsWith('image/')
@@ -570,105 +572,69 @@ router.get('/:ticketId(\\d+)/approved-contractor', authMiddleware, async (req, r
 // -------------------------------------------------------------------------------------
 // Create (finalize) an appointment for a ticket
 // -------------------------------------------------------------------------------------
-router.post('/:ticketId(\\d+)/appointments', authMiddleware, async (req, res) => {
+router.post('/:ticketId/appointments', authMiddleware, async (req, res) => {
   try {
-    const { ticketId } = req.params;
+    const ticketId = parseInt(req.params.ticketId, 10);
+    if (!Number.isFinite(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
+
     const { contractorUserId, notes } = req.body || {};
     const callerId = req.user.userId;
     const callerRole = req.user.role;
 
-    // Prefer 'scheduledAt', accept legacy 'proposedStart'
     const scheduledAtRaw = req.body?.scheduledAt ?? req.body?.proposedStart;
-    if (!scheduledAtRaw) {
-      return res.status(400).json({ message: 'scheduledAt is required' });
-    }
+    if (!scheduledAtRaw) return res.status(400).json({ message: 'scheduledAt is required' });
+
     const proposedDate = new Date(scheduledAtRaw);
+    if (Number.isNaN(proposedDate.getTime())) return res.status(400).json({ message: 'Invalid scheduledAt date' });
+    if (proposedDate.getTime() <= Date.now()) return res.status(400).json({ message: 'Appointment time must be in the future' });
 
-    if (Number.isNaN(proposedDate.getTime())) {
-      return res.status(400).json({ message: 'Invalid scheduledAt date' });
-    }
-    if (proposedDate.getTime() <= Date.now()) {
-      return res.status(400).json({ message: 'Appointment time must be in the future' });
-    }
-
-    // Determine contractor
     let contractorId = null;
-    // When a contractor schedules the appointment themselves, default to the caller ID
-    if (callerRole === 'Contractor') {
-      contractorId = callerId;
-    }
+    if (callerRole === 'Contractor') contractorId = callerId;
 
-    // Fetch ticket
     const [[ticket]] = await pool.query(
       'SELECT TicketID, ClientUserID, TicketRefNumber, CurrentStatus FROM tblTickets WHERE TicketID = ? LIMIT 1',
       [ticketId]
     );
-    if (!ticket) {
-      return res.status(404).json({ message: 'Ticket not found' });
-    }
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
-    /*
-      Authorization & contractor resolution logic:
-
-      - Contractors may schedule an appointment for a ticket only if they have an
-        approved quote for that ticket.
-
-      - Clients may schedule once there is an approved quote (contractor is derived).
-
-      - Staff and landlords may specify contractorUserId explicitly.
-    */
+    // Authorization logic
     if (callerRole === 'Contractor') {
       const [authCheck] = await pool.execute(
         `SELECT t.TicketID
-           FROM tblTickets t
-           INNER JOIN tblQuotes q
-                   ON q.TicketID = t.TicketID
-                  AND q.ContractorUserID = ?
-                  AND q.QuoteStatus = 'Approved'
-          WHERE t.TicketID = ?
-          LIMIT 1`,
+         FROM tblTickets t
+         INNER JOIN tblQuotes q ON q.TicketID = t.TicketID
+          AND q.ContractorUserID = ? AND q.QuoteStatus = 'Approved'
+         WHERE t.TicketID = ? LIMIT 1`,
         [callerId, ticketId]
       );
-      if (!authCheck.length) {
-        return res.status(403).json({ message: 'You are not authorized to schedule an appointment for this ticket' });
-      }
+      if (!authCheck.length) return res.status(403).json({ message: 'Not authorized to schedule this ticket' });
     } else if (callerRole === 'Client') {
-      // Clients schedule with the approved contractor
       const [[approved]] = await pool.query(
         `SELECT ContractorUserID FROM tblQuotes WHERE TicketID = ? AND QuoteStatus = 'Approved' LIMIT 1`,
         [ticketId]
       );
-      if (!approved) {
-        return res.status(400).json({ message: 'No approved contractor found for this ticket. Please wait for your landlord to approve a quote.' });
-      }
+      if (!approved) return res.status(400).json({ message: 'No approved contractor yet' });
       contractorId = approved.ContractorUserID;
     } else {
-      // Staff or landlord must provide contractorUserId
       contractorId = parseInt(contractorUserId, 10);
-      if (!contractorId || Number.isNaN(contractorId)) {
-        return res.status(400).json({ message: 'contractorUserId must be provided for non-contractors and non-clients' });
-      }
+      if (!contractorId || Number.isNaN(contractorId)) return res.status(400).json({ message: 'contractorUserId required' });
     }
 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      // Insert appointment (confirmed)
       const [ins] = await connection.execute(
         `INSERT INTO tblContractorSchedules (TicketID, ContractorUserID, ProposedDate, ProposedEndDate, Notes, ClientConfirmed)
          VALUES (?, ?, ?, ?, ?, TRUE)`,
         [ticketId, contractorId, proposedDate, null, notes || null]
       );
-      const appointmentId = ins.insertId;
 
-      // Update ticket status
       await connection.execute(
         `UPDATE tblTickets SET CurrentStatus = 'Scheduled' WHERE TicketID = ?`,
         [ticketId]
       );
 
-      // Log status history
       await connection.execute(
         `INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID)
          VALUES (?, 'Scheduled', ?)`,
@@ -677,51 +643,11 @@ router.post('/:ticketId(\\d+)/appointments', authMiddleware, async (req, res) =>
 
       await connection.commit();
 
-      // Notifications
-      try {
-        const [[clientRow]] = await pool.query(
-          'SELECT FullName FROM tblusers WHERE UserID = ? LIMIT 1',
-          [ticket.ClientUserID]
-        );
-        const clientName = clientRow?.FullName || '';
-        const [[contractorRow]] = await pool.query(
-          'SELECT FullName FROM tblusers WHERE UserID = ? LIMIT 1',
-          [contractorId]
-        );
-        const contractorName = contractorRow?.FullName || '';
-
-        const eventKey = `appointment_scheduled:${ticketId}`;
-        const dateStr = proposedDate.toISOString().split('T')[0];
-        const timeStr = proposedDate.toISOString().split('T')[1]?.substring(0, 5) || '';
-        const params = { ticketRef: ticket.TicketRefNumber, date: dateStr, time: timeStr, contractorName, clientName };
-
-        await notifyUser({
-          userId: ticket.ClientUserID,
-          ticketId: ticketId,
-          template: 'appointment_scheduled',
-          params,
-          eventKey,
-          fallbackToEmail: true
-        });
-        if (callerId !== contractorId) {
-          await notifyUser({
-            userId: contractorId,
-            ticketId: ticketId,
-            template: 'appointment_scheduled',
-            params,
-            eventKey: `${eventKey}:contractor`,
-            fallbackToEmail: true
-          });
-        }
-      } catch (e) {
-        console.error('[appointments/create] Notification error:', e);
-      }
-
       return res.status(201).json({
         success: true,
         data: {
-          appointmentId,
-          ticketId: Number(ticketId),
+          appointmentId: ins.insertId,
+          ticketId,
           contractorUserId: contractorId,
           scheduledAt: proposedDate.toISOString(),
           clientConfirmed: true,
@@ -744,9 +670,12 @@ router.post('/:ticketId(\\d+)/appointments', authMiddleware, async (req, res) =>
 // -------------------------------------------------------------------------------------
 // Mark a ticket/job as completed
 // -------------------------------------------------------------------------------------
-router.post('/:ticketId(\\d+)/complete', authMiddleware, async (req, res) => {
+// COMPLETE TICKET
+router.post('/:ticketId/complete', authMiddleware, async (req, res) => {
   try {
-    const { ticketId } = req.params;
+    const ticketId = parseInt(req.params.ticketId, 10);
+    if (!Number.isFinite(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
+
     const callerId = req.user.userId;
     const callerRole = req.user.role;
 
@@ -758,25 +687,18 @@ router.post('/:ticketId(\\d+)/complete', authMiddleware, async (req, res) => {
       'SELECT TicketID, ClientUserID, TicketRefNumber, CurrentStatus FROM tblTickets WHERE TicketID = ? LIMIT 1',
       [ticketId]
     );
-    if (!ticket) {
-      return res.status(404).json({ message: 'Ticket not found' });
-    }
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
     if (callerRole === 'Contractor') {
       const [authCheck] = await pool.execute(
         `SELECT t.TicketID
-           FROM tblTickets t
-           INNER JOIN tblQuotes q
-                   ON q.TicketID = t.TicketID
-                  AND q.ContractorUserID = ?
-                  AND q.QuoteStatus = 'Approved'
-          WHERE t.TicketID = ?
-          LIMIT 1`,
+         FROM tblTickets t
+         INNER JOIN tblQuotes q ON q.TicketID = t.TicketID
+          AND q.ContractorUserID = ? AND q.QuoteStatus = 'Approved'
+         WHERE t.TicketID = ? LIMIT 1`,
         [callerId, ticketId]
       );
-      if (!authCheck.length) {
-        return res.status(403).json({ message: 'You are not authorized to complete this ticket' });
-      }
+      if (!authCheck.length) return res.status(403).json({ message: 'Not authorized to complete this ticket' });
     }
 
     const connection = await pool.getConnection();
@@ -796,87 +718,6 @@ router.post('/:ticketId(\\d+)/complete', authMiddleware, async (req, res) => {
 
       await connection.commit();
 
-      // Notifications
-      try {
-        const [[clientRow]] = await pool.query(
-          'SELECT FullName FROM tblusers WHERE UserID = ? LIMIT 1',
-          [ticket.ClientUserID]
-        );
-        const clientName = clientRow?.FullName || '';
-
-        let contractorName = '';
-        let contractorUserId = null;
-        if (callerRole === 'Contractor') {
-          contractorUserId = callerId;
-          const [[cRow]] = await pool.query(
-            'SELECT FullName FROM tblusers WHERE UserID = ? LIMIT 1',
-            [callerId]
-          );
-          contractorName = cRow?.FullName || '';
-        } else {
-          const [[cRow]] = await pool.query(
-            `SELECT u.UserID, u.FullName
-               FROM tblQuotes q
-               JOIN tblusers u ON u.UserID = q.ContractorUserID
-              WHERE q.TicketID = ? AND q.QuoteStatus = 'Approved'
-              LIMIT 1`,
-            [ticketId]
-          );
-          if (cRow) {
-            contractorUserId = cRow.UserID;
-            contractorName = cRow.FullName || '';
-          }
-        }
-
-        const eventKey = `job_completed:${ticketId}`;
-        const params = { ticketRef: ticket.TicketRefNumber, contractorName };
-
-        await notifyUser({
-          userId: ticket.ClientUserID,
-          ticketId: ticketId,
-          template: 'job_completed',
-          params,
-          eventKey,
-          fallbackToEmail: true
-        });
-
-        if (contractorUserId && contractorUserId !== callerId) {
-          await notifyUser({
-            userId: contractorUserId,
-            ticketId: ticketId,
-            template: 'job_completed',
-            params,
-            eventKey: `${eventKey}:contractor`,
-            fallbackToEmail: true
-          });
-        }
-
-        try {
-          const [landlords] = await pool.query(
-            `SELECT LandlordUserID
-               FROM tblLandlordProperties lp
-               JOIN tblTickets t ON t.PropertyID = lp.PropertyID
-              WHERE t.TicketID = ?
-                AND (lp.ActiveTo IS NULL OR lp.ActiveTo >= CURDATE())`,
-            [ticketId]
-          );
-          for (const row of landlords) {
-            await notifyUser({
-              userId: row.LandlordUserID,
-              ticketId: ticketId,
-              template: 'job_completed',
-              params,
-              eventKey: `${eventKey}:landlord:${row.LandlordUserID}`,
-              fallbackToEmail: true
-            });
-          }
-        } catch (e) {
-          console.error('[complete] landlord notify error:', e);
-        }
-      } catch (e) {
-        console.error('[complete] notification error:', e);
-      }
-
       return res.json({ success: true, message: 'Ticket marked as completed' });
     } catch (err) {
       await connection.rollback();
@@ -889,7 +730,6 @@ router.post('/:ticketId(\\d+)/complete', authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: 'Error completing ticket', error: process.env.NODE_ENV === 'development' ? err.message : undefined });
   }
 });
-
 // -------------------------------------------------------------------------------------
 // Additional helper routes
 // -------------------------------------------------------------------------------------
@@ -958,22 +798,21 @@ router.get('/:ticketId(\\d+)/contractor', authMiddleware, async (req, res) => {
 
 
 // Close a ticket (client or staff)
-router.post('/:ticketId(\\d+)/close', authMiddleware, async (req, res) => {
+router.post('/:ticketId/close', authMiddleware, async (req, res) => {
   try {
-    const { ticketId } = req.params;
-    const id = parseInt(ticketId, 10);
-    if (!Number.isFinite(id)) return res.status(400).json({ message: 'Invalid ticketId' });
+    const ticketId = parseInt(req.params.ticketId, 10);
+    if (!Number.isFinite(ticketId)) return res.status(400).json({ message: 'Invalid ticketId' });
 
     const [[ticket]] = await pool.query(
       'SELECT TicketID, ClientUserID, CurrentStatus FROM tblTickets WHERE TicketID = ? LIMIT 1',
-      [id]
+      [ticketId]
     );
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
     if (req.user.role === 'Client' && ticket.ClientUserID !== req.user.userId) {
       return res.status(403).json({ message: 'You may only close your own tickets' });
     }
-    if (req.user.role !== 'Client' && req.user.role !== 'Staff') {
+    if (!['Client', 'Staff'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Only clients or staff may close tickets' });
     }
 
@@ -987,12 +826,12 @@ router.post('/:ticketId(\\d+)/close', authMiddleware, async (req, res) => {
 
       await connection.execute(
         'UPDATE tblTickets SET CurrentStatus = ? WHERE TicketID = ?',
-        ['Completed', id]
+        ['Completed', ticketId]
       );
 
       await connection.execute(
         'INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) VALUES (?, ?, ?)',
-        [id, 'Completed', req.user.userId]
+        [ticketId, 'Completed', req.user.userId]
       );
 
       await connection.commit();
