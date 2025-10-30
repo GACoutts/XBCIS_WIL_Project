@@ -1,6 +1,8 @@
-# 🏢 XBCIS WIL Project - Rawson Building Management System
+# 🏢 GoodLiving - Building Management System
 
-XBCIS Work Integrated Learning project developing a comprehensive building management system for Rawson.
+**Rawson Building Management System**
+
+XBCIS Work Integrated Learning project developing a comprehensive building management system for Rawson Property Management. GoodLiving streamlines maintenance workflows, quote approvals, and contractor scheduling for multi-property residential management.
 
 ## 🚀 Quick Start - Running Both Frontend & Backend
 
@@ -39,9 +41,9 @@ npm -v     # Should show v9.0.0 or higher
    cd XBCIS_WIL_Project
    ```
 
-2. **Switch to the database branch**:
+2. **Switch to the main branch**:
    ```bash
-   git checkout database
+   git checkout main
    ```
 
 3. **Install root dependencies** (includes frontend tools):
@@ -100,23 +102,36 @@ npm run dev:both
 
 ### 🗄️ Database Setup
 
-1. **Create environment file** in the backend directory:
+1. **Run the master setup script** (recommended for new installations):
+   ```bash
+   mysql -u root -p < database/sql/00-master-setup.sql
+   ```
+   This creates all necessary tables, indexes, and constraints.
+
+   **Alternative:** For a complete fresh start:
+   ```bash
+   mysql -u root -p < database/sql/00-reset-complete-database.sql
+   ```
+
+2. **Create environment file** in the backend directory:
    ```bash
    cp backend/.env.example backend/.env
    ```
 
-2. **Configure your database connection** in `backend/.env`:
+3. **Configure your database connection** in `backend/.env`:
    ```env
    DB_HOST=localhost
    DB_USER=your_db_user
    DB_PASSWORD=your_db_password
-   DB_NAME=rawson_db
+   DB_NAME=Rawson
    DB_PORT=3306
    ```
 
-3. **Test database connection**:
+4. **Test database connection**:
    - Visit: http://localhost:5000/api/health
    - Should return: `{"status":"healthy","database":"connected"}`
+
+📖 **For detailed database setup instructions**, see [database/README.md](database/README.md)
 
 ### 🔧 Troubleshooting
 
@@ -150,17 +165,30 @@ npm install -D concurrently
 
 ```
 XBCIS_WIL_Project/
-├── backend/           # Express.js API server
-│   ├── server.js     # Main server file
-│   ├── db.js         # Database connection
-│   ├── package.json  # Backend dependencies
-│   └── .env.example  # Environment template
-├── frontend/         # React + Vite app
-│   ├── src/         # React components
-│   ├── package.json # Frontend dependencies
-│   └── vite.config.js # Vite configuration
-├── package.json     # Root package with dev:both script
-└── README.md        # This file
+├── backend/              # Express.js API server
+│   ├── server.js        # Main server file
+│   ├── db.js            # Database connection
+│   ├── routes/          # API route handlers
+│   ├── middleware/      # Auth, rate limiting, RBAC
+│   ├── utils/           # Tokens, notifications, helpers
+│   ├── docs/            # Backend documentation
+│   ├── package.json     # Backend dependencies
+│   └── .env.example     # Environment template
+├── frontend/            # React + Vite app
+│   ├── src/            # React components & pages
+│   │   ├── components/ # Reusable UI components
+│   │   ├── styles/     # CSS styling
+│   │   └── *.jsx       # Dashboard pages (User, Staff, Landlord, Contractor)
+│   ├── package.json    # Frontend dependencies
+│   └── vite.config.js  # Vite configuration
+├── database/            # SQL scripts & documentation
+│   ├── sql/            # Database setup scripts
+│   ├── documentation/  # Database schema docs
+│   └── README.md       # Database setup guide
+├── docs/                # Project documentation
+├── package.json         # Root package with dev:both script
+├── SECURITY.md          # Security features & guidelines
+└── README.md            # This file
 ```
 
 ### 🧪 Testing the Setup
@@ -172,9 +200,23 @@ After running `npm run dev:both`, verify everything works:
 3. **Health Check**: Open http://localhost:5000/api/health - should return JSON status
 4. **Proxy Test**: Open http://localhost:5173/api/health - should return same JSON (via Vite proxy)
 
+### 🔐 Security Features
+
+GoodLiving implements enterprise-grade security:
+
+- **Authentication**: Dual-token JWT system (access + refresh tokens)
+- **Authorization**: Role-based access control (RBAC) for Client, Landlord, Contractor, Staff
+- **Rate Limiting**: Protects against brute force and API abuse
+- **Session Management**: Multi-device session tracking with selective logout
+- **Cookie Security**: HttpOnly, Secure, SameSite=Strict flags
+- **Account Status Enforcement**: Suspended/inactive users blocked at all levels
+- **Audit Logging**: Comprehensive tracking of sensitive operations
+
+📖 **For complete security details**, see [SECURITY.md](SECURITY.md)
+
 ### 👥 Team Development
 
-- **Branch**: Always work on the `database` branch for this setup
+- **Branch**: Work on `main` branch for stable development
 - **Pulling Updates**: Run `npm install` and `npm install --prefix backend` after pulling
 - **Environment**: Never commit `.env` files - use `.env.example` templates
 - **Dependencies**: Add frontend deps to root `package.json`, backend deps to `backend/package.json`
@@ -196,7 +238,13 @@ npm run preview
 If you encounter issues:
 1. Check this README's troubleshooting section
 2. Verify prerequisites are installed correctly
-3. Ensure you're on the `database` branch
-4. Ask the team on our communication channel
+3. Ensure you're on the `main` branch
+4. Consult our documentation resources:
+   - 🗄️ [Database Setup Guide](database/README.md) - Complete database installation & schema
+   - 🔐 [Security Documentation](SECURITY.md) - Security features & testing checklist
+   - 📡 [API Documentation](backend/API_DOCUMENTATION.md) - Landlord API endpoints
+   - 🔑 [Session Management](backend/docs/SESSION_MANAGEMENT.md) - Auth system details
+   - 📊 [Database Structure](database/documentation/DATABASE_STRUCTURE.md) - Schema & relationships
+5. Ask the team on our communication channel
 
-**Happy coding! 🚀**
+**Built with care for better living. 🏡**
