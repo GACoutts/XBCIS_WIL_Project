@@ -1,0 +1,165 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: Rawson
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ppassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: |
+          [ -f package-lock.json ] && npm ci || true
+          [ -d backend ] && npm ci --prefix backend || true
+          [ -d frontend ] && npm ci --prefix frontend || true
+
+      # --- MySQL setup steps ---
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Wait for MySQL
+        run: |
+          for i in {1..60}; do
+            mysqladmin ping -h 127.0.0.1 -ppassword && exit 0
+            echo "⏳ waiting for mysql..."; sleep 2
+          done
+          echo "MySQL did not become healthy in time" && exit 1
+
+      - name: Import schema (if present)
+        if: ${{ hashFiles('**/*00-master-setup.sql') != '' }}
+        run: |
+          set -e
+          FILE=$(git ls-files '*00-master-setup.sql' | head -n1 || true)
+          if [ -n "$FILE" ]; then
+            echo "Importing schema from $FILE into Rawson"
+            mysql -h 127.0.0.1 -uroot -ppassword Rawson < "$FILE"
+          else
+            echo "No schema file found — skipping"
+          fi
+      # --- End MySQL setup steps ---
+
+      - name: Super-Linter (non-blocking)
+        uses: super-linter/super-linter@v6
+        continue-on-error: true
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_JAVASCRIPT_ES: true
+          VALIDATE_JSON: true
+          VALIDATE_MARKDOWN: true
+
+      - name: Write backend .env.test (derived from your .env)
+        if: ${{ hashFiles('backend/**') != '' }}
+        run: |
+          cat > backend/.env.test << 'EOF'
+          # --- DB points at CI MySQL service ---
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_USER=root
+          DB_PASSWORD=password
+          DB_NAME=Rawson
+
+          # --- Security / JWT (safe test values) ---
+          BCRYPT_ROUNDS=10
+          JWT_ACCESS_EXPIRES=20m
+          JWT_REFRESH_EXPIRES=14d
+          JWT_SECRET=ci-secret-access
+          JWT_REFRESH_SECRET=ci-secret-refresh
+
+          # --- Server / Cookies / CORS (non-secure for CI) ---
+          PORT=5000
+          NODE_ENV=test
+          COOKIE_SECURE=false
+          COOKIE_SAME_SITE_ACCESS=Lax
+          COOKIE_SAME_SITE_REFRESH=Strict
+          COOKIE_DOMAIN=
+          CORS_ORIGIN=http://localhost:5173
+          APP_URL=http://localhost:5173
+
+          # --- Reset token ---
+          RESET_TOKEN_TTL_MIN=30
+
+          # --- WhatsApp disabled in CI ---
+          WHATSAPP_ENABLE=false
+          WHATSAPP_PROVIDER=meta
+          WHATSAPP_TOKEN=
+          WHATSAPP_PHONE_NUMBER_ID=
+          WHATSAPP_APP_SECRET=
+          WHATSAPP_VERIFY_TOKEN=rawson-verify-token
+          WHATSAPP_DEFAULT_COUNTRY=+27
+          WHATSAPP_FROM_DISPLAY="Rawson"
+
+          # --- Rate limits (defaults are fine) ---
+          RATE_LIMIT_WINDOW_MS=900000
+          RATE_LIMIT_MAX_REQUESTS=100
+          AUTH_RATE_LIMIT_WINDOW_MS=900000
+          AUTH_RATE_LIMIT_MAX=20
+
+          # --- Notification behaviour ---
+          NOTIFY_MAX_ATTEMPTS=5
+          NOTIFY_RETRY_SECONDS=60
+
+          # --- SMTP (safe test: Mailtrap; consider GitHub Secrets later) ---
+          SMTP_HOST=sandbox.smtp.mailtrap.io
+          SMTP_PORT=587
+          SMTP_USER=65fc828232b1fc
+          SMTP_PASS=903969ebcbf0f0
+          SMTP_FROM="Rawson Support" <no-reply@rawson.local>
+          EOF
+
+      - name: Backend build & test
+        if: ${{ hashFiles('backend/**') != '' }}
+        shell: bash
+        run: |
+          set -e
+          if [ -f backend/.env.test ]; then export $(grep -v '^#' backend/.env.test | xargs); fi
+          npm run --prefix backend build --if-present
+          npm test --prefix backend --if-present
+
+      - name: Frontend build
+        if: ${{ hashFiles('frontend/**') != '' }}
+        run: |
+          npm run --prefix frontend build
+
+      - name: Upload frontend artifact
+        if: ${{ hashFiles('frontend/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+      - name: Upload backend artifact
+        if: ${{ hashFiles('backend/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-app
+          path: |
+            backend/**
+            !backend/node_modules/**
+            !backend/**/*.log
