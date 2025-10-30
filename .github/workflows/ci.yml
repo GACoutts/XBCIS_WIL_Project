@@ -24,7 +24,21 @@ jobs:
           --health-retries=10
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use PR head when running on pull_request; otherwise use the pushed ref
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+
+      - name: Debug refs
+        run: |
+          echo "event: ${{ github.event_name }}"
+          echo "ref:   ${{ github.ref }}"
+          echo "head:  ${{ github.head_ref }}"
+          echo "sha:   $GITHUB_SHA"
+          git rev-parse --abbrev-ref HEAD
+          git log -1 --oneline
 
       - name: Use Node 20
         uses: actions/setup-node@v4
@@ -38,7 +52,6 @@ jobs:
           [ -d backend ] && npm ci --prefix backend || true
           [ -d frontend ] && npm ci --prefix frontend || true
 
-      # --- MySQL setup steps ---
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
@@ -61,7 +74,6 @@ jobs:
           else
             echo "No schema file found — skipping"
           fi
-      # --- End MySQL setup steps ---
 
       - name: Super-Linter (non-blocking)
         uses: super-linter/super-linter@v6
@@ -112,7 +124,7 @@ jobs:
           WHATSAPP_PHONE_NUMBER_ID=
           WHATSAPP_APP_SECRET=
           WHATSAPP_VERIFY_TOKEN=rawson-verify-token
-          WHATSAPP_DEFAULT_COUNTRY=+27
+          WHATSAPP_DEFAULT_COUNTRY='+27'
           WHATSAPP_FROM_DISPLAY="Rawson"
 
           # --- Rate limits (defaults are fine) ---
@@ -125,12 +137,12 @@ jobs:
           NOTIFY_MAX_ATTEMPTS=5
           NOTIFY_RETRY_SECONDS=60
 
-          # --- SMTP (safe test: Mailtrap; consider GitHub Secrets later) ---
+          # --- SMTP (safe test: Mailtrap; fixed quoting) ---
           SMTP_HOST=sandbox.smtp.mailtrap.io
           SMTP_PORT=587
           SMTP_USER=65fc828232b1fc
           SMTP_PASS=903969ebcbf0f0
-          SMTP_FROM="Rawson Support" <no-reply@rawson.local>
+          SMTP_FROM='Rawson Support <no-reply@rawson.local>'
           EOF
 
       - name: Backend build & test
@@ -138,9 +150,23 @@ jobs:
         shell: bash
         run: |
           set -e
-          if [ -f backend/.env.test ]; then export $(grep -v '^#' backend/.env.test | xargs); fi
+          if [ -f backend/.env.test ]; then
+            set -a
+            # shellcheck disable=SC1091
+            . backend/.env.test
+            set +a
+          fi
           npm run --prefix backend build --if-present
-          npm test --prefix backend --if-present
+          npm test --prefix backend --if-
+            
+      - name: Show StaffDashboard excerpt + hash
+        if: ${{ hashFiles('frontend/**') != '' }}
+        run: |
+          echo "HEAD: $(git rev-parse --short HEAD)"
+          echo "--- SHA256 of StaffDashboard.jsx ---"
+          sha256sum frontend/src/StaffDashboard.jsx || true
+          echo "--- lines 395..430 (with line numbers) ---"
+          nl -ba frontend/src/StaffDashboard.jsx | sed -n '395,430p' || true
 
       - name: Frontend build
         if: ${{ hashFiles('frontend/**') != '' }}
