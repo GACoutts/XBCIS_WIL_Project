@@ -348,13 +348,13 @@ function StaffDashboard() {
         </div>
       </div>
 
-      {/* ===== Tickets (5 visible rows; whole block scrolls) ===== */}
+      {/* ===== Awaiting Tickets ===== */}
       <div className="jobs-section">
         {filteredTickets.length === 0 ? (
           <div className="empty-tickets">No tickets available</div>
         ) : (
           <div className="jobs-table-container">
-            <div className="jobs-table-scroll"> {/* sets ~5 rows tall and scrolls */}
+            <div className="jobs-table-scroll">{/* sets ~5 rows tall and scrolls */}
               <table className="jobs-table">
                 <thead>
                   <tr>
