@@ -27,5 +27,70 @@ CREATE INDEX IdxNotificationsType ON tblNotifications (NotificationType);
 CREATE INDEX IdxNotificationsStatus ON tblNotifications (Status);
 CREATE INDEX IdxNotificationsSent ON tblNotifications (SentAt);
 
+USE Rawson;
+
+-- 1) Add CreatedAt (only if missing)
+SET @col_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME   = 'tblNotifications'
+    AND COLUMN_NAME  = 'CreatedAt'
+);
+
+SET @ddl := IF(
+  @col_exists = 0,
+  'ALTER TABLE tblNotifications
+     ADD COLUMN CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+     AFTER NotificationContent',
+  'DO 0'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2) Ensure Status enum includes 'Queued' and default is 'Queued'
+--    (only modifies if 'Queued' not present)
+SET @needs_enum := (
+  SELECT CASE
+           WHEN COLUMN_TYPE LIKE '%''Queued''%' THEN 0
+           ELSE 1
+         END
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME   = 'tblNotifications'
+    AND COLUMN_NAME  = 'Status'
+  LIMIT 1
+);
+
+SET @ddl := IF(
+  @needs_enum = 1,
+  'ALTER TABLE tblNotifications
+       MODIFY COLUMN Status ENUM(''Queued'',''Sent'',''Failed'')
+       NOT NULL DEFAULT ''Queued''',
+  'DO 0'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 3) (Optional) widen ProviderMessageID / ErrorMessage for safety
+--    These MODIFYs are safe to run even if already at/above these sizes.
+ALTER TABLE tblNotifications
+  MODIFY COLUMN ProviderMessageID VARCHAR(128) NULL,
+  MODIFY COLUMN ErrorMessage      VARCHAR(512) NULL;
+
+-- 4) Create composite time index used by API/worker (if missing)
+SET @idx_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME   = 'tblNotifications'
+    AND INDEX_NAME   = 'idx_user_time'
+);
+
+SET @ddl := IF(
+  @idx_exists = 0,
+  'CREATE INDEX idx_user_time ON tblNotifications (UserID, SentAt, LastAttemptAt)',
+  'DO 0'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 -- Verify table structure
 DESCRIBE tblNotifications;

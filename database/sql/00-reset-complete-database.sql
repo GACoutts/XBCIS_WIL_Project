@@ -29,7 +29,7 @@ START TRANSACTION;
 -- First ensure we're using the Rawson database
 USE Rawson;
 
-SELECT 'ðŸ—‘ï¸  STEP 1: Dropping existing tables (if they exist)' as Status;
+SELECT 'ðŸ-‘ï¸  STEP 1: Dropping existing tables (if they exist)' as Status;
 
 -- Drop communication tables first
 DROP TABLE IF EXISTS tblCommunications;

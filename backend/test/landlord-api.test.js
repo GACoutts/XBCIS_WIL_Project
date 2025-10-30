@@ -173,8 +173,8 @@ describe('Landlord Tickets API', () => {
       await request(app)
         .get('/api/landlord/tickets')
         .query({
-          limit: 1000, // Should be capped at 100
-          offset: -5    // Should be set to 0
+          limit: 1000,
+          offset: -5   
         })
         .set('Cookie', [`access_token=${mockAccessToken}`]);
 

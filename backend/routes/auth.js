@@ -162,7 +162,7 @@ router.post('/register', authRateLimit, proofUpload.single('proof'), async (req,
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const hash = await bcrypt.hash(password, rounds);
 
-    // Create user with Inactive status - requires staff approval (your current policy)
+    // Create user with Inactive status - requires staff approval
     const [result] = await pool.execute(
       `INSERT INTO tblusers
        (FullName, Email, PasswordHash, Phone, Role, Status, PlaceId, Latitude, Longitude)

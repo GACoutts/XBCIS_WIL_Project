@@ -1,5 +1,3 @@
-/*SIGN UP PAGE*/
-
 .signup-page-container {
   background: white;
   display: flex;
@@ -13,14 +11,6 @@
 }
 
 /* The yellow card */
-/*
- * The signup container scales up to give the form a prominent card look.
- * Previously the height was fixed to 450px which caused fields added for
- * landlords and tenants (address + proof) to overflow.  Setting
- * `height: auto` with a minimum height allows the card to grow as
- * additional form fields appear.  The scale transform remains to keep
- * the design consistent.
- */
 .signup-page-container .signup-container {
   background: #FBD402;
   border: 1px solid black;
@@ -123,25 +113,18 @@
 /* Logo placeholder */
 .signup-page-container .logo-placeholder {
   color: white !important;
-  padding: 2px !important;
-  padding-right: 57px !important;
-  margin: 0px auto;
-  width: 150px;
+  margin: 0 auto;               /* center it */
+  width: auto;                   /* don't constrain */
   text-align: center !important;
-  font-size: 32px !important; 
+  font-size: 32px !important;
   font-weight: bold;
   font-family: 'Arial Black', sans-serif;
   letter-spacing: 1px;
   background: none !important;
-  text-shadow: 
-    -1px -1px 0 black, 
-    1px -1px 0 black, 
-    -1px 1px 0 black, 
-    1px 1px 0 black,
-    -1px 0 0 black,
-    1px 0 0 black,
-    0 -1px 0 black,
-    0 1px 0 black;
+  text-shadow:
+    -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black,
+    -1px 0 0 black, 1px 0 0 black, 0 -1px 0 black, 0 1px 0 black;
+  padding: 2px !important;
 }
 
 /* Role selection */
@@ -313,19 +296,16 @@
 }
 
 .signup-page-container .input-row .address-picker-input {
-  /* width behavior */
-  flex: 0 0 200px;
-  max-width: 100%;
-
-  /* visual match */
+  flex: 1 1 auto;      /* fill the row like normal inputs */
+  width: 100%;
+  max-width: none;
   padding: 6px 8px;
-  box-sizing: border-box;
   border: 1px solid #000;
   border-radius: 5px;
   background: #fff;
   outline: none;
-  height: 28px;          /* match file trigger & text inputs */
-  line-height: 16px;     /* comfortable text rendering */
+  height: 28px;
+  line-height: 16px;
   font-size: 13px;
 }
 
@@ -336,3 +316,77 @@
   font-size: 11px;
   color: #333;
 }
+
+.signup-page-container .input-row > * {
+  flex: 0 0 200px;
+  max-width: 200px;  
+}
+
+/* The actual text field inside AddressPicker */
+.signup-page-container .address-picker-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  background: #fff;
+  outline: none;
+  height: 28px;
+  line-height: 16px;
+  font-size: 13px;
+}
+
+/* Verification / approval success card */
+.verify-card {
+  background: #fff;
+  border: 1px solid #000;
+  border-radius: 8px;
+  padding: 14px 16px;
+  width: 260px;
+  margin: 10px auto 0 auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  text-align: center;
+}
+
+.verify-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #FBD402;
+  border: 1px solid #000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.verify-title {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.verify-text {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #333;
+  line-height: 1.4;
+}
+
+.verify-btn {
+  display: inline-block;
+  background: #111;
+  color: #fff !important;
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 700;
+  box-shadow: 0 2px 0 rgba(0,0,0,.2);
+}
+
+.verify-btn:hover {
+  filter: brightness(0.96);
+  transform: translateY(-1px);
+}
+

@@ -1,7 +1,7 @@
-// frontend/src/api/contractorApi.js
+//Latest to main push
+
 const API_BASE = '/api/contractor';
 
-// Helper function to handle API responses
 async function handleResponse(response) {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Network error' }));
@@ -10,185 +10,101 @@ async function handleResponse(response) {
   return response.json();
 }
 
-// Helper function to create headers with credentials
 function createHeaders(contentType = 'application/json') {
-  const headers = {
-    'Content-Type': contentType,
-  };
-  return headers;
+  return { 'Content-Type': contentType };
 }
 
-/**
- * Get contractor's assigned jobs with pagination and filtering
- * @param {Object} params - Query parameters
- * @param {number} params.page - Page number (default: 1)
- * @param {number} params.pageSize - Items per page (default: 20)
- * @param {string} params.status - Filter by job status (optional)
- * @returns {Promise<Object>} API response with jobs data
- */
+// List jobs
 export async function getJobs({ page = 1, pageSize = 20, status } = {}) {
-  try {
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('pageSize', pageSize.toString());
-    if (status && status !== 'all') {
-      params.append('status', status);
-    }
+  const params = new URLSearchParams();
+  params.append('page', String(page));
+  params.append('pageSize', String(pageSize));
+  if (status && status !== 'all') params.append('status', status);
 
-    const response = await fetch(`${API_BASE}/jobs?${params}`, {
-      method: 'GET',
-      credentials: 'include', // Important for cookie-based auth
-      headers: createHeaders()
-    });
-
-    return await handleResponse(response);
-  } catch (error) {
-    console.error('Error fetching contractor jobs:', error);
-    throw error;
-  }
+  const res = await fetch(`${API_BASE}/jobs?${params}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: createHeaders(),
+  });
+  return handleResponse(res);
 }
 
-/**
- * Submit a job progress update with notes and photos
- * @param {number} ticketId - Ticket ID to update
- * @param {Object} updateData - Update information
- * @param {string} updateData.notes - Progress notes
- * @param {FileList|Array} updateData.photos - Photo files to upload
- * @returns {Promise<Object>} API response
- */
+// Fetch latest schedule snapshot for a job
+export async function getJobSchedule(ticketId) {
+  if (!ticketId) throw new Error('Ticket ID is required');
+  const res = await fetch(`${API_BASE}/jobs/${ticketId}/schedule`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: createHeaders(),
+  });
+  return handleResponse(res);
+}
+
+// Post a progress update (notes + images)
 export async function postJobUpdate(ticketId, { notes, photos }) {
-  try {
-    if (!ticketId) {
-      throw new Error('Ticket ID is required');
-    }
+  if (!ticketId) throw new Error('Ticket ID is required');
 
-    const formData = new FormData();
-    
-    // Add notes if provided
-    if (notes) {
-      formData.append('notes', notes);
-    }
+  const formData = new FormData();
+  if (notes) formData.append('notes', notes);
 
-    // Add photos if provided
-    if (photos && photos.length > 0) {
-      // Handle both FileList and Array
-      const photoArray = Array.from(photos);
-      photoArray.forEach((photo) => {
-        if (photo instanceof File) {
-          // Validate file type on client side
-          if (!photo.type.startsWith('image/')) {
-            throw new Error(`File ${photo.name} is not an image`);
-          }
-          
-          // Validate file size (10MB limit)
-          if (photo.size > 10 * 1024 * 1024) {
-            throw new Error(`File ${photo.name} exceeds 10MB limit`);
-          }
-          
-          formData.append('photos', photo);
-        }
-      });
-    }
-
-    const response = await fetch(`${API_BASE}/jobs/${ticketId}/update`, {
-      method: 'POST',
-      credentials: 'include',
-      body: formData // Don't set Content-Type header for FormData
+  if (photos && photos.length) {
+    Array.from(photos).forEach((photo) => {
+      if (!(photo instanceof File)) return;
+      if (!photo.type.startsWith('image/')) throw new Error(`File ${photo.name} is not an image`);
+      if (photo.size > 10 * 1024 * 1024) throw new Error(`File ${photo.name} exceeds 10MB limit`);
+      formData.append('photos', photo);
     });
-
-    return await handleResponse(response);
-  } catch (error) {
-    console.error('Error submitting job update:', error);
-    throw error;
   }
+
+  const res = await fetch(`${API_BASE}/jobs/${ticketId}/update`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  return handleResponse(res);
 }
 
-/**
- * Propose an appointment schedule for a job
- * @param {number} ticketId - Ticket ID to schedule
- * @param {Object} scheduleData - Schedule information
- * @param {string} scheduleData.proposedStart - Proposed start time (ISO string)
- * @param {string} scheduleData.proposedEnd - Proposed end time (ISO string, optional)
- * @param {string} scheduleData.notes - Schedule notes (optional)
- * @returns {Promise<Object>} API response
- */
+// Propose (or revise) an appointment
 export async function postJobSchedule(ticketId, { proposedStart, proposedEnd, notes }) {
-  try {
-    if (!ticketId) {
-      throw new Error('Ticket ID is required');
-    }
+  if (!ticketId) throw new Error('Ticket ID is required');
+  if (!proposedStart) throw new Error('Proposed start time is required');
 
-    if (!proposedStart) {
-      throw new Error('Proposed start time is required');
-    }
+  const startTime = new Date(proposedStart);
+  if (startTime <= new Date()) throw new Error('Proposed start time must be in the future');
 
-    // Validate that start time is in the future
-    const startTime = new Date(proposedStart);
-    const now = new Date();
-    
-    if (startTime <= now) {
-      throw new Error('Proposed start time must be in the future');
-    }
-
-    // Validate end time if provided
-    if (proposedEnd) {
-      const endTime = new Date(proposedEnd);
-      if (endTime < startTime) {
-        throw new Error('End time must be after start time');
-      }
-    }
-
-    const requestBody = {
-      proposedStart: startTime.toISOString(),
-      ...(proposedEnd && { proposedEnd: new Date(proposedEnd).toISOString() }),
-      ...(notes && { notes })
-    };
-
-    const response = await fetch(`${API_BASE}/jobs/${ticketId}/schedule`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: createHeaders(),
-      body: JSON.stringify(requestBody)
-    });
-
-    return await handleResponse(response);
-  } catch (error) {
-    console.error('Error scheduling appointment:', error);
-    throw error;
+  if (proposedEnd) {
+    const end = new Date(proposedEnd);
+    if (end < startTime) throw new Error('End time must be after start time');
   }
+
+  const body = {
+    scheduledAt: startTime.toISOString(),
+    ...(proposedEnd && { proposedEnd: new Date(proposedEnd).toISOString() }),
+    ...(notes && { notes }),
+  };
+
+  const res = await fetch(`${API_BASE}/jobs/${ticketId}/schedule`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: createHeaders(),
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
 }
 
-/**
- * Get job details by ticket ID
- * @param {number} ticketId - Ticket ID
- * @returns {Promise<Object>} Job details
- */
+// Get job (ticket) details via existing tickets API
 export async function getJobDetails(ticketId) {
-  try {
-    if (!ticketId) {
-      throw new Error('Ticket ID is required');
-    }
-
-    const response = await fetch(`${API_BASE}/jobs/${ticketId}`, {
-      method: 'GET',
-      credentials: 'include',
-      headers: createHeaders()
-    });
-
-    return await handleResponse(response);
-  } catch (error) {
-    console.error('Error fetching job details:', error);
-    throw error;
-  }
+  if (!ticketId) throw new Error('Ticket ID is required');
+  const res = await fetch(`/api/tickets/${ticketId}`, {
+    method: 'GET',
+    credentials: 'include',
+    headers: createHeaders(),
+  });
+  return handleResponse(res);
 }
 
-/**
- * Utility function to format job status for display
- * @param {string} status - Job status
- * @returns {Object} Formatted status with display properties
- */
 export function formatJobStatus(status) {
-  const statusMap = {
+  const m = {
     'New': { display: 'New', class: 'status-new', color: '#007bff' },
     'In Review': { display: 'In Review', class: 'status-review', color: '#ffc107' },
     'Quoting': { display: 'Quoting', class: 'status-quoting', color: '#fd7e14' },
@@ -199,30 +115,21 @@ export function formatJobStatus(status) {
     'In Progress': { display: 'In Progress', class: 'status-progress', color: '#fd7e14' },
     'Completed': { display: 'Completed', class: 'status-completed', color: '#198754' },
     'Cancelled': { display: 'Cancelled', class: 'status-cancelled', color: '#6c757d' },
-    // Treat 'Closed' as 'Completed'
-    'Closed': { display: 'Completed', class: 'status-completed', color: '#198754' }
+    'Closed': { display: 'Completed', class: 'status-completed', color: '#198754' },
   };
-
-  return statusMap[status] || { display: status, class: 'status-unknown', color: '#6c757d' };
+  return m[status] || { display: status, class: 'status-unknown', color: '#6c757d' };
 }
 
-/**
- * Utility function to format urgency level for display
- * @param {string} urgency - Urgency level
- * @returns {Object} Formatted urgency with display properties
- */
 export function formatUrgency(urgency) {
-  const urgencyMap = {
+  const m = {
     'Critical': { display: 'Critical', class: 'urgency-critical', color: '#dc3545' },
     'High': { display: 'High', class: 'urgency-high', color: '#fd7e14' },
     'Medium': { display: 'Medium', class: 'urgency-medium', color: '#ffc107' },
-    'Low': { display: 'Low', class: 'urgency-low', color: '#198754' }
+    'Low': { display: 'Low', class: 'urgency-low', color: '#198754' },
   };
-
-  return urgencyMap[urgency] || { display: urgency, class: 'urgency-unknown', color: '#6c757d' };
+  return m[urgency] || { display: urgency, class: 'urgency-unknown', color: '#6c757d' };
 }
 
-// Export error handling helper
 export class ContractorAPIError extends Error {
   constructor(message, code, details) {
     super(message);

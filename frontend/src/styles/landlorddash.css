@@ -216,6 +216,12 @@ body {
   cursor: pointer;
 }
 
+/* View button (yellow) */
+.btn-view { 
+  background: #FBD402; 
+  color: black; 
+}
+
 .btn-approve { background: green; color: white; }
 .btn-reject { background: red; color: white; }
 .btn.disabled,
@@ -325,3 +331,68 @@ body {
     0 -1px 0 black,
     0 1px 0 black;
 }
+
+/* ===== Unified table & filter styling to match Staff ===== */
+.staffdashboard-title{ padding-left:90px; }
+.sub-title{ padding-left:90px; margin-top:6px; font-size:13px; margin-bottom:6px; }
+
+/* Filters (shared look) */
+.jobs-filters{ padding:0 90px 14px; margin-top:6px; }
+.filter-card{
+  display:flex; align-items:flex-end; gap:12px;
+  background:#fffef6; border:1px solid #f3e289; border-radius:12px;
+  padding:12px; box-shadow:0 2px 6px rgba(0,0,0,.05);
+}
+.filter-item{ display:flex; flex-direction:column; min-width:180px; }
+.filter-item label{ font-size:12px; color:#424242; margin-bottom:4px; user-select:none; }
+.filter-item select,.filter-item input[type="date"]{
+  appearance:none; background:#fff; border:1px solid #e5e5e5; border-radius:8px;
+  padding:8px 10px; font-size:14px; box-shadow:inset 0 1px 0 rgba(0,0,0,.02);
+  outline:none; transition:border-color .15s ease, box-shadow .15s ease;
+}
+.filter-item select:focus,.filter-item input[type="date"]:focus{
+  border-color:#FBD402; box-shadow:0 0 0 3px rgba(251,212,2,.25);
+}
+.filter-reset{
+  margin-left:auto; background:#111; color:#fff; border:none; border-radius:9px;
+  padding:10px 14px; cursor:pointer; font-weight:700; box-shadow:0 2px 0 rgba(0,0,0,.2);
+}
+.filter-reset:hover{ opacity:.92; transform:translateY(-1px); }
+
+/* Section padding */
+.jobs-section{ padding:0 90px; margin-bottom:40px; }
+
+/* Table container + inner scroll (~5 rows visible) */
+.jobs-table-container{
+  border:1px solid #FBD402; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+.jobs-table-scroll{ max-height:360px; overflow-y:auto; }
+
+/* Table look (matches Staff) */
+.jobs-table{ width:100%; border-collapse:collapse; table-layout:auto; border-spacing:0; }
+.jobs-table thead th{
+  background:#f8f8f8; padding:16px; text-align:left; font-weight:bold; color:#333; border-bottom:2px solid #FBD402;
+}
+.jobs-table td{ padding:16px; }
+
+/* Single hairline row separator */
+.jobs-table tbody tr{ position:relative; }
+.jobs-table tbody tr::after{
+  content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:rgba(0,0,0,.08); pointer-events:none;
+}
+.jobs-table tbody tr:last-child::after{ display:none; }
+.jobs-table td{ border-bottom:none !important; }
+
+/* Issue clamp utility (reuse from Staff) */
+.issue-cell{ padding-right:8px; }
+.issue-inner{ display:block; width:100%; }
+.issue-desc{
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; overflow:hidden;
+}
+
+/* Actions column alignment */
+.jobs-table th.actions-col,.jobs-table td.actions-col{ width:1%; white-space:nowrap; text-align:right; padding-right:10px; }
+.action-buttons{ display:inline-flex; gap:8px; align-items:center; }
+
+/* Empty state */
+.empty-tickets{ text-align:center; padding:60px 0; font-size:18px; color:#555; }

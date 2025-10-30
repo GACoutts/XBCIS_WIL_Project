@@ -1,4 +1,3 @@
-// frontend/src/api/auth.js
 const json = async (res) => {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

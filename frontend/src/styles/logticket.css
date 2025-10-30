@@ -3,15 +3,15 @@
   background: white;
   font-family: Arial, sans-serif;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;      /* allow content to grow */
+  justify-content: center;             /* center horizontally */
+  align-items: center;                 /* center vertically */
+  min-height: calc(100vh - var(--navbar-height)); /* full viewport minus navbar */
   margin: 0;
-  padding-top: calc(var(--navbar-height) + 20px);
+  padding-top: var(--navbar-height);   /* keep clear of fixed navbar */
   box-sizing: border-box;
+  overflow-y: auto;                    /* KEEP: allow scroll when needed */
   position: relative;
 }
-
 
 /* NAVBAR */
 .logticket .navbar {
@@ -22,9 +22,7 @@
   padding: 10px 15px;
   border-bottom: 1px solid black;
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
+  top: 0; left: 0; width: 100%;
   box-sizing: border-box;
   z-index: 1000;
   font-family: Arial, sans-serif;
@@ -33,31 +31,12 @@
 
 .logticket .navbar-logo { padding-left: 75px; }
 
-.logticket .navbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0px;
-  margin-left: auto;
-}
-
-.logticket .navbar-menu {
-  list-style: none;
-  display: flex;
-  margin: 0;
-  padding: 0;
-}
+.logticket .navbar-right { display: flex; align-items: center; gap: 0px; margin-left: auto; }
+.logticket .navbar-menu { list-style: none; display: flex; margin: 0; padding: 0; }
 .logticket .navbar-menu li { margin: 0 25px; }
-.logticket .navbar-menu a {
-  text-decoration: none;
-  color: black;
-  font-size: 16px;
-  transition: color 0.3s;
-}
+.logticket .navbar-menu a { text-decoration: none; color: black; font-size: 16px; transition: color 0.3s; }
 .logticket .navbar-menu a:hover { color: #ffd700; }
-
-.logticket .navbar-profile img {
-  width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
-}
+.logticket .navbar-profile img { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
 
 /* MAIN CONTAINER */
 .logticket .container {
@@ -66,24 +45,25 @@
   border-radius: 8px;
   padding: 30px 25px;
   width: 700px;
-  text-align: center;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.8);
+  text-align: left;            
+  height: auto;
+  max-height: none;
+  position: static;
+  transform: none;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.2); /* soft shadow for depth */
+  min-height: 200px;
+  box-sizing: border-box;
+  margin: 0 auto;
 }
 
-
-/* Inputs inside container */
-.logticket .container input:not([type="radio"]) {
-  width: 100%; /* fill container */
-  max-width: 650px;
-  padding: 14px 15px;
-  font-size: 18px;
+/* Title/Description inputs - fill the inner width (respect container padding) */
+.logticket .container input:not([type="radio"]),
+.logticket .container textarea {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
   border: 1px solid black;
   border-radius: 6px;
   box-sizing: border-box;
@@ -94,30 +74,24 @@
 }
 
 .logticket .container textarea {
-  width: 100%; /* fill container */
-  max-width: 650px;
-  height: 140px;
-  padding: 12px 15px;
-  font-size: 16px;
-  border: 1px solid black;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  box-sizing: border-box;
-  resize: vertical;
-  background-color: white;
-  color: black;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  height: 120px;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  resize: none;
 }
 
 /* Field groups */
-.logticket .input { display: block; width: 100%; max-width: 500px; margin-bottom: 0; }
+.logticket .input { display: block; width: 100%; max-width: 100%; margin-bottom: 0; }
 .logticket .input-head { margin-bottom: 5px; text-align: left; display: block; font-size: 18px; }
 
+/* Give the inputs area equal left/right padding so fields don't touch the right edge */
 .logticket .inputs {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   padding-left: 20px;
+  padding-right: 20px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -134,137 +108,66 @@
 .logticket textarea { height: 120px; resize: none; }
 
 /* Header strip & underline */
-.logticket .underline {
-  border: none;
-  border-top: 1px solid black;
-  margin-left: 0;
-  margin-right: 0;
-  width: auto;
-}
-
-.logticket .header .text h2 {
-  margin-top: 0;                     
-  text-align: center;
-  font-size: 26px !important;
-}
+.logticket .underline { border: none; border-top: 1px solid black; margin-left: 0; margin-right: 0; width: auto; }
+.logticket .header .text h2 { margin-top: 0; text-align: center; font-size: 26px !important; }
 
 /* Confirmation text */
-.logticket .text {
-  font-size: 18px;
-  text-align: center;
-  line-height: 1.5;
-}
+.logticket .text { font-size: 18px; text-align: center; line-height: 1.5; }
 
-/* Upload button row */
+/* Upload row: match left/right padding with inputs */
 .logticket .submit-container {
-  display: flex;
-  justify-content: flex-start;
-  gap: 20px;
-  align-items: center;
-  padding-left: 20px;
-  margin-top: 10px;
-  margin-bottom: 15px;
-  width: 100%;
-  max-width: 500px;
+  display: flex; justify-content: flex-start; gap: 20px; align-items: center;
+  padding-left: 20px; padding-right: 20px;
+  margin-top: 10px; margin-bottom: 15px;
+  width: 100%; max-width: 500px;
 }
 .logticket .submit {
-  background-color: black;
-  color: white;
-  padding: 10px 25px;
-  border-radius: 5px;
-  cursor: pointer;
-  user-select: none;
-  font-size: 16px;
-  height: 25px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+  background-color: black; color: white; padding: 10px 25px; border-radius: 5px; cursor: pointer;
+  user-select: none; font-size: 16px; height: 25px; display: flex; align-items: center; justify-content: center; text-align: center;
 }
 
-/* Urgency */
+/* Urgency - align with everything else on the left */
 .logticket .urgency-container {
-  padding-left: 20px;
+  padding-left: 0px;
+  padding-right: 20px;
   text-align: left;
   margin-top: 13px;
 }
 .logticket .urgency-options {
-  display: flex;
-  flex-direction: row;
-  gap: 15px;
-  justify-content: flex-start;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
+  display: flex; flex-direction: row; gap: 15px;
+  justify-content: flex-start; align-items: center;
+  width: fit-content; max-width: 100%;
 }
-.logticket .input-head.attach-label {
-  display: block;
-  margin-top: 15px;
-}
-.logticket .urgency-options label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  white-space: nowrap;
-}
+.logticket .input-head.attach-label { display: block; margin-top: 15px; }
+.logticket .urgency-options label { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 .logticket .urgency-options input[type="radio"] {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  width: 18px; height: 18px;
-  border: 1px solid white;
-  border-radius: 50%;
-  background-color: white;
-  cursor: pointer;
-  outline: none;
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  width: 18px; height: 18px; border: 1px solid white; border-radius: 50%;
+  background-color: white; cursor: pointer; outline: none;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
-.logticket .urgency-options input[type="radio"]:checked {
-  background-color: black; border-color: black;
-}
+.logticket .urgency-options input[type="radio"]:checked { background-color: black; border-color: black; }
 .logticket .urgency-options input[type="radio"]:hover { border-color: #666; }
 .logticket .urgency-container > label { display: block; margin-bottom: 3px; font-size: 18px; }
 
 /* Submit ticket button */
 .logticket .final-submit { display: flex; justify-content: center; margin-top: 17.5px; }
 .logticket .final-submit button {
-  background-color: black;
-  color: white;
-  padding: 10px 25px;
-  border-radius: 5px;
-  cursor: pointer;
-  user-select: none;
-  font-size: 16px;
-  height: 42px;
-  width: 280px;
-  display: flex; align-items: center; justify-content: center;
-  text-align: center;
-  border: none;
+  background-color: black; color: white; padding: 10px 25px; border-radius: 5px; cursor: pointer;
+  user-select: none; font-size: 16px; height: 42px; width: 280px;
+  display: flex; align-items: center; justify-content: center; text-align: center; border: none;
+}
+.logticket .final-submit button:hover {
+  background-color: #333;
+  transform: scale(1.05);
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-}
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; position: relative; }
 
 .logticket .container-confirmation {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 300px;
-  min-height: 150px;
-  background-color: #FBD402;
-  border: 1px solid black;
-  border-radius: 5px;
-  padding: 24px 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  z-index: 1100;
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 300px; min-height: 150px; background-color: #FBD402; border: 1px solid black;
+  border-radius: 5px; padding: 24px 20px; display: flex; flex-direction: column; justify-content: center; z-index: 1100;
 }
 
 .navbar .logo-placeholder {
@@ -273,47 +176,18 @@ html, body {
   margin: 0px auto;
   width: 150px;
   text-align: center !important;
-  font-size: 23px !important; 
+  font-size: 23px !important;
   font-weight: bold;
   font-family: 'Arial Black', sans-serif;
   letter-spacing: 1px;
   background: none !important;
-  text-shadow: 
-    -1px -1px 0 black, 
-    1px -1px 0 black, 
-    -1px 1px 0 black, 
-    1px 1px 0 black,
-    -1px 0 0 black,
-    1px 0 0 black,
-    0 -1px 0 black,
-    0 1px 0 black;
-}
-
-.logticket .final-submit button:hover {
-  background-color: #333;
-  transform: scale(1.05);
-}
-
-.navbar .navbar-logo {
-  color: #FBD402 !important;
-  padding: 0px !important;
-  margin: 0px auto;
-  width: 150px;
-  text-align: center !important;
-  font-size: 23px !important; 
-  font-weight: bold;
-  font-family: 'Arial Black', sans-serif;
-  letter-spacing: 1px;
-  background: none !important;
-  text-shadow: 
-    -1px -1px 0 black, 
-    1px -1px 0 black, 
-    -1px 1px 0 black, 
-    1px 1px 0 black,
-    -1px 0 0 black,
-    1px 0 0 black,
-    0 -1px 0 black,
-    0 1px 0 black;
-
-  margin-left: 75px !important;
+  text-shadow:
+    -1px -1px 0 black,
+     1px -1px 0 black,
+    -1px  1px 0 black,
+     1px  1px 0 black,
+    -1px  0   0 black,
+     1px  0   0 black,
+     0  -1px 0 black,
+     0   1px 0 black;
 }

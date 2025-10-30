@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import nodemailer from 'nodemailer';
 
 async function createTestAccount() {

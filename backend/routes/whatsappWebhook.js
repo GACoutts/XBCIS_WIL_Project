@@ -28,7 +28,7 @@ function verifySignature(req) {
   hmac.update(req.rawBody || Buffer.from(''));
   const expected = hmac.digest('hex');
   try {
-    // Compare raw bytes of the HMAC (hex to bytes) instead of ASCII hex strings
+    // Compare raw bytes of the HMAC
     return crypto.timingSafeEqual(
       Buffer.from(sig.slice(7), 'hex'),
       Buffer.from(expected, 'hex')
