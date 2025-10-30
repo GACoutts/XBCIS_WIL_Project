@@ -403,11 +403,6 @@ function StaffDashboard() {
           </div>
         )}
       </div>
-    ))
-  ) : (
-    <p className="empty-state">No tickets available</p>
-  )}
-</div>
 
       {/* ===== Role Requests (new style, 5 visible rows; block scrolls) ===== */}
       <section className="staff-admin-panel">
