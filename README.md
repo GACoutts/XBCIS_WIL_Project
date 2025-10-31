@@ -2,7 +2,7 @@
 
 **Rawson Building Management System**
 
-XBCIS Work Integrated Learning project developing a comprehensive building management system for Rawson Property Management. GoodLiving streamlines maintenance workflows, quote approvals, and contractor scheduling for multi-property residential management.
+Our XBCIS Work Integrated Learning project involved developing a comprehensive building management system for Rawson Property Management. GoodLiving streamlines maintenance workflows, quote approvals, and contractor scheduling for multi-property residential management.
 
 ## 🚀 Quick Start - Running Both Frontend & Backend
 
