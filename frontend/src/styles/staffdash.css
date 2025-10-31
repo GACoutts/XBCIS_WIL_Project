@@ -84,7 +84,7 @@ body {
 /* Force proper spacing so it sits above the filter card */
 .sub-title {
   padding-left: 90px;
-  margin: 8px 0 6px !important; /* overwrite the old -35px rule */
+  margin: 80px 0 6px !important; /* overwrite the old -35px rule */
   font-size: 13px;
 }
 

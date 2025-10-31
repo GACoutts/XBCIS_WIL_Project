@@ -10,7 +10,9 @@ CREATE TABLE IF NOT EXISTS tblPasswordResetTokens (
   CONSTRAINT fk_reset_user FOREIGN KEY (UserID) REFERENCES tblUsers(UserID) ON DELETE CASCADE
 );
 
-USE Rawson;
+-- Change to the correct DB name if needed
+
+--USE Rawson;
 
 CREATE TABLE IF NOT EXISTS tblRoleRequests (
   RequestID     INT AUTO_INCREMENT PRIMARY KEY,
@@ -210,3 +212,26 @@ CREATE TABLE IF NOT EXISTS tblNotifications (
   FOREIGN KEY (TicketID) REFERENCES tblTickets(TicketID)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='System notifications to users';
+
+-- Create starting staff user (to approve other test accounts)
+INSERT INTO tblusers (
+  FullName,
+  Email,
+  PasswordHash,
+  Phone,
+  Role,
+  Status
+)
+VALUES (
+  'Admin User',
+  'admin@wil.com',
+  -- bcrypt hash for "Password123!"
+  '$2b$12$QnGDoqXmp5pNvu6jhGaPoOqz1MfZP7pArlTcidH833Mu38xpv8u9i',
+  '0123456789',
+  'Staff',
+  'Active'
+)
+ON DUPLICATE KEY UPDATE
+  Role = 'Staff',
+  Status = 'Active',
+  PasswordHash = VALUES(PasswordHash);
