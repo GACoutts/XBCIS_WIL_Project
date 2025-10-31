@@ -4,6 +4,16 @@
 
 Our XBCIS Work Integrated Learning project involved developing a comprehensive building management system for Rawson Property Management. GoodLiving streamlines maintenance workflows, quote approvals, and contractor scheduling for multi-property residential management.
 
+## 👥 Team Members
+
+This project was developed by:
+- **Teejay Kamwaro**
+- **Keanu Muller**
+- **Benre Nel**
+- **Pierre-Anri Potgieter**
+- **Charl Volschenk**
+- **Grant Coutts**
+
 ## 🚀 Quick Start - Running Both Frontend & Backend
 
 **Single Command Setup:** Run both the React frontend and Express backend simultaneously with one command!
@@ -133,6 +143,16 @@ npm run dev:both
 
 📖 **For detailed database setup instructions**, see [database/README.md](database/README.md)
 
+### 🔑 Test Staff Account
+
+The master setup script automatically creates a staff account for testing and evaluation:
+
+**Staff Login Credentials:**
+- **Email**: `admin@wil.com`
+- **Password**: `Password123!`
+
+This account has full administrative privileges and can approve/reject role requests, manage users, and access all staff functions.
+
 ### 🔧 Troubleshooting
 
 #### Port Already in Use
@@ -213,6 +233,18 @@ GoodLiving implements enterprise-grade security:
 - **Audit Logging**: Comprehensive tracking of sensitive operations
 
 📖 **For complete security details**, see [SECURITY.md](SECURITY.md)
+
+### ☁️ AWS Deployment
+
+**Status**: 🚧 In Progress
+
+AWS deployment documentation will be added once implementation is complete. This section will include:
+- AWS infrastructure setup
+- Deployment procedures
+- Environment configuration
+- Scaling guidelines
+
+*Currently being implemented by Grant Coutts.*
 
 ### 👥 Team Development
 
