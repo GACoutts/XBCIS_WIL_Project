@@ -151,6 +151,13 @@ The master setup script automatically creates a staff account for testing and ev
 - **Email**: `admin@wil.com`
 - **Password**: `Password123!`
 
+**If Login Details Fail:**
+- Navigate to the Account Creation page
+- Select "Rawson" as the account type you are making
+- Fill in the required details as you choose to
+- Run "UPDATE tblusers SET status = "active", role = "staff" where email = "your_given_email_address";"
+- After this, you can create tenant / landlord/ contractor accounts as needed, logging into the staff email address to approve those accounts.
+
 This account has full administrative privileges and can approve/reject role requests, manage users, and access all staff functions.
 
 ### 🔧 Troubleshooting

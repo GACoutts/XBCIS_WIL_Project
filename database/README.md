@@ -1,221 +1,289 @@
-# Database Setup for Rawson Building Management System
+# 🏢 GoodLiving - Building Management System
 
-This directory contains SQL scripts to set up the complete MySQL database schema for the Rawson building maintenance management system.
+**Rawson Building Management System**
 
-## 🚀 Ultimate One-Command Setup
+Our XBCIS Work Integrated Learning project involved developing a comprehensive building management system for Rawson Property Management. GoodLiving streamlines maintenance workflows, quote approvals, and contractor scheduling for multi-property residential management.
 
-### 🎯 **Option 1: First-Time Setup**
-**Perfect for new installations when database doesn't exist yet:**
+## 👥 Team Members
+
+This project was developed by:
+- **Teejay Kamwaro**
+- **Keanu Muller**
+- **Benre Nel**
+- **Pierre-Anri Potgieter**
+- **Charl Volschenk**
+- **Grant Coutts**
+
+## 🚀 Quick Start - Running Both Frontend & Backend
+
+**Single Command Setup:** Run both the React frontend and Express backend simultaneously with one command!
 
 ```bash
-# Creates EVERYTHING: database + all tables + admin user + indexes
-mysql -u root -p < database/sql/00-create-complete-database.sql
+npm run dev:both
 ```
 
-### ⚡ **Option 2: Reset & Rebuild (RECOMMENDED for Development)**
-**⚠️ Drops all existing tables and recreates them fresh! Perfect for:**
-- **Schema updates** during development
-- **Clean slate testing**  
-- **Fixing data issues**
-- **Development environment refreshes**
+**Bypass Powershell:** This will bypass the restriction that powershell poses
 
 ```bash
-# DROPS all tables and rebuilds everything from scratch
-mysql -u root -p < database/sql/00-reset-complete-database.sql
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-**That's it!** ✨ The entire Rawson database system will be created/recreated automatically.
+### ✅ Prerequisites
+
+Before running the project, ensure you have:
+
+- **Node.js** v18+ (we recommend v22+)
+- **npm** v9+ (we recommend v10+)
+- **MySQL** database running (see Database Setup section)
+- **Git** for version control
+
+Check your versions:
+```bash
+node -v    # Should show v18.0.0 or higher
+npm -v     # Should show v9.0.0 or higher
+```
+
+### 📦 Installation Steps
+
+1. **Clone the repository** (if not already done):
+   ```bash
+   git clone [repository-url]
+   cd XBCIS_WIL_Project
+   ```
+
+2. **Switch to the main branch**:
+   ```bash
+   git checkout main
+   ```
+
+3. **Install root dependencies** (includes frontend tools):
+   ```bash
+   npm install
+   ```
+
+4. **Install backend dependencies**:
+   ```bash
+   npm install --prefix backend
+   ```
+
+5. **Set up environment variables** (see Database Setup below)
+
+6. **Start both servers** with the magic command:
+   ```bash
+   npm run dev:both
+   ```
+
+### 🎯 What Happens When You Run `npm run dev:both`
+
+This command uses `concurrently` to run both servers simultaneously:
+
+- **Frontend (FE)**: React + Vite development server
+  - 🌐 Accessible at: http://localhost:5173
+  - 🔄 Hot reload enabled for instant development feedback
+  - 🔗 Automatically proxies API calls to backend
+
+- **Backend (BE)**: Express.js API server
+  - 🌐 Accessible at: http://localhost:5000
+  - 🔍 Health check: http://localhost:5000/api/health
+  - 🗄️ Database integration with connection pooling
+
+You'll see colored output like this:
+```
+[FE] VITE v7.1.2  ready in 258 ms
+[FE] ➜  Local:   http://localhost:5173/
+[BE] Backend running on :) http://localhost:5000
+[BE] ✓ Database connection established successfully
+```
+
+### 🛠️ Individual Commands (Alternative)
+
+If you need to run servers separately:
+
+```bash
+# Frontend only
+npm run dev:frontend
+
+# Backend only
+npm run dev:backend
+
+# Both together (same as dev:both)
+npm run dev:both
+```
+
+### 🗄️ Database Setup
+
+1. **Run the master setup script** (recommended for new installations):
+   ```bash
+   mysql -u root -p < database/sql/00-master-setup.sql
+   ```
+   This creates all necessary tables, indexes, and constraints.
+
+   **Alternative:** For a complete fresh start:
+   ```bash
+   mysql -u root -p < database/sql/00-reset-complete-database.sql
+   ```
+
+2. **Create environment file** in the backend directory:
+   ```bash
+   cp backend/.env.example backend/.env
+   ```
+
+3. **Configure your database connection** in `backend/.env`:
+   ```env
+   DB_HOST=localhost
+   DB_USER=your_db_user
+   DB_PASSWORD=your_db_password
+   DB_NAME=Rawson
+   DB_PORT=3306
+   ```
+
+4. **Test database connection**:
+   - Visit: http://localhost:5000/api/health
+   - Should return: `{"status":"healthy","database":"connected"}`
+
+📖 **For detailed database setup instructions**, see [database/README.md](database/README.md)
+
+### 🔑 Test Staff Account
+
+The master setup script automatically creates a staff account for testing and evaluation:
+
+**Staff Login Credentials:**
+- **Email**: `admin@wil.com`
+- **Password**: `Password123!`
+
+**If Login Details Fail:**
+- Navigate to the Account Creation page
+- Select "Rawson" as the account type you are making
+- Fill in the required details as you choose to
+- Run "UPDATE tblusers SET status = "active", role = "staff" where email = "your_given_email_address";"
+- After this, you can create tenant / landlord/ contractor accounts as needed, logging into the staff email address to approve those accounts.
+
+This account has full administrative privileges and can approve/reject role requests, manage users, and access all staff functions.
+
+### 🔧 Troubleshooting
+
+#### Port Already in Use
+```bash
+# Kill processes on ports 5173 and 5000
+npx kill-port 5173 5000
+```
+
+#### concurrently Command Not Found
+```bash
+# Reinstall dependencies
+npm install
+# Or install concurrently specifically
+npm install -D concurrently
+```
+
+#### Backend Database Errors
+1. Ensure MySQL is running
+2. Check `backend/.env` configuration
+3. Verify database exists and user has permissions
+4. Test with: http://localhost:5000/api/health
+
+#### Frontend Not Loading
+1. Check if Vite started successfully (should show Local URL)
+2. Ensure port 5173 is available
+3. Try refreshing the browser
+4. Check browser console for errors
+
+### 📁 Project Structure
+
+```
+XBCIS_WIL_Project/
+├── backend/              # Express.js API server
+│   ├── server.js        # Main server file
+│   ├── db.js            # Database connection
+│   ├── routes/          # API route handlers
+│   ├── middleware/      # Auth, rate limiting, RBAC
+│   ├── utils/           # Tokens, notifications, helpers
+│   ├── docs/            # Backend documentation
+│   ├── package.json     # Backend dependencies
+│   └── .env.example     # Environment template
+├── frontend/            # React + Vite app
+│   ├── src/            # React components & pages
+│   │   ├── components/ # Reusable UI components
+│   │   ├── styles/     # CSS styling
+│   │   └── *.jsx       # Dashboard pages (User, Staff, Landlord, Contractor)
+│   ├── package.json    # Frontend dependencies
+│   └── vite.config.js  # Vite configuration
+├── database/            # SQL scripts & documentation
+│   ├── sql/            # Database setup scripts
+│   ├── documentation/  # Database schema docs
+│   └── README.md       # Database setup guide
+├── docs/                # Project documentation
+├── package.json         # Root package with dev:both script
+├── SECURITY.md          # Security features & guidelines
+└── README.md            # This file
+```
+
+### 🧪 Testing the Setup
+
+After running `npm run dev:both`, verify everything works:
+
+1. **Frontend**: Open http://localhost:5173 - should load the React app
+2. **Backend Direct**: Open http://localhost:5000 - should show API documentation
+3. **Health Check**: Open http://localhost:5000/api/health - should return JSON status
+4. **Proxy Test**: Open http://localhost:5173/api/health - should return same JSON (via Vite proxy)
+
+### 🔐 Security Features
+
+GoodLiving implements enterprise-grade security:
+
+- **Authentication**: Dual-token JWT system (access + refresh tokens)
+- **Authorization**: Role-based access control (RBAC) for Client, Landlord, Contractor, Staff
+- **Rate Limiting**: Protects against brute force and API abuse
+- **Session Management**: Multi-device session tracking with selective logout
+- **Cookie Security**: HttpOnly, Secure, SameSite=Strict flags
+- **Account Status Enforcement**: Suspended/inactive users blocked at all levels
+- **Audit Logging**: Comprehensive tracking of sensitive operations
+
+📖 **For complete security details**, see [SECURITY.md](SECURITY.md)
+
+### ☁️ AWS Deployment
+
+**Status**: 🚧 In Progress
+
+AWS deployment documentation will be added once implementation is complete. This section will include:
+- AWS infrastructure setup
+- Deployment procedures
+- Environment configuration
+- Scaling guidelines
+
+*Currently being implemented by Grant Coutts.*
+
+### 👥 Team Development
+
+- **Branch**: Work on `main` branch for stable development
+- **Pulling Updates**: Run `npm install` and `npm install --prefix backend` after pulling
+- **Environment**: Never commit `.env` files - use `.env.example` templates
+- **Dependencies**: Add frontend deps to root `package.json`, backend deps to `backend/package.json`
+
+### 🏗️ Production Build
+
+```bash
+# Build frontend for production
+npm run build
+
+# Preview production build
+npm run preview
+```
 
 ---
 
-## 🔧 Alternative Setup Methods
+## 📞 Need Help?
 
-### Option 2: Step-by-step (Basic + Tickets)
-```bash
-# Basic setup first
-mysql -u root -p < sql/01-create-database.sql
-mysql -u root -p < sql/02-create-users-table.sql
-mysql -u root -p < sql/03-create-app-user.sql
-mysql -u root -p < sql/04-seed-admin.sql
+If you encounter issues:
+1. Check this README's troubleshooting section
+2. Verify prerequisites are installed correctly
+3. Ensure you're on the `main` branch
+4. Consult our documentation resources:
+   - 🗄️ [Database Setup Guide](database/README.md) - Complete database installation & schema
+   - 🔐 [Security Documentation](SECURITY.md) - Security features & testing checklist
+   - 📡 [API Documentation](backend/API_DOCUMENTATION.md) - Landlord API endpoints
+   - 🔑 [Session Management](backend/docs/SESSION_MANAGEMENT.md) - Auth system details
+   - 📊 [Database Structure](database/documentation/DATABASE_STRUCTURE.md) - Schema & relationships
+5. Ask the team on our communication channel
 
-# Then all ticket management tables at once
-mysql -u root -p < sql/15-create-all-ticket-tables.sql
-```
-
-### Option 3: Individual table scripts (for learning/debugging)
-```bash
-# Individual table creation (if you prefer step-by-step)
-mysql -u root -p < sql/05-create-tickets-table.sql
-mysql -u root -p < sql/06-create-ticket-media-table.sql
-mysql -u root -p < sql/07-create-ticket-status-history-table.sql
-mysql -u root -p < sql/08-create-quotes-table.sql
-mysql -u root -p < sql/09-create-quote-documents-table.sql
-mysql -u root -p < sql/10-create-landlord-approvals-table.sql
-mysql -u root -p < sql/11-create-contractor-schedules-table.sql
-mysql -u root -p < sql/12-create-contractor-updates-table.sql
-mysql -u root -p < sql/13-create-notifications-table.sqlF
-mysql -u root -p < sql/14-create-communications-table.sql
-```
-
-## 📋 Database Schema Overview
-
-### Core Tables
-1. **tblusers** - User management (Clients, Landlords, Contractors, Staff)
-2. **tblTickets** - Maintenance tickets submitted by clients
-3. **tblTicketMedia** - Image/video attachments for tickets
-4. **tblTicketStatusHistory** - Audit trail of status changes
-
-### Quote Management
-5. **tblQuotes** - Contractor quotes for maintenance work
-6. **tblQuoteDocuments** - PDF/image attachments for quotes
-7. **tblLandlordApprovals** - Landlord approval/rejection decisions
-
-### Job Execution
-8. **tblContractorSchedules** - Appointment scheduling
-9. **tblContractorUpdates** - Progress updates during work
-
-### Communication
-10. **tblNotifications** - System notifications (Push, Email, WhatsApp)
-11. **tblCommunications** - Message history between users
-
-## 🔗 Entity Relationships
-
-### Key Relationships
-- **Users → Tickets** (1:Many) - Clients create tickets
-- **Tickets → Media** (1:Many) - Tickets can have multiple attachments
-- **Tickets → Quotes** (1:Many) - Multiple contractors can quote
-- **Quotes → Approvals** (1:1) - Each quote gets one approval decision
-- **Users ↔ Communications** (Many:Many) - Users send/receive messages
-
-### Foreign Key Constraints
-- **ON DELETE CASCADE** - Child records deleted when parent is deleted
-- **ON DELETE RESTRICT** - Prevents deletion if child records exist
-- **ON UPDATE CASCADE** - Updates propagated to child records
-
-## 📊 Performance Features
-
-### Indexes Created
-- **Primary Keys** - Auto-generated unique identifiers
-- **Foreign Key Indexes** - Fast joins between related tables
-- **Status Indexes** - Quick filtering by ticket/quote status
-- **Date Indexes** - Efficient date range queries
-- **User Indexes** - Fast user-specific data retrieval
-
-### Database Engine
-- **InnoDB** - ACID compliance, foreign keys, row-level locking
-- **UTF8MB4** - Full Unicode support including emojis
-- **Collation** - Case-insensitive sorting (utf8mb4_0900_ai_ci)
-
-## 🔧 Scripts Overview
-
-| Script | Description | Dependencies |
-|--------|-------------|-------------|
-| 01-create-database.sql | Creates Rawson database | None |
-| 02-create-users-table.sql | User management table | Database |
-| 03-create-app-user.sql | Limited-privilege app user | Database |
-| 04-seed-admin.sql | Admin test user | Users table |
-| 05-create-tickets-table.sql | Main tickets table | Users table |
-| 06-create-ticket-media-table.sql | Ticket attachments | Tickets table |
-| 07-create-ticket-status-history-table.sql | Status audit trail | Tickets, Users |
-| 08-create-quotes-table.sql | Contractor quotes | Tickets, Users |
-| 09-create-quote-documents-table.sql | Quote attachments | Quotes table |
-| 10-create-landlord-approvals-table.sql | Quote approvals | Quotes, Users |
-| 11-create-contractor-schedules-table.sql | Appointment scheduling | Tickets, Users |
-| 12-create-contractor-updates-table.sql | Job progress updates | Tickets, Users |
-| 13-create-notifications-table.sql | System notifications | Users, Tickets |
-| 14-create-communications-table.sql | Message history | Users, Tickets |
-| **15-create-all-ticket-tables.sql** | **Master script (All tables)** | Users table |
-
-## ⚠️ Important Security Notes
-
-- **Change passwords** in `03-create-app-user.sql` before running
-- **Admin password** is `Password123!` - **change this in production**
-- **Application user** has minimal privileges (SELECT, INSERT, UPDATE only)
-- **Foreign keys** prevent data integrity issues
-- **Transactions** ensure atomic operations
-
-## 🔧 Environment Configuration
-
-After running the scripts, update your `backend/.env` file:
-
-```env
-DB_HOST=localhost
-DB_USER=rawson_local
-DB_PASSWORD=your_secure_password_here
-DB_NAME=Rawson
-DB_PORT=3306
-```
-
-## ✅ Verification
-
-Test your setup:
-1. **Backend Health**: http://localhost:5000/api/health - Should show database connected
-2. **Admin Login**: admin@rawson.local / Password123!
-3. **Table Count**: Run verification queries in master script
-
-## 🎯 Master Migration Scripts (NEW - RECOMMENDED)
-
-### 🚨 **Modern Production-Ready Scripts**
-
-We've created comprehensive master scripts that replace the individual legacy scripts:
-
-#### **1. `migrations/fresh-install.sql` - Complete Fresh Installation**
-```bash
-# ⚠️ COMPLETE FRESH START (destroys existing database)
-mysql -u root -p < database/migrations/fresh-install.sql
-```
-**Features:**
-- Drops and recreates entire database
-- Creates all 16 tables in perfect dependency order
-- Sets up application user with proper permissions
-- Includes verification queries
-- **Best for**: New installations, development environment resets
-
-#### **2. `migrations/00-master-setup.sql` - Incremental Setup** 
-```bash
-# Safe incremental setup (preserves existing data)
-mysql -u root -p < database/migrations/00-master-setup.sql
-```
-**Features:**
-- Uses `IF NOT EXISTS` - safe to run multiple times
-- Creates missing tables without affecting existing ones
-- Proper foreign key constraints and indexes
-- **Best for**: Updates, production deployments
-
-#### **3. `migrations/99-reset-database.sql` - Clean Reset**
-```bash
-# ⚠️ CAREFUL: Drops all tables and data
-mysql -u root -p < database/migrations/99-reset-database.sql
-```
-**Features:**
-- Drops tables in reverse dependency order (safest)
-- Removes application user
-- **Best for**: Development cleanup, troubleshooting
-
-### **Adding Test Data**
-```bash
-# After any setup, add test users for all roles
-mysql -u root -p Rawson < database/seeds/test-users.sql
-```
-
----
-
-## 🎯 Legacy Usage Examples
-
-### Create a Test Ticket
-```sql
-INSERT INTO tblTickets (ClientUserID, TicketRefNumber, Description, UrgencyLevel) 
-VALUES (1, 'TIK-2024-001', 'Leaky faucet in kitchen', 'Medium');
-```
-
-### Add Quote for Ticket
-```sql
-INSERT INTO tblQuotes (TicketID, ContractorUserID, QuoteAmount, QuoteDescription) 
-VALUES (1, 2, 150.00, 'Replace faucet washer and seals');
-```
-
-### Track Status Changes
-```sql
-INSERT INTO tblTicketStatusHistory (TicketID, Status, UpdatedByUserID) 
-VALUES (1, 'In Review', 1);
-```
+**Built with care for better living. 🏡**
