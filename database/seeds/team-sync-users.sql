@@ -9,7 +9,7 @@
 USE rawson;
 
 -- Clear any existing test users (optional - remove if you want to preserve)
--- DELETE FROM tblusers WHERE Email LIKE '%@test.com' OR Email LIKE '%@demo.com';
+DELETE FROM tblusers WHERE Email LIKE '%@test.com' OR Email LIKE '%@demo.com';
 
 -- =====================================================================================
 -- ESSENTIAL TEST USERS FOR DEVELOPMENT
