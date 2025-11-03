@@ -3,6 +3,8 @@
 CREATE DATABASE IF NOT EXISTS Rawson CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 USE Rawson;
 
+SET SQL_SAFE_UPDATES=0;
+
 SET NAMES utf8mb4;
 SET SESSION sql_require_primary_key = 0;
 
